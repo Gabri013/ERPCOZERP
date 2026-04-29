@@ -1,0 +1,17 @@
+# Ignorar backend no deploy do frontend na Vercel
+backend/
+node_modules/
+logs/
+*.log
+.DS_Store
+.git/
+.gitignore
+README.md
+DEPLOY_VERCEL.md
+VERCEL_DEPLOY.md
+debug-vercel-build.*
+.vercel/
+*.env
+.env.*
+!.env.example
+!.env.vercel.example
