@@ -133,8 +133,8 @@ async function seed() {
           { code: 'aberta', label: 'Aberta', sort_order: 0, is_initial: true, approver_roles: JSON.stringify(['pcp']), can_edit_fields: JSON.stringify(['responsavel', 'prazo', 'observacao']) },
           { code: 'em_andamento', label: 'Em Andamento', sort_order: 1, approver_roles: JSON.stringify(['producao']), can_edit_fields: JSON.stringify(['observacao']) },
           { code: 'pausada', label: 'Pausada', sort_order: 2, approver_roles: JSON.stringify(['supervisor']), can_edit_fields: JSON.stringify(['observacao']) },
-          { code: 'concluida', label: 'Concluída', sort_order: 3, is_final: true, approver_roles: JSON.stringify(['gerente_producao']) },
-          { code: 'cancelada', label: 'Cancelada', sort_order: 4, is_final: true, approver_roles: JSON.stringify(['gerente_geral']) },
+          { code: 'concluida', label: 'Concluída', sort_order: 3, is_final: true, approver_roles: JSON.stringify(['gerente_producao']), can_edit_fields: JSON.stringify([]) },
+          { code: 'cancelada', label: 'Cancelada', sort_order: 4, is_final: true, approver_roles: JSON.stringify(['gerente_geral']), can_edit_fields: JSON.stringify([]) },
         ];
 
         for (const step of steps) {
