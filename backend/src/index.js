@@ -159,12 +159,10 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 3001;
 
-if (require.main === module) {
-  server.listen(PORT, () => {
-    console.log(`Base44 ERP Backend rodando na porta ${PORT}`);
-    console.log(`API: http://localhost:${PORT}/api`);
-    console.log(`Health: http://localhost:${PORT}/health`);
-  });
-}
+server.listen(PORT, () => {
+  console.log(`Base44 ERP Backend rodando na porta ${PORT}`);
+  console.log(`API: http://0.0.0.0:${PORT}/api`);
+  console.log(`Health: http://0.0.0.0:${PORT}/health`);
+});
 
 module.exports = { app, io };
