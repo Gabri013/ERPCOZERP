@@ -62,12 +62,23 @@ class AuthService {
       WHERE u.email = ? AND u.active = TRUE
     `, [email]);
 
-    if (users.length === 0) {
-      throw new Error('Usuário não encontrado');
-    }
+     if (users.length === 0) {
+       throw new Error('Usuário não encontrado');
+     }
 
-    const user = users[0];
-    const userRoles = user.roles ? JSON.parse(user.roles) : [];
+     const user = users[0];
+     let userRoles = [];
+     if (user.roles) {
+       if (Array.isArray(user.roles)) {
+         userRoles = user.roles;
+       } else {
+         try {
+           userRoles = JSON.parse(user.roles);
+         } catch (e) {
+           userRoles = [];
+         }
+       }
+     }
 
     // Verificar conta bloqueada
     if (user.locked_until && new Date(user.locked_until) > new Date()) {
@@ -216,10 +227,21 @@ class AuthService {
       FROM users u WHERE u.id = ?
     `, [decoded.userId]);
 
-    if (users.length === 0) throw new Error('Usuário não encontrado');
+     if (users.length === 0) throw new Error('Usuário não encontrado');
 
-    const user = users[0];
-    const userRoles = user.roles ? JSON.parse(user.roles) : [];
+     const user = users[0];
+     let userRoles = [];
+     if (user.roles) {
+       if (Array.isArray(user.roles)) {
+         userRoles = user.roles;
+       } else {
+         try {
+           userRoles = JSON.parse(user.roles);
+         } catch (e) {
+           userRoles = [];
+         }
+       }
+     }
 
     const newAccessToken = jwt.sign(
       {

@@ -126,6 +126,16 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Health check under /api (for nginx proxy)
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(), 
+    uptime: process.uptime(),
+    env: process.env.NODE_ENV || 'development'
+  });
+});
+
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({ 
@@ -135,6 +145,11 @@ app.get('/', (req, res) => {
     documentation: '/api/docs',
     health: '/health'
   });
+});
+
+// DEBUG: echo endpoint
+app.post('/api/debug/echo', (req, res) => {
+  res.json({ body: req.body, headers: req.headers });
 });
 
 // ============================================

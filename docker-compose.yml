@@ -1,0 +1,50 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - MYSQL_HOST=db
+      - MYSQL_PORT=3306
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=secret
+      - MYSQL_DATABASE=erpcoz
+      - PORT=3001
+      - NODE_ENV=development
+      - VITE_BACKEND_URL=http://localhost:3001
+      - DEFAULT_MASTER_PASSWORD=master123_dev
+      - DEFAULT_ADMIN_PASSWORD=admin123_dev
+    depends_on:
+      - db
+    develop:
+      watch:
+        - action: sync
+          path: ./backend/src
+          target: /app/src
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5173:80"
+    env_file: .env
+    depends_on:
+      - backend
+  db:
+    image: mysql:8
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: secret
+      MYSQL_DATABASE: erpcoz
+      MYSQL_TCP_PORT: 3306
+      MYSQL_ROOT_HOST: "127.0.0.1"
+    ports:
+      - "3307:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+volumes:
+  db_data:
+    driver: local

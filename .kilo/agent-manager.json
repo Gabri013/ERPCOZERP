@@ -1,9 +1,37 @@
 {
-  "worktrees": {},
-  "sessions": {},
+  "worktrees": {
+    "wt-1777501726262-1": {
+      "branch": "separated-robin",
+      "path": "c:\\Users\\Gabriel Costa\\Documents\\GitHub\\ERPCOZERP\\.kilo\\worktrees\\separated-robin",
+      "parentBranch": "main",
+      "createdAt": "2026-04-29T22:28:46.262Z",
+      "remote": "origin"
+    },
+    "wt-1777501736076-2": {
+      "branch": "northern-fowl",
+      "path": "c:\\Users\\Gabriel Costa\\Documents\\GitHub\\ERPCOZERP\\.kilo\\worktrees\\northern-fowl",
+      "parentBranch": "main",
+      "createdAt": "2026-04-29T22:28:56.076Z",
+      "remote": "origin"
+    }
+  },
+  "sessions": {
+    "ses_224a3c98effedWP7elBxhV9Q6P": {
+      "worktreeId": "wt-1777501726262-1",
+      "createdAt": "2026-04-29T22:29:06.838Z"
+    },
+    "ses_224a3adc1ffeFQFqa5056WP8Tl": {
+      "worktreeId": "wt-1777501736076-2",
+      "createdAt": "2026-04-29T22:29:13.949Z"
+    }
+  },
   "tabOrder": {
     "local": [
       "pending:1"
     ]
-  }
+  },
+  "worktreeOrder": [
+    "wt-1777501726262-1",
+    "wt-1777501736076-2"
+  ]
 }

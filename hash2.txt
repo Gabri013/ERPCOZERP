@@ -1,0 +1,3 @@
+mysql: [Warning] Using a password on the command line interface can be insecure.
+password_hash
+$2b$12$KbuW5zukbLFSxpn9OQ.Y3OVASqSmyETpqNNsgFvnX330iBb1Gtrey
