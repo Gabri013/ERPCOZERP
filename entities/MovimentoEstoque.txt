@@ -1,0 +1,57 @@
+{
+  "name": "MovimentoEstoque",
+  "type": "object",
+  "properties": {
+    "numero": {
+      "type": "string"
+    },
+    "tipo": {
+      "type": "string",
+      "enum": [
+        "Entrada",
+        "Sa\u00edda",
+        "Transfer\u00eancia",
+        "Ajuste"
+      ]
+    },
+    "produto_id": {
+      "type": "string"
+    },
+    "produto_descricao": {
+      "type": "string"
+    },
+    "quantidade": {
+      "type": "number"
+    },
+    "unidade": {
+      "type": "string"
+    },
+    "custo_unitario": {
+      "type": "number"
+    },
+    "custo_total": {
+      "type": "number"
+    },
+    "data": {
+      "type": "string",
+      "format": "date"
+    },
+    "origem": {
+      "type": "string"
+    },
+    "documento_ref": {
+      "type": "string"
+    },
+    "responsavel": {
+      "type": "string"
+    },
+    "observacoes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "tipo",
+    "produto_descricao",
+    "quantidade"
+  ]
+}

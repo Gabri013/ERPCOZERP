@@ -1,0 +1,72 @@
+{
+  "name": "Funcionario",
+  "type": "object",
+  "properties": {
+    "matricula": {
+      "type": "string"
+    },
+    "nome": {
+      "type": "string"
+    },
+    "cpf": {
+      "type": "string"
+    },
+    "rg": {
+      "type": "string"
+    },
+    "cargo": {
+      "type": "string"
+    },
+    "departamento": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    },
+    "telefone": {
+      "type": "string"
+    },
+    "data_admissao": {
+      "type": "string",
+      "format": "date"
+    },
+    "data_demissao": {
+      "type": "string",
+      "format": "date"
+    },
+    "salario": {
+      "type": "number"
+    },
+    "tipo_contrato": {
+      "type": "string",
+      "enum": [
+        "CLT",
+        "PJ",
+        "Tempor\u00e1rio",
+        "Estagi\u00e1rio"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Ativo",
+        "Inativo",
+        "F\u00e9rias",
+        "Afastado"
+      ],
+      "default": "Ativo"
+    },
+    "endereco": {
+      "type": "string"
+    },
+    "cidade": {
+      "type": "string"
+    },
+    "estado": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "nome"
+  ]
+}

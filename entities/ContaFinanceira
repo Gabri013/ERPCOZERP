@@ -1,0 +1,128 @@
+{
+  "name": "ContaFinanceira",
+  "type": "object",
+  "properties": {
+    "numero": {
+      "type": "string"
+    },
+    "tipo": {
+      "type": "string",
+      "enum": [
+        "Receber",
+        "Pagar"
+      ]
+    },
+    "descricao": {
+      "type": "string"
+    },
+    "cliente_fornecedor": {
+      "type": "string"
+    },
+    "valor": {
+      "type": "number"
+    },
+    "data_emissao": {
+      "type": "string",
+      "format": "date"
+    },
+    "data_vencimento": {
+      "type": "string",
+      "format": "date"
+    },
+    "data_pagamento": {
+      "type": "string",
+      "format": "date"
+    },
+    "valor_pago": {
+      "type": "number",
+      "default": 0
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Aberto",
+        "Pago",
+        "Vencido",
+        "Cancelado"
+      ],
+      "default": "Aberto"
+    },
+    "categoria": {
+      "type": "string"
+    },
+    "centro_custo": {
+      "type": "string"
+    },
+    "conta_bancaria": {
+      "type": "string"
+    },
+    "documento": {
+      "type": "string"
+    },
+    "observacoes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "tipo",
+    "valor",
+    "data_vencimento"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "financeiro"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "financeiro"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "gerente_geral"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "financeiro"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

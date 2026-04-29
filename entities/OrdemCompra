@@ -1,0 +1,70 @@
+{
+  "name": "OrdemCompra",
+  "type": "object",
+  "properties": {
+    "numero": {
+      "type": "string"
+    },
+    "fornecedor_id": {
+      "type": "string"
+    },
+    "fornecedor_nome": {
+      "type": "string"
+    },
+    "data_emissao": {
+      "type": "string",
+      "format": "date"
+    },
+    "data_entrega_prevista": {
+      "type": "string",
+      "format": "date"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Rascunho",
+        "Enviada",
+        "Parcialmente Recebida",
+        "Recebida",
+        "Cancelada"
+      ],
+      "default": "Rascunho"
+    },
+    "valor_total": {
+      "type": "number",
+      "default": 0
+    },
+    "itens": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "produto_id": {
+            "type": "string"
+          },
+          "produto_descricao": {
+            "type": "string"
+          },
+          "quantidade": {
+            "type": "number"
+          },
+          "unidade": {
+            "type": "string"
+          },
+          "preco_unitario": {
+            "type": "number"
+          },
+          "total": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "observacoes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "fornecedor_nome"
+  ]
+}

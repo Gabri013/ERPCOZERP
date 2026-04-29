@@ -1,0 +1,168 @@
+const express = require('express');
+const bcrypt = require('bcrypt');
+const { v4: uuidv4 } = require('uuid');
+const { AuthService } = require('../services/authService');
+const { PermissionEngine } = require('../services/permissionEngine');
+const { authenticateToken } = require('../middleware/auth');
+const { query } = require('../config/database');
+
+const router = express.Router();
+
+// ============================================
+// LOGIN
+// ============================================
+router.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const ip = req.ip || req.connection.remoteAddress;
+    const userAgent = req.get('user-agent');
+
+    if (!email || !password) {
+      return res.status(400).json({ 
+        error: 'Email e senha são obrigatórios' 
+      });
+    }
+
+    const result = await AuthService.authenticate(email, password, ip, userAgent);
+    
+    // Log login success
+    await query(
+      `INSERT INTO audit_logs (user_id, action, ip_address, user_agent, metadata) 
+       VALUES (?, 'login', ?, ?, ?)`,
+      [result.user.id, ip, userAgent, JSON.stringify({ success: true })]
+    );
+
+    res.json(result);
+  } catch (err) {
+    // Log failed attempt
+    await query(
+      `INSERT INTO audit_logs (action, ip_address, user_agent, metadata) 
+       VALUES ('login_failed', ?, ?, ?)`,
+      [req.ip, req.get('user-agent'), JSON.stringify({ 
+        error: err.message, 
+        email: req.body.email 
+      })]
+    );
+
+    res.status(401).json({ error: err.message });
+  }
+});
+
+// ============================================
+// REFRESH TOKEN
+// ============================================
+router.post('/refresh', async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    
+    if (!refreshToken) {
+      return res.status(400).json({ error: 'Refresh token obrigatório' });
+    }
+
+    const result = await AuthService.refreshToken(refreshToken);
+    res.json(result);
+  } catch (err) {
+    res.status(401).json({ error: err.message });
+  }
+});
+
+// ============================================
+// LOGOUT
+// ============================================
+router.post('/logout', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (token) {
+      await AuthService.logout(token);
+    }
+    res.json({ success: true, message: 'Logout realizado' });
+  } catch (err) {
+    res.json({ success: true }); // Sempre sucesso
+  }
+});
+
+// ============================================
+// VERIFICAÇÃO DE TOKEN (para renovação automática)
+// ============================================
+router.get('/verify', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ error: 'Token não fornecido' });
+    }
+
+    const decoded = await AuthService.verifyToken(token);
+    res.json({ valid: true, user: decoded });
+  } catch (err) {
+    res.status(401).json({ valid: false, error: err.message });
+  }
+});
+
+// ============================================
+// ALTERAR SENHA
+// ============================================
+router.post('/change-password', authenticateToken, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user.id;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Senha atual e nova são obrigatórias' });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({ error: 'Nova senha deve ter no mínimo 8 caracteres' });
+    }
+
+    await AuthService.changePassword(userId, currentPassword, newPassword);
+    
+    res.json({ success: true, message: 'Senha alterada com sucesso' });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// ============================================
+// PERFIL DO USUÁRIO ATUAL
+// ============================================
+router.get('/me', authenticateToken, async (req, res) => {
+  try {
+    const decoded = req.user;
+    
+    // Busca dados completos do usuário
+    const users = await query(`
+      SELECT 
+        u.id, u.email, u.full_name, u.active, u.email_verified, u.last_login_at,
+        (SELECT JSON_ARRAYAGG(r.code) 
+         FROM user_roles ur 
+         JOIN roles r ON ur.role_id = r.id 
+         WHERE ur.user_id = u.id) as roles,
+        (SELECT JSON_ARRAYAGG(DISTINCT p.code) 
+         FROM user_roles ur 
+         JOIN role_permissions rp ON ur.role_id = rp.role_id 
+         JOIN permissions p ON rp.permission_id = p.id 
+         WHERE ur.user_id = u.id AND rp.granted = 1) as permissions
+      FROM users u WHERE u.id = ?
+    `, [decoded.userId]);
+
+    if (users.length === 0) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+
+    const user = users[0];
+    res.json({
+      id: user.id,
+      email: user.email,
+      full_name: user.full_name,
+      active: user.active,
+      email_verified: user.email_verified,
+      last_login_at: user.last_login_at,
+      roles: user.roles ? JSON.parse(user.roles) : [],
+      permissions: user.permissions ? JSON.parse(user.permissions) : []
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+module.exports = router;

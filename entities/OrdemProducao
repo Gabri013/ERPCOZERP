@@ -1,0 +1,90 @@
+{
+  "name": "OrdemProducao",
+  "type": "object",
+  "properties": {
+    "numero": {
+      "type": "string"
+    },
+    "produto_id": {
+      "type": "string"
+    },
+    "produto_descricao": {
+      "type": "string"
+    },
+    "pedido_venda_id": {
+      "type": "string"
+    },
+    "quantidade": {
+      "type": "number"
+    },
+    "unidade": {
+      "type": "string"
+    },
+    "data_abertura": {
+      "type": "string",
+      "format": "date"
+    },
+    "data_previsao": {
+      "type": "string",
+      "format": "date"
+    },
+    "data_conclusao": {
+      "type": "string",
+      "format": "date"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Aberta",
+        "Em Andamento",
+        "Pausada",
+        "Conclu\u00edda",
+        "Cancelada"
+      ],
+      "default": "Aberta"
+    },
+    "prioridade": {
+      "type": "string",
+      "enum": [
+        "Baixa",
+        "Normal",
+        "Alta",
+        "Urgente"
+      ],
+      "default": "Normal"
+    },
+    "responsavel": {
+      "type": "string"
+    },
+    "operacoes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "descricao": {
+            "type": "string"
+          },
+          "maquina": {
+            "type": "string"
+          },
+          "tempo_previsto": {
+            "type": "number"
+          },
+          "tempo_realizado": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "observacoes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "produto_descricao",
+    "quantidade"
+  ]
+}
