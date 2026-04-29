@@ -15,6 +15,32 @@
       "destination": "https://erp-backend-iwvv.onrender.com/api/$1"
     },
     {
+      "source": "/(.*\\.(js|css|png|jpg|jpeg|gif|svg|ico|json|woff|woff2|ttf|eot|webp))",
+      "destination": "/$1"
+    },
+    {
+      "source": "/favicon.ico",
+      "destination": "/favicon.ico"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
+
+    }
+  ],
+  "routes": [
+    {
+      "source": "/api/(.*)",
+      "destination": "https://erp-backend-iwvv.onrender.com/api/$1"
+    },
+    {
+      "source": "/(.*\\.(js|css|png|jpg|jpeg|gif|svg|ico|json|woff|woff2|ttf|eot))",
+      "destination": "/$1"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
