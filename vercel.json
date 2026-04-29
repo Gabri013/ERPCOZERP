@@ -1,19 +1,22 @@
 {
   "version": 2,
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "installCommand": "npm ci --omit=optional --ignore-workspace-root-check",
-  "framework": "vite",
-  "cleanUrls": true,
-  "ignoreCommand": "test -d backend && echo 'Backend folder exists - excluding from build' || exit 0",
-  "rewrites": [
+  "builds": [
     {
-      "source": "/api/(.*)",
-      "destination": "https://erp-backend-iwvv.onrender.com/api/$1"
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "https://erp-backend-iwvv.onrender.com/api/$1"
     },
     {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "src": "/(.*)",
+      "dest": "/index.html"
     }
   ],
   "headers": [

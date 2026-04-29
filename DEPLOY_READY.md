@@ -1,129 +1,153 @@
-# Deploy Vercel + Render
+# 🚨 DEPLOY CANCELANDO SOZINHO — SOLUÇÃO IMEDIATA
 
-Este projeto esta preparado para:
+## 🔴 CAUSA MAIS COMUM
 
-- Frontend: Vercel
-- Backend: Render
-- Banco: MySQL ou MySQL compativel em plano gratis separado
+A Vercel detectou **DOIS frameworks** no mesmo repo:
+- `backend/` com Express
+- `./` com Vite
 
-## Importante Sobre Custo Zero
+Isso causa conflito — a Vercel tenta buildar ambos e falha.
 
-Para ficar R$0:
+---
 
-- Use Vercel Hobby no frontend.
-- Use Render Free Web Service no backend.
-- Use um banco MySQL/MySQL-compativel com free tier externo, como TiDB Cloud Serverless ou Aiven Free MySQL.
+## ✅ SOLUÇÃO PASSO-A-PASSO
 
-Render e Vercel nao fornecem MySQL gerenciado gratis dentro da propria plataforma. O banco precisa ser criado em outro provedor gratuito e conectado ao backend do Render pelas variaveis `MYSQL_*`.
-
-Limites esperados no free:
-
-- Render Free Web Service hiberna apos inatividade; o primeiro acesso pode demorar.
-- O plano gratis nao e ideal para producao comercial com trafego alto.
-- Vercel Hobby e indicado para projeto pessoal/hobby e tem limites de uso.
-
-## Vercel
-
-Configurar o projeto apontando para a raiz do repositorio.
-
-- Framework Preset: Vite
-- Build Command: `npm run build`
-- Output Directory: `dist`
-
-Variaveis:
-
-```env
-VITE_BACKEND_PROVIDER=api
-VITE_AUTH_LOGIN_URL=/login
-```
-
-O arquivo `vercel.json` redireciona `/api/*` para:
-
-```text
-https://erp-backend.onrender.com/api/*
-```
-
-Se o servico no Render tiver outro nome/URL, atualizar `vercel.json`.
-
-## Render
-
-Usar o `render.yaml` na raiz do repositorio.
-
-O servico usa:
-
-- `rootDir: backend`
-- `buildCommand: npm ci`
-- `startCommand: npm run migrate && npm run seed && npm start`
-- `healthCheckPath: /health`
-
-Variaveis obrigatorias no Render:
-
-```env
-NODE_ENV=production
-DB_CLIENT=mysql
-MYSQL_HOST=gateway01.us-east-1.prod.aws.tidbcloud.com
-MYSQL_PORT=4000
-MYSQL_USER=3eCLgEswNo39kSd.root
-MYSQL_PASSWORD=sua-senha-do-tidb
-MYSQL_DATABASE=erpcozinca
-MYSQL_SSL=true
-JWT_SECRET=troque-por-uma-chave-grande-e-secreta
-JWT_EXPIRES_IN=7d
-REFRESH_TOKEN_EXPIRES_IN=30d
-FRONTEND_URL=https://seu-frontend.vercel.app
-RATE_LIMIT_WINDOW_MS=900000
-RATE_LIMIT_MAX_REQUESTS=100
-BCRYPT_ROUNDS=12
-```
-
-## Banco MySQL Gratis
-
-Opcao escolhida: TiDB Cloud Serverless.
-
-Antes do deploy, crie um banco dedicado para o ERP no TiDB Cloud. No SQL Editor do TiDB, execute:
-
-```sql
-CREATE DATABASE IF NOT EXISTS erpcozinca;
-```
-
-Depois use no Render:
-
-```env
-MYSQL_HOST=gateway01.us-east-1.prod.aws.tidbcloud.com
-MYSQL_PORT=4000
-MYSQL_USER=3eCLgEswNo39kSd.root
-MYSQL_PASSWORD=sua-senha-do-tidb
-MYSQL_DATABASE=erpcozinca
-MYSQL_SSL=true
-```
-
-Nao use `sys` como banco do ERP. `sys` e schema de sistema; use `erpcozinca` ou outro nome dedicado.
-
-O backend vai rodar automaticamente:
+### 1. Crie `.vercel/project.json` para FORçar frontend-only
 
 ```bash
-npm run migrate
-npm run seed
+mkdir -p .vercel
 ```
 
-Isso cria as tabelas e os usuarios iniciais.
+Crie `.vercel/project.json`:
 
-## Primeiro Acesso
-
-O seed cria os usuarios iniciais se eles ainda nao existirem:
-
-```text
-master@base44.com / master123
-admin@base44.com / admin123
+```json
+{
+  "framework": "vite",
+  "output": "dist",
+  "installCommand": "npm ci",
+  "buildCommand": "npm run build"
+}
 ```
 
-Trocar essas senhas imediatamente depois do primeiro login em producao.
+---
 
-## Validacao Local
+### 2. **Apague** a configuração de `backend/` da Vercel
 
-Comandos usados para validar:
+No dashboard Vercel:
+1. Vá em **Project Settings → Git**
+2. Em **"Ignored Build Step"**, adicione:
+   ```
+   test -d backend && echo "Backend exists — skipping" || exit 0
+   ```
+3. OU simplesmente **delete** o projeto atual e recrie APENAS com o frontend
+
+---
+
+### 3. Re-crie o projeto do ZERO (mais seguro)
+
+**Passo a passo limpo**:
+
+1. **Delete** o projeto atual na Vercel (ou cancele e espere)
+2. Clique **"New Project"**
+3. Importe do GitHub: `Gabri013/ERPCOZERP`
+4. **IMPORTANTE**: Na tela de configuração:
+
+```
+Root Directory: ./
+Framework: Vite (auto-detect)
+Build Command: npm run build
+Output Directory: dist
+Install Command: npm ci
+```
+
+5. **NÃO** adicione outro projeto para `backend/`
+6. Clique **Deploy**
+
+---
+
+### 4. Variáveis de ambiente (IMPORTANTE)
+
+Após criar, vá em **Settings → Environment Variables** e adicione **APENAS**:
+
+| Key | Value |
+|-----|-------|
+| `VITE_BACKEND_PROVIDER` | `api` |
+| `VITE_BACKEND_URL` | `https://erp-backend-iwvv.onrender.com` |
+| `VITE_AUTH_LOGIN_URL` | `/login` |
+
+---
+
+### 5. Se ainda falhar, use este `vercel.json` **simplificado**:
+
+```json
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "https://erp-backend-iwvv.onrender.com/api/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ]
+}
+```
+
+Substitua seu `vercel.json` por isso.
+
+---
+
+## 🧪 TESTE LOCAL ANTES
+
+Na raiz do projeto:
 
 ```bash
+# Limpa
+rm -rf node_modules dist
+
+# Instala só frontend
+npm ci
+
+# Build
 npm run build
-cd backend && npm test -- --runInBand
+
+# Deve criar dist/ com index.html
+ls dist
 ```
+
+Se funcionar local, funciona na Vercel.
+
+---
+
+## 📋 CHECKLIST RÁPIDO
+
+- [ ] `.vercelignore` existe (ignora backend/)
+- [ ] `vercel.json` está na raiz
+- [ ] `package.json` tem script `build` → `vite build`
+- [ ] `vite.config.js` existe e está correto
+- [ ] Root Directory = `./` (NÃO `backend/`)
+- [ ] Apenas UM projeto na Vercel (o frontend)
+- [ ] Backend já está no Render (separado)
+
+---
+
+## 🎯 EXPECTATIVA
+
+Após deploy, URL deve ser: `https://erpcozerp.vercel.app`
+
+E ao acessar, deve carregar o frontend e conectar ao backend no Render.
+
+---
+
+**Faça os passos acima e me avise o resultado.**
