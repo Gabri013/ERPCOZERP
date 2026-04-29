@@ -7,6 +7,8 @@
  * - Auditoria: verificar comportamento real
  */
 
+const { AuditLogger } = require('./auditLogger');
+
 class ImpersonationService {
   constructor() {
     this.activeSessions = new Map(); // masterUserId -> impersonation data
@@ -20,56 +22,77 @@ class ImpersonationService {
    * @param {object} context — ip, userAgent, sessionToken
    * @returns {Promise<{success: boolean, impersonationToken}>}
    */
-  static async startImpersonation(masterUserId, targetUserId, reason = '', context = {}) {
-    const db = require('../config/database');
+   static async startImpersonation(masterUserId, targetUserId, reason = '', context = {}) {
+     const db = require('../config/database');
 
-    // 1. Validações de segurança
-    // ← Implementar validações
+     // 1. Validações de segurança
+     // ← Implementar validações
 
-    // 2. Busca dados do usuário alvo
-    const targetUser = await db.query(
-      'SELECT * FROM users WHERE id = ? AND active = TRUE',
-      [targetUserId]
-    );
+     // 2. Busca dados do usuário alvo
+     const targetUser = await db.query(
+       'SELECT * FROM users WHERE id = ? AND active = TRUE',
+       [targetUserId]
+     );
 
-    if (targetUser.length === 0) {
-      throw new Error('Usuário não encontrado ou inativo');
-    }
+     if (targetUser.length === 0) {
+       throw new Error('Usuário não encontrado ou inativo');
+     }
 
-    const target = targetUser[0];
+     const target = targetUser[0];
 
-    // 3. Gera token especial de impersonation
-    const jwt = require('jsonwebtoken');
-    const { v4: uuidv4 } = require('uuid');
-    
-    const impersonationToken = jwt.sign(
-      {
-        userId: targetUserId,
-        email: target.email,
-        roles: await this.getUserRoles(targetUserId),
-        impersonatedBy: masterUserId,
-        impersonation: true,
-        sessionId: uuidv4()
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: '2h' } // mais curto que normal
-    );
+     // 3. Gera token especial de impersonation
+     const jwt = require('jsonwebtoken');
+     const { v4: uuidv4 } = require('uuid');
+     
+     const impersonationToken = jwt.sign(
+       {
+         userId: targetUserId,
+         email: target.email,
+         roles: await this.getUserRoles(targetUserId),
+         impersonatedBy: masterUserId,
+         impersonation: true,
+         sessionId: uuidv4()
+       },
+       process.env.JWT_SECRET,
+       { expiresIn: '2h' } // mais curto que normal
+     );
 
-    // 4. Registra sessão de impersonation
-    await db.query(`
-      INSERT INTO impersonation_sessions 
-      (id, master_user_id, impersonated_user_id, reason, ip_address, user_agent, session_token, expires_at)
-      VALUES (UUID(), ?, ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 2 HOUR))
-    `, [
-      masterUserId,
-      targetUserId,
-      reason.substring(0, 200),
-      context.ip || '0.0.0.0',
-      context.userAgent || '',
-      context.sessionToken || ''
-    ]);
+     // 4. Registra sessão de impersonation
+     await db.query(`
+       INSERT INTO impersonation_sessions 
+       (id, master_user_id, impersonated_user_id, reason, ip_address, user_agent, session_token, expires_at)
+       VALUES (UUID(), ?, ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 2 HOUR))
+     `, [
+       masterUserId,
+       targetUserId,
+       reason.substring(0, 200),
+       context.ip || '0.0.0.0',
+       context.userAgent || '',
+       context.sessionToken || ''
+     ]);
 
-    return {
+     // 5. Log de auditoria (trigger removido — TiDB não suporta)
+     try {
+       await AuditLogger.logSystemEvent(
+         masterUserId,
+         'impersonation.start',
+         targetUserId,
+         null, // recordId
+         {
+           master_user_id: masterUserId,
+           impersonated_user_id: targetUserId,
+           reason: reason.substring(0, 200),
+           started_at: new Date().toISOString()
+         },
+         context.ip || null,
+         context.userAgent || null
+       );
+     } catch (err) {
+       console.error('Falha ao registrar log de auditoria (start):', err.message);
+       // Não interrompe o fluxo — best-effort
+     }
+
+     return {
       success: true,
       impersonationToken,
       user: {
@@ -84,24 +107,59 @@ class ImpersonationService {
   /**
    * Finaliza sessão de impersonation
    */
-  static async endImpersonation(masterUserId, impersonationToken) {
-    const db = require('../config/database');
-    
-    // Decodifica token para pegar userId
-    const decoded = require('jsonwebtoken').verify(impersonationToken, process.env.JWT_SECRET);
-    const targetUserId = decoded.userId;
+   static async endImpersonation(masterUserId, impersonationToken) {
+     const db = require('../config/database');
+     
+     // Decodifica token para pegar userId
+     const decoded = require('jsonwebtoken').verify(impersonationToken, process.env.JWT_SECRET);
+     const targetUserId = decoded.userId;
 
-    // Marca sessão como finalizada
-    await db.query(`
-      UPDATE impersonation_sessions 
-      SET ended_at = NOW() 
-      WHERE master_user_id = ? AND impersonated_user_id = ? AND ended_at IS NULL
-    `, [masterUserId, targetUserId]);
+     // Busca a sessão ativa para calcular duração e obter contexto
+     const sessions = await db.query(`
+       SELECT started_at, ip_address, user_agent FROM impersonation_sessions
+       WHERE master_user_id = ? AND impersonated_user_id = ? AND ended_at IS NULL
+       ORDER BY started_at DESC LIMIT 1
+     `, [masterUserId, targetUserId]);
 
-    return { success: true };
-  }
+     if (sessions.length === 0) {
+       return { success: false, error: 'Sessão não encontrada' };
+     }
 
-  /**
+     const session = sessions[0];
+     const startedAt = session.started_at;
+     const endedAt = new Date();
+     const durationSeconds = Math.floor((endedAt - new Date(startedAt)) / 1000);
+
+     // Marca sessão como finalizada
+     await db.query(`
+       UPDATE impersonation_sessions 
+       SET ended_at = NOW() 
+       WHERE master_user_id = ? AND impersonated_user_id = ? AND ended_at IS NULL
+     `, [masterUserId, targetUserId]);
+
+     // Log de auditoria de fim (trigger removido — TiDB não suporta)
+     try {
+       await AuditLogger.logSystemEvent(
+         masterUserId,
+         'impersonation.end',
+         targetUserId,
+         null, // recordId
+         {
+           duration_seconds: durationSeconds,
+           ip: session.ip_address
+         },
+         session.ip_address,
+         session.user_agent || null
+       );
+     } catch (err) {
+       console.error('Falha ao registrar log de auditoria (end):', err.message);
+       // Não interrompe o fluxo — best-effort
+     }
+
+      return { success: true };
+    }
+
+   /**
    * Verifica se uma requisição é impersonation
    */
   static isImpersonationRequest(token) {
