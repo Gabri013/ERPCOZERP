@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from '@/lib/AuthContext';
 import { api } from '@/services/api';
+import { resolveApiUrl } from '@/config/appConfig';
 
 const ImpersonationContext = createContext(null);
 
@@ -19,7 +20,7 @@ export function ImpersonationProvider({ children }) {
     const checkImpersonationStatus = async () => {
       // Tenta verificar status via API (mais seguro)
       try {
-        const response = await fetch('/api/admin/impersonation/status', {
+        const response = await fetch(resolveApiUrl('/api/admin/impersonation/status'), {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('access_token')}`
           }

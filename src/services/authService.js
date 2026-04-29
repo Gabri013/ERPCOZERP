@@ -1,4 +1,4 @@
-import { appConfig } from "@/config/appConfig";
+import { appConfig, resolveApiUrl } from "@/config/appConfig";
 import { userService } from "@/services/userService";
 
 const TOKEN_KEY = "access_token";
@@ -14,7 +14,7 @@ export const authService = {
       return null;
     }
 
-    const response = await fetch("/api/auth/me", {
+    const response = await fetch(resolveApiUrl("/api/auth/me"), {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -36,7 +36,7 @@ export const authService = {
       return;
     }
 
-    await fetch("/api/auth/logout", {
+    await fetch(resolveApiUrl("/api/auth/logout"), {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
     });

@@ -18,6 +18,7 @@ import {
 import { toast } from 'sonner';
 import { Plus, Edit, Trash2, GripVertical, ArrowRight } from 'lucide-react';
 import { useMetadataStore } from '@/stores/metadataStore';
+import { resolveApiUrl } from '@/config/appConfig';
 
 export default function WorkflowBuilder() {
   const { entities, loadEntities } = useMetadataStore();
@@ -50,7 +51,7 @@ export default function WorkflowBuilder() {
 
   const loadWorkflows = async () => {
     try {
-      const res = await fetch('/api/workflows');
+      const res = await fetch(resolveApiUrl('/api/workflows'));
       const json = await res.json();
       if (json.success) setWorkflows(json.data);
     } catch (err) {
@@ -60,7 +61,7 @@ export default function WorkflowBuilder() {
 
   const handleSave = async () => {
     try {
-      const url = selectedWorkflow ? `/api/workflows/${selectedWorkflow.id}` : '/api/workflows';
+      const url = selectedWorkflow ? resolveApiUrl(`/api/workflows/${selectedWorkflow.id}`) : resolveApiUrl('/api/workflows');
       const method = selectedWorkflow ? 'PUT' : 'POST';
       
       const res = await fetch(url, {
@@ -83,7 +84,7 @@ export default function WorkflowBuilder() {
   const handleDelete = async (id) => {
     if (!confirm('Excluir workflow?')) return;
     try {
-      await fetch(`/api/workflows/${id}`, { method: 'DELETE' });
+      await fetch(resolveApiUrl(`/api/workflows/${id}`), { method: 'DELETE' });
       toast.success('Excluído');
       loadWorkflows();
     } catch (err) {
@@ -95,7 +96,7 @@ export default function WorkflowBuilder() {
     if (!selectedWorkflow) return;
     
     try {
-      const res = await fetch(`/api/workflows/${selectedWorkflow.id}/steps`, {
+      const res = await fetch(resolveApiUrl(`/api/workflows/${selectedWorkflow.id}/steps`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(stepForm)

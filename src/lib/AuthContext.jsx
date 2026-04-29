@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { authService } from '@/services/authService';
+import { resolveApiUrl } from '@/config/appConfig';
 
 const AuthContext = createContext(null);
 
@@ -70,7 +71,7 @@ export function AuthProvider({ children }) {
     setAuthError(null);
 
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch(resolveApiUrl('/api/auth/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),

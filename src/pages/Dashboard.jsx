@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { DollarSign, Factory, Package, Users } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { resolveApiUrl } from '@/config/appConfig';
 
 const cards = [
   {
@@ -38,7 +39,7 @@ export default function Dashboard() {
 
     async function loadDashboardData() {
       try {
-        const response = await fetch('/api/dashboard/kpis');
+        const response = await fetch(resolveApiUrl('/api/dashboard/kpis'));
         const json = await response.json();
 
         if (mounted && json?.success) {

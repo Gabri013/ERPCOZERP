@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { resolveApiUrl } from '@/config/appConfig';
 
 // Helper para obter headers de autenticação
 const getAuthHeaders = () => {
@@ -19,7 +20,7 @@ export const useMetadataStore = create(
       loadEntities: async () => {
         set({ loading: true, error: null });
         try {
-          const res = await fetch('/api/entities', {
+          const res = await fetch(resolveApiUrl('/api/entities'), {
             headers: {
               'Content-Type': 'application/json',
               ...getAuthHeaders()

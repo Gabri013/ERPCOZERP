@@ -3,6 +3,15 @@ import { defineConfig } from 'vite'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+const backendTarget = process.env.VITE_BACKEND_URL || 'http://127.0.0.1:3001'
+const apiProxy = {
+  '/api': {
+    target: backendTarget,
+    changeOrigin: true,
+    secure: false,
+  },
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   logLevel: 'error',
@@ -21,5 +30,11 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true,
+    proxy: apiProxy,
+  },
+  preview: {
+    port: 4173,
+    host: true,
+    proxy: apiProxy,
   },
 });

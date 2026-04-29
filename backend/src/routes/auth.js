@@ -8,6 +8,18 @@ const { query } = require('../config/database');
 
 const router = express.Router();
 
+function isDatabaseConnectionError(err) {
+  return ['ECONNREFUSED', 'ER_ACCESS_DENIED_ERROR', 'ENOTFOUND'].includes(err?.code);
+}
+
+async function safeAuditLog(sql, params) {
+  try {
+    await query(sql, params);
+  } catch (logErr) {
+    console.error('[auth] Falha ao gravar auditoria:', logErr.message);
+  }
+}
+
 // ============================================
 // LOGIN
 // ============================================
@@ -26,7 +38,7 @@ router.post('/login', async (req, res) => {
     const result = await AuthService.authenticate(email, password, ip, userAgent);
     
     // Log login success
-    await query(
+    await safeAuditLog(
       `INSERT INTO audit_logs (user_id, action, ip_address, user_agent, metadata) 
        VALUES (?, 'login', ?, ?, ?)`,
       [result.user.id, ip, userAgent, JSON.stringify({ success: true })]
@@ -35,7 +47,7 @@ router.post('/login', async (req, res) => {
     res.json(result);
   } catch (err) {
     // Log failed attempt
-    await query(
+    await safeAuditLog(
       `INSERT INTO audit_logs (action, ip_address, user_agent, metadata) 
        VALUES ('login_failed', ?, ?, ?)`,
       [req.ip, req.get('user-agent'), JSON.stringify({ 
@@ -44,7 +56,8 @@ router.post('/login', async (req, res) => {
       })]
     );
 
-    res.status(401).json({ error: err.message });
+    const status = isDatabaseConnectionError(err) ? 503 : 401;
+    res.status(status).json({ error: err.message });
   }
 });
 
