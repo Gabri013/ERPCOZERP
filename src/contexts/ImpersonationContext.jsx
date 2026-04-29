@@ -72,13 +72,13 @@ export function ImpersonationProvider({ children }) {
   /**
    * Finaliza modo de impersonation
    */
-  const stopImpersonation = async () => {
-    try {
-      const impToken = localStorage.getItem('impersonation_token');
-      if (impToken) {
-        await api.post('/api/admin/stop-impersonate');
-      }
-    } finally {
+   const stopImpersonation = async () => {
+     try {
+       const impToken = localStorage.getItem('impersonation_token');
+       if (impToken) {
+         await api.post('/admin/stop-impersonate');
+       }
+     } finally {
       // Limpa storage
       localStorage.removeItem('impersonation_token');
       setIsImpersonating(false);

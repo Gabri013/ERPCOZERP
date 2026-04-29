@@ -1,38 +1,49 @@
-// Camada de API centralizada — troque o conteúdo das funções por fetch real quando tiver backend
-const DELAY = 300;
+// Camada de API centralizada
+// Em produção, usa paths relativos — proxy da Vercel encaminha para backend
+// Em desenvolvimento, usa mock data
 
-const delay = (ms) => new Promise(r => setTimeout(r, ms));
-
-const isDev = true; // trocar por import.meta.env.DEV quando conectar backend
+const isDev = import.meta.env.DEV;
 
 export const api = {
   get: async (url, mockData) => {
-    await delay(DELAY);
-    if (isDev) return { success: true, data: mockData };
-    const res = await fetch(url);
+    if (isDev) {
+      await new Promise(r => setTimeout(r, 300));
+      return { success: true, data: mockData };
+    }
+    const res = await fetch(url, {
+      headers: { 'Content-Type': 'application/json' }
+    });
     return res.json();
   },
   post: async (url, data, mockReturn) => {
-    await delay(DELAY);
     if (isDev) {
+      await new Promise(r => setTimeout(r, 300));
       console.log(`[API POST] ${url}`, data);
       return { success: true, data: { ...data, id: Date.now(), ...mockReturn } };
     }
-    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
     return res.json();
   },
   put: async (url, data) => {
-    await delay(DELAY);
     if (isDev) {
+      await new Promise(r => setTimeout(r, 300));
       console.log(`[API PUT] ${url}`, data);
       return { success: true, data };
     }
-    const res = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+    const res = await fetch(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
     return res.json();
   },
   delete: async (url) => {
-    await delay(DELAY);
     if (isDev) {
+      await new Promise(r => setTimeout(r, 300));
       console.log(`[API DELETE] ${url}`);
       return { success: true };
     }
@@ -40,3 +51,4 @@ export const api = {
     return res.json();
   },
 };
+
