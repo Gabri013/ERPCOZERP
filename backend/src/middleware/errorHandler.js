@@ -1,10 +1,17 @@
 const { AuditLogger } = require('../services/auditLogger');
+const logger = require('../services/logger');
 
 /**
  * Middleware de erro centralizado
  */
 const errorHandler = (err, req, res, next) => {
-  console.error('[ERROR]', err.message, err.stack);
+  logger.error('[ERROR]', {
+    message: err.message,
+    stack: err.stack,
+    url: req.originalUrl,
+    method: req.method,
+    userId: req.user?.id
+  });
 
   // Status code default
   const statusCode = err.statusCode || 500;
@@ -27,7 +34,7 @@ const errorHandler = (err, req, res, next) => {
         body: req.body,
         ip: req.ip
       }
-    ).catch(console.error);
+    ).catch(error => logger.error('Falha ao logar erro no AuditLogger:', error.message));
   }
 
   res.status(statusCode).json(response);

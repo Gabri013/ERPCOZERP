@@ -1,55 +1,56 @@
 const { query } = require('../config/database');
+const logger = require('./logger');
 
 class AuditLogger {
   /**
    * Log de requisição da API
    */
-  static async logApiRequest(userId, endpoint, method, statusCode, ip, userAgent, duration, requestBody = null) {
-    try {
-      await query(`
-        INSERT INTO access_logs 
-        (user_id, endpoint, method, status_code, ip_address, user_agent, request_duration_ms, request_size, response_size, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-      `, [
-        userId,
-        endpoint,
-        method,
-        statusCode,
-        ip,
-        userAgent ? userAgent.substring(0, 500) : null,
-        duration,
-        requestBody ? Buffer.byteLength(requestBody, 'utf8') : null,
-        null // response_size - pode ser preenchido depois
-      ]);
-    } catch (err) {
-      console.error('Erro ao salvar access log:', err.message);
-    }
-  }
+   static async logApiRequest(userId, endpoint, method, statusCode, ip, userAgent, duration, requestBody = null) {
+     try {
+       await query(`
+         INSERT INTO access_logs 
+         (user_id, endpoint, method, status_code, ip_address, user_agent, request_duration_ms, request_size, response_size, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+       `, [
+         userId,
+         endpoint,
+         method,
+         statusCode,
+         ip,
+         userAgent ? userAgent.substring(0, 500) : null,
+         duration,
+         requestBody ? Buffer.byteLength(requestBody, 'utf8') : null,
+         null // response_size - pode ser preenchido depois
+       ]);
+     } catch (err) {
+       logger.error('Erro ao salvar access log:', err.message);
+     }
+   }
 
   /**
    * Log de erro
    */
-  static async logError(userId, errorMessage, context = {}) {
-    try {
-      await query(`
-        INSERT INTO audit_logs 
-        (user_id, action, ip_address, metadata)
-        VALUES (?, 'error', ?, ?)
-      `, [
-        userId,
-        context.ip || '0.0.0.0',
-        JSON.stringify({
-          message: errorMessage,
-          stack: context.stack,
-          url: context.url,
-          method: context.method,
-          userAgent: context.userAgent
-        })
-      ]);
-    } catch (err) {
-      console.error('Erro ao salvar error log:', err.message);
-    }
-  }
+   static async logError(userId, errorMessage, context = {}) {
+     try {
+       await query(`
+         INSERT INTO audit_logs 
+         (user_id, action, ip_address, metadata)
+         VALUES (?, 'error', ?, ?)
+       `, [
+         userId,
+         context.ip || '0.0.0.0',
+         JSON.stringify({
+           message: errorMessage,
+           stack: context.stack,
+           url: context.url,
+           method: context.method,
+           userAgent: context.userAgent
+         })
+       ]);
+     } catch (err) {
+       logger.error('Erro ao salvar error log:', err.message);
+     }
+   }
 
   /**
    * Log de alteração de dados
@@ -94,11 +95,11 @@ class AuditLogger {
           ...extras,
           timestamp: new Date().toISOString()
         })
-      ]);
-    } catch (err) {
-      console.error('Erro ao salvar audit log:', err.message);
-    }
-  }
+       ]);
+     } catch (err) {
+       logger.error('Erro ao salvar audit log:', err.message);
+     }
+   }
 
   /**
    * Log de evento de sistema
@@ -125,11 +126,11 @@ class AuditLogger {
         ip,
         userAgent,
         JSON.stringify(details)
-      ]);
-    } catch (err) {
-      console.error('Erro ao salvar system event:', err.message);
-    }
-  }
+       ]);
+     } catch (err) {
+       logger.error('Erro ao salvar system event:', err.message);
+     }
+   }
 
   /**
    * Log de transição de workflow
@@ -159,11 +160,11 @@ class AuditLogger {
           reason,
           timestamp: new Date().toISOString()
         })
-      ]);
-    } catch (err) {
-      console.error('Erro ao logar workflow transition:', err.message);
-    }
-  }
+       ]);
+     } catch (err) {
+       logger.error('Erro ao logar workflow transition:', err.message);
+     }
+   }
 
   /**
    * Consulta histórico de um registro
@@ -182,16 +183,16 @@ class AuditLogger {
         LIMIT ?
       `, [entityId, recordId, parseInt(limit)]);
 
-      return logs.map(l => ({
-        ...l,
-        metadata: l.metadata ? JSON.parse(l.metadata) : {},
-        old_value: l.old_value ? JSON.parse(l.old_value) : null,
-        new_value: l.new_value ? JSON.parse(l.new_value) : null
-      }));
-    } catch (err) {
-      console.error('Erro ao buscar histórico:', err.message);
-      return [];
-    }
+       return logs.map(l => ({
+         ...l,
+         metadata: l.metadata ? JSON.parse(l.metadata) : {},
+         old_value: l.old_value ? JSON.parse(l.old_value) : null,
+         new_value: l.new_value ? JSON.parse(l.new_value) : null
+       }));
+     } catch (err) {
+       logger.error('Erro ao buscar histórico:', err.message);
+       return [];
+     }
   }
 
   /**
@@ -218,7 +219,7 @@ class AuditLogger {
         new_value: l.new_value ? JSON.parse(l.new_value) : null
       }));
     } catch (err) {
-      console.error('Erro ao buscar atividade do usuário:', err.message);
+      logger.error('Erro ao buscar atividade do usuário:', err.message);
       return [];
     }
   }

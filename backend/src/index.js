@@ -7,6 +7,7 @@ const rateLimit = require('express-rate-limit');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 const { AuthService } = require('./services/authService');
+const logger = require('./services/logger');
 
 // Rotas
 const authRoutes = require('./routes/auth');
@@ -36,6 +37,16 @@ const app = express();
 const server = createServer(app);
 const io = new Server(server, {
   cors: { origin: process.env.FRONTEND_URL || 'http://localhost:5173', credentials: true }
+});
+
+// Logger request middleware
+app.use((req, res, next) => {
+  logger.info(`${req.method} ${req.path}`, {
+    ip: req.ip || req.connection.remoteAddress,
+    userAgent: req.get('User-Agent'),
+    query: req.query,
+  });
+  next();
 });
 
 // ============================================
@@ -77,7 +88,23 @@ app.use(auditMiddleware);
 
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString(), uptime: process.uptime() });
+  res.status(200).json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(), 
+    uptime: process.uptime(),
+    env: process.env.NODE_ENV || 'development'
+  });
+});
+
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({ 
+    name: 'Base44 ERP API',
+    version: '1.0.0',
+    status: 'online',
+    documentation: '/api/docs',
+    health: '/health'
+  });
 });
 
 // ============================================
@@ -125,13 +152,13 @@ io.use(async (socket, next) => {
 });
 
 io.on('connection', (socket) => {
-  console.log(`User ${socket.user.userId} connected to WebSocket`);
+  logger.info(`User ${socket.user.userId} connected to WebSocket`);
   
   socket.join(`user:${socket.user.userId}`);
   socket.join(`role:${socket.user.roles?.join(',')}`);
 
   socket.on('disconnect', () => {
-    console.log(`User ${socket.user.userId} disconnected`);
+    logger.info(`User ${socket.user.userId} disconnected`);
   });
 
   socket.on('subscribe-workflow', (workflowId) => {
@@ -159,10 +186,13 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 3001;
 
+const BASE_URL = process.env.RENDER_EXTERNAL_URL || process.env.EXTERNAL_URL || `http://localhost:${PORT}`;
+
 server.listen(PORT, () => {
-  console.log(`Base44 ERP Backend rodando na porta ${PORT}`);
-  console.log(`API: http://0.0.0.0:${PORT}/api`);
-  console.log(`Health: http://0.0.0.0:${PORT}/health`);
+  logger.info(`Base44 ERP Backend rodando na porta ${PORT}`);
+  logger.info(`API: ${BASE_URL}/api`);
+  logger.info(`Health: ${BASE_URL}/health`);
+  logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
-module.exports = { app, io };
+module.exports = { app, io, logger };

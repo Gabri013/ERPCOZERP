@@ -1,4 +1,5 @@
 const { AuditLogger } = require('../services/auditLogger');
+const logger = require('../services/logger');
 
 /**
  * Middleware de auditoria — loga todas as requisições
@@ -31,7 +32,7 @@ const auditMiddleware = async (req, res, next) => {
         );
       }
     } catch (err) {
-      console.error('Erro ao logar auditoria:', err.message);
+      logger.error('Erro ao logar auditoria:', err.message);
     }
   });
   

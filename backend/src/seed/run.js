@@ -5,6 +5,12 @@ const { query } = require('../config/database');
 const bcrypt = require('bcrypt');
 const { v4: uuidv4 } = require('uuid');
 
+// Seed só executa se SEED_ENABLED=true (segurança para produção)
+if (process.env.SEED_ENABLED !== 'true' && process.env.NODE_ENV === 'production') {
+  console.log('⚠️  Seed desabilitado em produção. Defina SEED_ENABLED=true para executar.');
+  process.exit(0);
+}
+
 async function seed() {
   console.log('🌱 Iniciando seed...\n');
 
@@ -12,7 +18,8 @@ async function seed() {
     // 1. Cria usuário master
     console.log('👤 Criando usuário master...');
     let masterId = uuidv4();
-    const masterHash = await bcrypt.hash('master123', 12); // Senha: master123
+    const masterPassword = process.env.DEFAULT_MASTER_PASSWORD || 'master123_dev';
+    const masterHash = await bcrypt.hash(masterPassword, 12);
 
     await query(`
       INSERT IGNORE INTO users (id, email, password_hash, full_name, email_verified, active)
@@ -31,12 +38,13 @@ async function seed() {
       `, [masterId, masterRole[0].id, masterId]);
     }
 
-    console.log('✅ Usuário master criado (master@base44.com / master123)');
+    console.log(`✅ Usuário master criado (master@base44.com / ${process.env.DEFAULT_MASTER_PASSWORD || 'master123_dev'})`);
 
     // 2. Cria usuário admin
     console.log('👤 Criando usuário admin...');
     let adminId = uuidv4();
-    const adminHash = await bcrypt.hash('admin123', 12);
+    const adminPassword = process.env.DEFAULT_ADMIN_PASSWORD || 'admin123_dev';
+    const adminHash = await bcrypt.hash(adminPassword, 12);
 
     await query(`
       INSERT IGNORE INTO users (id, email, password_hash, full_name, email_verified, active)
@@ -54,7 +62,7 @@ async function seed() {
       `, [adminId, adminRole[0].id, masterId]);
     }
 
-    console.log('✅ Usuário admin criado (admin@base44.com / admin123)');
+    console.log('✅ Usuário admin criado (admin@base44.com / ' + (process.env.DEFAULT_ADMIN_PASSWORD || 'admin123_dev') + ')');
 
     // 3. Dados de exemplo — Produtos (se não existirem)
     console.log('📦 Populando produtos de exemplo...');
@@ -212,9 +220,10 @@ async function seed() {
 
     console.log('\n✨ Seed concluído com sucesso!');
     console.log('\n📌 Logins iniciais:');
-    console.log('   Master: master@base44.com / master123');
-    console.log('   Admin:  admin@base44.com  / admin123');
+    console.log(`   Master: master@base44.com / ${process.env.DEFAULT_MASTER_PASSWORD || 'master123_dev'}`);
+    console.log(`   Admin:  admin@base44.com  / ${process.env.DEFAULT_ADMIN_PASSWORD || 'admin123_dev'}`);
     console.log('\n⚠️  IMPORTANTE: Altere as senhas em produção!');
+    console.log('💡 Dica: Use variáveis de ambiente DEFAULT_MASTER_PASSWORD e DEFAULT_ADMIN_PASSWORD');
 
   } catch (err) {
     console.error('❌ Erro no seed:', err.message);

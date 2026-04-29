@@ -8,6 +8,7 @@
  */
 
 const { AuditLogger } = require('./auditLogger');
+const logger = require('./logger');
 
 class ImpersonationService {
   constructor() {
@@ -87,10 +88,10 @@ class ImpersonationService {
          context.ip || null,
          context.userAgent || null
        );
-     } catch (err) {
-       console.error('Falha ao registrar log de auditoria (start):', err.message);
-       // Não interrompe o fluxo — best-effort
-     }
+      } catch (err) {
+        logger.error('Falha ao registrar log de auditoria (start):', err.message);
+        // Não interrompe o fluxo — best-effort
+      }
 
      return {
       success: true,
@@ -151,10 +152,10 @@ class ImpersonationService {
          session.ip_address,
          session.user_agent || null
        );
-     } catch (err) {
-       console.error('Falha ao registrar log de auditoria (end):', err.message);
-       // Não interrompe o fluxo — best-effort
-     }
+      } catch (err) {
+        logger.error('Falha ao registrar log de auditoria (end):', err.message);
+        // Não interrompe o fluxo — best-effort
+      }
 
       return { success: true };
     }
@@ -259,7 +260,7 @@ const impersonationMiddleware = async (req, res, next) => {
         req.impersonatedUserId = decoded.userId;
         
         // Log especial
-        console.log(`[Impersonation] Master ${decoded.impersonatedBy} atuando como ${decoded.userId}`);
+        logger.info(`[Impersonation] Master ${decoded.impersonatedBy} atuando como ${decoded.userId}`);
       }
       
       req.user = decoded;

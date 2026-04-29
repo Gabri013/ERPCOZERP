@@ -1,4 +1,16 @@
 require('dotenv').config();
+const winston = require('winston');
+
+const logger = winston.createLogger({
+  level: process.env.LOG_LEVEL || 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.errors({ stack: true }),
+    winston.format.json()
+  ),
+  defaultMeta: { service: 'base44-backend-db' },
+  transports: [new winston.transports.Console()]
+});
 
 // Database wrapper: MySQL is the primary target for this ERP.
 const DB_CLIENT = (process.env.DB_CLIENT || 'mysql').toLowerCase();
@@ -65,13 +77,13 @@ if (DB_CLIENT === 'mysql') {
     connectionTimeoutMillis: 2000,
   });
 
-  pool.on('connect', () => {
-    console.log('✅ Conectado ao PostgreSQL');
-  });
+   pool.on('connect', () => {
+     logger.info('Conectado ao PostgreSQL');
+   });
 
-  pool.on('error', (err) => {
-    console.error('❌ Erro na conexão PostgreSQL:', err.message);
-  });
+   pool.on('error', (err) => {
+     logger.error('Erro na conexão PostgreSQL:', err.message);
+   });
 
   module.exports = {
     query: async (text, params) => {
