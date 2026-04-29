@@ -3,6 +3,17 @@ require('dotenv').config();
 // Database wrapper: MySQL is the primary target for this ERP.
 const DB_CLIENT = (process.env.DB_CLIENT || 'mysql').toLowerCase();
 
+function getMysqlSslConfig() {
+  const host = process.env.MYSQL_HOST || '';
+  const port = process.env.MYSQL_PORT || '';
+  const enabled =
+    String(process.env.MYSQL_SSL || '').toLowerCase() === 'true' ||
+    host.includes('tidbcloud.com') ||
+    port === '4000';
+
+  return enabled ? { minVersion: 'TLSv1.2', rejectUnauthorized: true } : undefined;
+}
+
 if (DB_CLIENT === 'mysql') {
   const mysql = require('mysql2/promise');
 
@@ -16,7 +27,8 @@ if (DB_CLIENT === 'mysql') {
     connectionLimit: parseInt(process.env.MYSQL_CONNECTION_LIMIT) || 10,
     queueLimit: 0,
     timezone: 'Z',
-    charset: 'utf8mb4'
+    charset: 'utf8mb4',
+    ssl: getMysqlSslConfig()
   });
 
   pool.on && pool.on('connection', () => {});

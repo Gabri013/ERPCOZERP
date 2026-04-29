@@ -42,13 +42,21 @@ async function createConnection() {
     throw new Error('Este projeto esta configurado para deploy com MySQL. Defina DB_CLIENT=mysql.');
   }
 
+  const host = process.env.MYSQL_HOST || '127.0.0.1';
+  const port = process.env.MYSQL_PORT || '3306';
+  const useSsl =
+    String(process.env.MYSQL_SSL || '').toLowerCase() === 'true' ||
+    host.includes('tidbcloud.com') ||
+    port === '4000';
+
   return mysql.createConnection({
-    host: process.env.MYSQL_HOST || '127.0.0.1',
-    port: process.env.MYSQL_PORT ? Number(process.env.MYSQL_PORT) : 3306,
+    host,
+    port: Number(port),
     user: process.env.MYSQL_USER || 'root',
     password: process.env.MYSQL_PASSWORD || '',
     database: process.env.MYSQL_DATABASE || 'erp',
     multipleStatements: false,
+    ssl: useSsl ? { minVersion: 'TLSv1.2', rejectUnauthorized: true } : undefined,
   });
 }
 

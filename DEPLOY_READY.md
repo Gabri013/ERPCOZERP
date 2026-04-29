@@ -56,16 +56,17 @@ O servico usa:
 - `startCommand: npm run migrate && npm run seed && npm start`
 - `healthCheckPath: /health`
 
-Variaveis obrigatorias:
+Variaveis obrigatorias no Render:
 
 ```env
 NODE_ENV=production
 DB_CLIENT=mysql
-MYSQL_HOST=seu-host-mysql
-MYSQL_PORT=3306
-MYSQL_USER=seu-usuario
-MYSQL_PASSWORD=sua-senha
-MYSQL_DATABASE=erp
+MYSQL_HOST=gateway01.us-east-1.prod.aws.tidbcloud.com
+MYSQL_PORT=4000
+MYSQL_USER=3eCLgEswNo39kSd.root
+MYSQL_PASSWORD=sua-senha-do-tidb
+MYSQL_DATABASE=erpcozinca
+MYSQL_SSL=true
 JWT_SECRET=troque-por-uma-chave-grande-e-secreta
 JWT_EXPIRES_IN=7d
 REFRESH_TOKEN_EXPIRES_IN=30d
@@ -77,19 +78,26 @@ BCRYPT_ROUNDS=12
 
 ## Banco MySQL Gratis
 
-Opcao recomendada para custo zero:
+Opcao escolhida: TiDB Cloud Serverless.
 
-1. Criar um banco MySQL-compativel no TiDB Cloud Serverless ou Aiven Free MySQL.
-2. Copiar host, porta, usuario, senha e database.
-3. Colocar esses dados nas variaveis do Render:
+Antes do deploy, crie um banco dedicado para o ERP no TiDB Cloud. No SQL Editor do TiDB, execute:
+
+```sql
+CREATE DATABASE IF NOT EXISTS erpcozinca;
+```
+
+Depois use no Render:
 
 ```env
-MYSQL_HOST=...
-MYSQL_PORT=3306
-MYSQL_USER=...
-MYSQL_PASSWORD=...
-MYSQL_DATABASE=...
+MYSQL_HOST=gateway01.us-east-1.prod.aws.tidbcloud.com
+MYSQL_PORT=4000
+MYSQL_USER=3eCLgEswNo39kSd.root
+MYSQL_PASSWORD=sua-senha-do-tidb
+MYSQL_DATABASE=erpcozinca
+MYSQL_SSL=true
 ```
+
+Nao use `sys` como banco do ERP. `sys` e schema de sistema; use `erpcozinca` ou outro nome dedicado.
 
 O backend vai rodar automaticamente:
 
