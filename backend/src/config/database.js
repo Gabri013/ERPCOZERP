@@ -12,6 +12,20 @@ const logger = winston.createLogger({
   transports: [new winston.transports.Console()]
 });
 
+function getMysqlSslConfig() {
+  const sslEnabled = String(process.env.MYSQL_SSL || '').toLowerCase() === 'true';
+  const host = String(process.env.MYSQL_HOST || '').toLowerCase();
+
+  if (!sslEnabled && !host.includes('tidbcloud.com')) {
+    return false;
+  }
+
+  return {
+    minVersion: 'TLSv1.2',
+    rejectUnauthorized: sslEnabled,
+  };
+}
+
 // Database wrapper: MySQL is the primary target for this ERP.
 const DB_CLIENT = (process.env.DB_CLIENT || process.env.DB_TYPE || 'mysql').toLowerCase();
 

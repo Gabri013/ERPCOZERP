@@ -4,6 +4,73 @@ const { authenticateToken, requirePermission, requireMaster } = require('../midd
 
 const router = express.Router();
 
+const LEGACY_PERMISSION_ALIASES = {
+  'dashboard:view': ['ver_dashboard'],
+  'clientes:view': ['ver_clientes'],
+  'pedidos:view': ['ver_pedidos'],
+  'produtos:view': ['ver_estoque'],
+  'estoque:view': ['ver_estoque'],
+  'producao:view': ['ver_op', 'ver_pcp', 'ver_kanban', 'ver_chao_fabrica', 'ver_roteiros', 'ver_maquinas'],
+  'producao:manage': ['criar_op', 'editar_op', 'apontar'],
+  'compras:view': ['ver_compras'],
+  'compras:create': ['criar_oc'],
+  'compras:edit': ['aprovar_compra'],
+  'financeiro:view': ['ver_financeiro'],
+  'financeiro:manage': ['aprovar_financeiro'],
+  'relatorios:view': ['relatorios:view'],
+  'users:manage': ['gerenciar_usuarios', 'editar_config'],
+  'roles:manage': ['editar_config'],
+  'empresa:manage': ['editar_config'],
+  'parametros:view': ['editar_config'],
+  'audit:view': ['system.audit']
+};
+
+const ROLE_ALIAS_PERMISSIONS = {
+  master: [
+    'ver_dashboard', 'ver_clientes', 'ver_pedidos', 'ver_estoque',
+    'ver_op', 'ver_pcp', 'ver_kanban', 'ver_chao_fabrica', 'ver_roteiros', 'ver_maquinas',
+    'ver_compras', 'criar_oc', 'aprovar_compra',
+    'ver_rh', 'cadastrar_funcionario', 'registrar_ponto', 'ver_folha',
+    'ver_crm', 'ver_fiscal', 'emitir_nfe', 'cancelar_nfe',
+    'ver_financeiro', 'aprovar_financeiro',
+    'gerenciar_usuarios', 'editar_config', 'impersonate'
+  ],
+  admin: [
+    'ver_dashboard', 'ver_clientes', 'ver_pedidos', 'ver_estoque',
+    'ver_op', 'ver_pcp', 'ver_kanban', 'ver_chao_fabrica', 'ver_roteiros', 'ver_maquinas',
+    'ver_compras', 'criar_oc', 'aprovar_compra',
+    'ver_rh', 'cadastrar_funcionario', 'registrar_ponto', 'ver_folha',
+    'ver_crm', 'ver_fiscal', 'emitir_nfe', 'cancelar_nfe',
+    'ver_financeiro', 'aprovar_financeiro',
+    'gerenciar_usuarios', 'editar_config'
+  ],
+  operador: [
+    'ver_dashboard', 'ver_clientes', 'ver_pedidos', 'ver_estoque',
+    'ver_op', 'ver_pcp', 'ver_kanban', 'ver_chao_fabrica', 'ver_roteiros', 'ver_maquinas',
+    'ver_crm', 'relatorios:view'
+  ],
+  vendedor: [
+    'ver_dashboard', 'ver_clientes', 'ver_pedidos', 'ver_estoque',
+    'ver_crm', 'relatorios:view'
+  ]
+};
+
+function expandPermissionsByRole(rolePermissions, roles) {
+  const permissions = new Set(rolePermissions);
+
+  for (const [source, aliases] of Object.entries(LEGACY_PERMISSION_ALIASES)) {
+    if (permissions.has(source)) {
+      aliases.forEach(alias => permissions.add(alias));
+    }
+  }
+
+  for (const role of roles) {
+    (ROLE_ALIAS_PERMISSIONS[role] || []).forEach(permission => permissions.add(permission));
+  }
+
+  return permissions;
+}
+
 // ACL Permissions by role (for mock database)
 const PERMISSIONS = {
   admin: [
@@ -60,20 +127,27 @@ router.get('/me', authenticateToken, (req, res) => {
       rolePermissions.forEach(perm => permissions.add(perm));
     });
 
+    const expandedPermissions = expandPermissionsByRole(permissions, userRoles);
+
     // Mapeia permissões para módulos
     const modules = {
-      dashboard: permissions.has('dashboard:view'),
-      clientes: permissions.has('clientes:view'),
-      produtos: permissions.has('produtos:view'),
-      estoque: permissions.has('estoque:view'),
-      pedidos: permissions.has('pedidos:view'),
-      producao: permissions.has('producao:view'),
-      compras: permissions.has('compras:view'),
-      financeiro: permissions.has('financeiro:view'),
-      relatorios: permissions.has('relatorios:view'),
-      admin: permissions.has('users:manage') || permissions.has('roles:manage'),
-      usuarios: permissions.has('users:view') || permissions.has('users:manage'),
-      auditoria: permissions.has('audit:view')
+      dashboard: expandedPermissions.has('dashboard:view') || expandedPermissions.has('ver_dashboard'),
+      vendas: expandedPermissions.has('pedidos:view') || expandedPermissions.has('clientes:view') || expandedPermissions.has('ver_pedidos') || expandedPermissions.has('ver_clientes'),
+      clientes: expandedPermissions.has('clientes:view') || expandedPermissions.has('ver_clientes'),
+      produtos: expandedPermissions.has('produtos:view'),
+      estoque: expandedPermissions.has('estoque:view') || expandedPermissions.has('ver_estoque'),
+      pedidos: expandedPermissions.has('pedidos:view') || expandedPermissions.has('ver_pedidos'),
+      producao: expandedPermissions.has('producao:view') || expandedPermissions.has('ver_op'),
+      compras: expandedPermissions.has('compras:view') || expandedPermissions.has('ver_compras'),
+      crm: expandedPermissions.has('ver_crm'),
+      rh: expandedPermissions.has('ver_rh'),
+      fiscal: expandedPermissions.has('ver_fiscal'),
+      financeiro: expandedPermissions.has('financeiro:view') || expandedPermissions.has('ver_financeiro'),
+      relatorios: expandedPermissions.has('relatorios:view'),
+      configuracoes: expandedPermissions.has('editar_config'),
+      admin: expandedPermissions.has('users:manage') || expandedPermissions.has('roles:manage') || expandedPermissions.has('gerenciar_usuarios'),
+      usuarios: expandedPermissions.has('users:view') || expandedPermissions.has('users:manage') || expandedPermissions.has('gerenciar_usuarios'),
+      auditoria: expandedPermissions.has('audit:view') || expandedPermissions.has('system.audit')
     };
 
     res.json({
@@ -83,9 +157,9 @@ router.get('/me', authenticateToken, (req, res) => {
         name: req.user.full_name || req.user.email,
         roles: userRoles
       },
-      permissions: Array.from(permissions),
+      permissions: Array.from(expandedPermissions),
       modules,
-      hasPermission: (permission) => permissions.has(permission)
+      hasPermission: (permission) => expandedPermissions.has(permission)
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

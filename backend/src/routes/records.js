@@ -2,11 +2,20 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { query } = require('../config/database');
 const { authenticateToken, requirePermission } = require('../middleware/auth');
+const { PermissionEngine } = require('../services/permissionEngine');
 const { WorkflowEngine } = require('../services/workflowEngine');
 const { RuleEngine } = require('../services/ruleEngine');
 const { AuditLogger } = require('../services/auditLogger');
 
 const router = express.Router();
+
+const attachPermissionEngine = (req, res, next) => {
+  req.permissionEngine = new PermissionEngine(req.user, {
+    ip: req.ip,
+    userAgent: req.get('user-agent'),
+  });
+  next();
+};
 
 // ============================================
 // CRUD GENÉRICO DE REGISTROS
@@ -16,7 +25,7 @@ const router = express.Router();
  * GET /api/records?entity=produto
  * Lista registros de uma entidade com filtros, paginação, ordenação
  */
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/', authenticateToken, attachPermissionEngine, async (req, res) => {
   try {
     const { 
       entity, 
@@ -98,9 +107,9 @@ router.get('/', authenticateToken, async (req, res) => {
     }
 
     // Paginação
-    const offset = (page - 1) * limit;
-    sql += ` LIMIT ? OFFSET ?`;
-    params.push(parseInt(limit), parseInt(offset));
+    const limitValue = parseInt(limit, 10);
+    const offsetValue = (parseInt(page, 10) - 1) * limitValue;
+    sql += ` LIMIT ${limitValue} OFFSET ${offsetValue}`;
 
     const records = await query(sql, params);
 
@@ -133,7 +142,7 @@ router.get('/', authenticateToken, async (req, res) => {
  * GET /api/records/:id
  * Busca um registro por ID
  */
-router.get('/:id', authenticateToken, async (req, res) => {
+router.get('/:id', authenticateToken, attachPermissionEngine, async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -165,7 +174,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 /**
  * POST /api/records — criar registro
  */
-router.post('/', authenticateToken, async (req, res) => {
+router.post('/', authenticateToken, attachPermissionEngine, async (req, res) => {
   try {
     const { entity_id, data } = req.body;
 
@@ -232,7 +241,7 @@ router.post('/', authenticateToken, async (req, res) => {
 /**
  * PUT /api/records/:id — atualizar registro
  */
-router.put('/:id', authenticateToken, async (req, res) => {
+router.put('/:id', authenticateToken, attachPermissionEngine, async (req, res) => {
   try {
     const { id } = req.params;
     const { data: newData } = req.body;
@@ -297,7 +306,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
 /**
  * DELETE /api/records/:id — soft delete
  */
-router.delete('/:id', authenticateToken, async (req, res) => {
+router.delete('/:id', authenticateToken, attachPermissionEngine, async (req, res) => {
   try {
     const { id } = req.params;
     const { force = false } = req.query;

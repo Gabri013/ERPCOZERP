@@ -39,10 +39,12 @@ router.get('/', authenticateToken, async (req, res) => {
 
     const workflows = await query(sql, params);
     
+    console.log('[WORKFLOWS DEBUG] Raw result:', JSON.stringify(workflows[0], null, 2));
+    
     const parsed = workflows.map(w => ({
       ...w,
-      steps: w.steps ? JSON.parse(w.steps) : [],
-      config: w.config ? JSON.parse(w.config) : {}
+      steps: w.steps ? (typeof w.steps === 'string' ? JSON.parse(w.steps) : w.steps) : [],
+      config: w.config ? (typeof w.config === 'string' ? JSON.parse(w.config) : w.config) : {}
     }));
 
     res.json({ success: true, data: parsed });

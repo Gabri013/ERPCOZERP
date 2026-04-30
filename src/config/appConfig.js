@@ -1,5 +1,5 @@
 const backendProvider = import.meta.env.VITE_BACKEND_PROVIDER || "api";
-const backendUrl = (import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:3001").replace(/\/$/, "");
+const backendUrl = (import.meta.env.VITE_BACKEND_URL || "").replace(/\/$/, "");
 
 export const appConfig = {
   backendProvider,
@@ -12,6 +12,7 @@ export const appConfig = {
 export function resolveApiUrl(path) {
   if (!path?.startsWith('/api')) return path;
   if (!appConfig.isApi) return path;
+  if (!appConfig.backendUrl) return path;
   return `${appConfig.backendUrl}${path}`;
 }
 

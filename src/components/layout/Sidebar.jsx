@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, ShoppingCart, Truck, Factory,
   DollarSign, ChevronDown, ChevronRight,
-  FileText, Boxes, Database
+  FileText, Boxes, Database, Users
 } from 'lucide-react';
 import { usePermissao } from '@/lib/PermissaoContext';
 import { useMetadataStore } from '@/stores/metadataStore';
@@ -14,21 +14,80 @@ const staticMenuItems = [
     label: 'Vendas', icon: ShoppingCart, children: [
       { label: 'Pedidos de Venda', path: '/vendas/pedidos', required: 'ver_pedidos' },
       { label: 'Clientes', path: '/vendas/clientes', required: 'ver_clientes' },
+      { label: 'Orcamentos', path: '/vendas/orcamentos', required: 'ver_pedidos' },
+      { label: 'Tabela de Precos', path: '/vendas/tabela-precos', required: 'ver_pedidos' },
+      { label: 'Relatorios', path: '/vendas/relatorios', required: 'relatorios:view' },
+    ]
+  },
+  {
+    label: 'Compras', icon: Truck, children: [
+      { label: 'Fornecedores', path: '/compras/fornecedores', required: 'ver_compras' },
+      { label: 'Ordens de Compra', path: '/compras/ordens-compra', required: 'ver_compras' },
+      { label: 'Cotacoes', path: '/compras/cotacoes', required: 'ver_compras' },
+      { label: 'Recebimentos', path: '/compras/recebimentos', required: 'ver_compras' },
     ]
   },
   {
     label: 'Estoque', icon: Boxes, children: [
       { label: 'Produtos', path: '/entidades/produto', required: 'ver_estoque' },
+      { label: 'Movimentacoes', path: '/estoque/movimentacoes', required: 'ver_estoque' },
+      { label: 'Inventario', path: '/estoque/inventario', required: 'ver_estoque' },
+      { label: 'Enderecamento', path: '/estoque/enderecamento', required: 'ver_estoque' },
     ]
   },
   {
     label: 'Produção', icon: Factory, children: [
       { label: 'Ordens de Produção', path: '/producao/ordens', required: 'ver_op' },
+      { label: 'PCP', path: '/producao/pcp', required: 'ver_pcp' },
+      { label: 'Kanban', path: '/producao/kanban', required: 'ver_kanban' },
+      { label: 'Chao de Fabrica', path: '/producao/chao-fabrica', required: 'ver_chao_fabrica' },
+      { label: 'Roteiros', path: '/producao/roteiros', required: 'ver_roteiros' },
+      { label: 'Maquinas', path: '/producao/maquinas', required: 'ver_maquinas' },
+    ]
+  },
+  {
+    label: 'CRM', icon: Users, children: [
+      { label: 'Leads', path: '/crm/leads', required: 'ver_crm' },
+      { label: 'Oportunidades', path: '/crm/oportunidades', required: 'ver_crm' },
+      { label: 'Pipeline', path: '/crm/pipeline', required: 'ver_crm' },
+      { label: 'Atividades', path: '/crm/atividades', required: 'ver_crm' },
+    ]
+  },
+  {
+    label: 'RH', icon: Users, children: [
+      { label: 'Funcionarios', path: '/rh/funcionarios', required: 'ver_rh' },
+      { label: 'Ponto', path: '/rh/ponto', required: 'ver_rh' },
+      { label: 'Folha de Pagamento', path: '/rh/folha-pagamento', required: 'ver_folha' },
+      { label: 'Ferias', path: '/rh/ferias', required: 'ver_rh' },
+    ]
+  },
+  {
+    label: 'Fiscal', icon: FileText, children: [
+      { label: 'NFe', path: '/fiscal/nfe', required: 'ver_fiscal' },
+      { label: 'Consulta NFe', path: '/fiscal/nfe-consulta', required: 'ver_fiscal' },
+      { label: 'SPED', path: '/fiscal/sped', required: 'ver_fiscal' },
     ]
   },
   {
     label: 'Financeiro', icon: DollarSign, children: [
       { label: 'Contas a Receber', path: '/financeiro/receber', required: 'ver_financeiro' },
+      { label: 'Contas a Pagar', path: '/financeiro/pagar', required: 'ver_financeiro' },
+      { label: 'Fluxo de Caixa', path: '/financeiro/fluxo-caixa', required: 'ver_financeiro' },
+      { label: 'DRE', path: '/financeiro/dre', required: 'ver_financeiro' },
+      { label: 'Conciliacao Bancaria', path: '/financeiro/conciliacao-bancaria', required: 'ver_financeiro' },
+      { label: 'Relatorio Financeiro', path: '/financeiro/relatorio', required: 'ver_financeiro' },
+      { label: 'Aprovacao de Pedidos', path: '/financeiro/aprovacao-pedidos', required: 'aprovar_financeiro' },
+    ]
+  },
+  { label: 'Relatorios', icon: FileText, path: '/relatorios', required: 'relatorios:view' },
+  {
+    label: 'Configuracoes', icon: Database, children: [
+      { label: 'Empresa', path: '/configuracoes/empresa', required: 'editar_config' },
+      { label: 'Usuarios', path: '/configuracoes/usuarios', required: 'gerenciar_usuarios' },
+      { label: 'Parametros', path: '/configuracoes/parametros', required: 'editar_config' },
+      { label: 'Modelo OP', path: '/configuracoes/modelo-op', required: 'editar_config' },
+      { label: 'Metadata Studio', path: '/configuracoes/metadata-studio', required: 'editar_config' },
+      { label: 'Workflows', path: '/configuracoes/workflows', required: 'editar_config' },
     ]
   },
 ];

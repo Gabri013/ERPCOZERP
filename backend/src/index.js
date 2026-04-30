@@ -34,6 +34,7 @@ const { auditMiddleware } = require('./middleware/audit');
 const { authenticateToken } = require('./middleware/auth');
 
 const app = express();
+app.set('trust proxy', 1);
 const server = createServer(app);
 const io = new Server(server, {
   cors: { origin: process.env.FRONTEND_URL || 'http://localhost:5173', credentials: true }

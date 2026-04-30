@@ -13,6 +13,8 @@ const router = express.Router();
 router.get('/funcionarios', authenticateToken, requirePermission('ver_rh'), async (req, res) => {
   try {
     const { page = 1, limit = 50, search = '' } = req.query;
+    const limitValue = parseInt(limit, 10);
+    const offsetValue = (parseInt(page, 10) - 1) * limitValue;
     const entity = await query("SELECT id FROM entities WHERE code = 'funcionario'");
     
     if (!entity.length) return res.json({ success: true, data: [], pagination: { page: 1, total: 0 } });
@@ -26,8 +28,7 @@ router.get('/funcionarios', authenticateToken, requirePermission('ver_rh'), asyn
       params.push(`%${search}%`, `%${search}%`);
     }
 
-    sql += ' ORDER BY JSON_UNQUOTE(JSON_EXTRACT(data, "$.nome")) LIMIT ? OFFSET ?';
-    params.push(parseInt(limit), (page - 1) * parseInt(limit));
+    sql += ` ORDER BY JSON_UNQUOTE(JSON_EXTRACT(data, "$.nome")) LIMIT ${limitValue} OFFSET ${offsetValue}`;
 
     const [funcs, count] = await Promise.all([
       query(sql, params),

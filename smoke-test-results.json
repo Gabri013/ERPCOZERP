@@ -1,0 +1,26 @@
+{
+  "passed": 3,
+  "failed": 1,
+  "tests": [
+    {
+      "name": "Backend /health",
+      "success": true,
+      "details": "Status: 200"
+    },
+    {
+      "name": "Frontend raiz (/)",
+      "success": true,
+      "details": "HTML com DOCTYPE"
+    },
+    {
+      "name": "Login com test-login",
+      "success": false,
+      "details": "Status: 429, Body: Too many requests from this IP, please try again later."
+    },
+    {
+      "name": "SPA GET /login",
+      "success": true,
+      "details": "HTML login OK"
+    }
+  ]
+}

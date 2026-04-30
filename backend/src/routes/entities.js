@@ -4,6 +4,22 @@ const { authenticateToken, requirePermission } = require('../middleware/auth');
 
 const router = express.Router();
 
+function parseMaybeJson(value, fallback) {
+  if (value == null) {
+    return fallback;
+  }
+
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+}
+
 // ============================================
 // ENTIDADES
 // ============================================
@@ -24,8 +40,8 @@ router.get('/', authenticateToken, async (req, res) => {
 
     const parsed = entities.map(e => ({
       ...e,
-      fields: e.fields ? JSON.parse(e.fields) : [],
-      layout: e.layout ? JSON.parse(e.layout) : {}
+      fields: parseMaybeJson(e.fields, []),
+      layout: parseMaybeJson(e.layout, {})
     }));
 
     res.json({ success: true, data: parsed });
@@ -60,8 +76,8 @@ router.get('/:code', authenticateToken, async (req, res) => {
     const entity = entities[0];
     res.json({
       ...entity,
-      fields: entity.fields ? JSON.parse(entity.fields) : [],
-      layout: entity.layout ? JSON.parse(entity.layout) : {}
+      fields: parseMaybeJson(entity.fields, []),
+      layout: parseMaybeJson(entity.layout, {})
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

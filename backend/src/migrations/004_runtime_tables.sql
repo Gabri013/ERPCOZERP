@@ -171,6 +171,8 @@ CREATE TABLE IF NOT EXISTS apontamentos (
   usuario_id CHAR(36) NULL,
   descricao TEXT NULL,
   quantidade DECIMAL(15,3) NOT NULL DEFAULT 0,
+  refugo DECIMAL(15,3) NOT NULL DEFAULT 0,
+  observacao TEXT NULL,
   status VARCHAR(50) NOT NULL DEFAULT 'aberto',
   iniciado_em DATETIME NULL,
   finalizado_em DATETIME NULL,
@@ -182,9 +184,15 @@ CREATE TABLE IF NOT EXISTS movimentos_estoque (
   produto_id CHAR(36) NULL,
   tipo VARCHAR(50) NOT NULL,
   quantidade DECIMAL(15,3) NOT NULL DEFAULT 0,
+  produto_codigo VARCHAR(100) NULL,
+  produto_descricao TEXT NULL,
+  unidade VARCHAR(20) NULL,
+  valor_unitario DECIMAL(15,2) DEFAULT 0,
+  valor_total DECIMAL(15,2) DEFAULT 0,
   origem VARCHAR(100) NULL,
   origem_id CHAR(36) NULL,
-  created_by CHAR(36) NULL,
+  observacao TEXT NULL,
+  criado_por CHAR(36) NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

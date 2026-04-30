@@ -16,6 +16,8 @@ router.get('/', requirePermission('system.audit'), async (req, res) => {
       page = 1, limit = 100, 
       start_date, end_date 
     } = req.query;
+    const limitValue = parseInt(limit, 10);
+    const offsetValue = (parseInt(page, 10) - 1) * limitValue;
 
     let sql = `
       SELECT al.*, 
@@ -39,8 +41,7 @@ router.get('/', requirePermission('system.audit'), async (req, res) => {
     if (start_date) { sql += ' AND al.created_at >= ?'; params.push(start_date); }
     if (end_date) { sql += ' AND al.created_at <= ?'; params.push(end_date + ' 23:59:59'); }
 
-    sql += ' ORDER BY al.created_at DESC LIMIT ? OFFSET ?';
-    params.push(parseInt(limit), (page - 1) * limit);
+    sql += ` ORDER BY al.created_at DESC LIMIT ${limitValue} OFFSET ${offsetValue}`;
 
     const logs = await query(sql, params);
     
@@ -94,6 +95,8 @@ router.get('/user/:userId', requirePermission('system.audit'), async (req, res) 
 router.get('/access', requirePermission('system.audit'), async (req, res) => {
   try {
     const { user_id, endpoint, page = 1, limit = 100 } = req.query;
+    const limitValue = parseInt(limit, 10);
+    const offsetValue = (parseInt(page, 10) - 1) * limitValue;
     
     let sql = `SELECT * FROM access_logs WHERE 1=1`;
     const params = [];
@@ -101,8 +104,7 @@ router.get('/access', requirePermission('system.audit'), async (req, res) => {
     if (user_id) { sql += ' AND user_id = ?'; params.push(user_id); }
     if (endpoint) { sql += ' AND endpoint LIKE ?'; params.push(`%${endpoint}%`); }
     
-    sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
-    params.push(parseInt(limit), (page - 1) * parseInt(limit));
+    sql += ` ORDER BY created_at DESC LIMIT ${limitValue} OFFSET ${offsetValue}`;
 
     const logs = await query(sql, params);
     res.json({ success: true, data: logs });

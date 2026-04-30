@@ -114,6 +114,7 @@ const mockData = {
       updated_at: new Date().toISOString()
     }
   ],
+  user_sessions: [],
   roles: [
     {
       id: '1',
@@ -346,5 +347,107 @@ const mockData = {
   audit_logs: [],
   access_logs: []
 };
-module.exports = mockData;
+
+// Minimal adapter to expose query/getClient like mysql/postgres wrappers
+function clone(obj) {
+  return JSON.parse(JSON.stringify(obj));
+}
+
+async function query(sql, params = []) {
+  const sqlUpper = String(sql || '').toUpperCase();
+  // DEBUG
+  console.log('[MOCK DB] SQL:', sql.trim().substring(0, 200));
+  console.log('[MOCK DB] Params:', params);
+
+  // SELECT from users
+  if (sqlUpper.includes('FROM USERS')) {
+    let results = mockData.users.slice();
+
+    // filter by email or id if param provided
+    if (params && params.length > 0) {
+      const p = params[0];
+      if (String(sqlUpper).includes('WHERE') && /EMAIL/.test(sqlUpper)) {
+        results = results.filter(u => u.email === p);
+      } else if (String(sqlUpper).includes('WHERE') && /U.ID|WHERE ID =|WHERE U.ID =/.test(sqlUpper)) {
+        results = results.filter(u => u.id === p);
+      }
+    }
+
+    if (sqlUpper.includes('AND U.ACTIVE') || sqlUpper.includes('AND ACTIVE')) {
+      results = results.filter(u => u.active === true);
+    }
+
+    // emulate roles subquery: user.roles already contains JSON string
+    return results.map(u => clone(u));
+  }
+
+  // SELECT from roles
+  if (sqlUpper.includes('FROM ROLES')) {
+    let results = mockData.roles.slice();
+    if (params && params.length > 0 && typeof params[0] === 'string') {
+      results = results.filter(r => r.code === params[0]);
+    }
+    return results.map(r => clone(r));
+  }
+
+  // SELECT from permissions
+  if (sqlUpper.includes('FROM PERMISSIONS')) {
+    return mockData.permissions.map(p => clone(p));
+  }
+
+  // INSERT INTO user_sessions
+  if (sqlUpper.includes('INSERT INTO USER_SESSIONS')) {
+    const [id, user_id, session_token, ip_address, user_agent, expires_at] = params;
+    mockData.user_sessions.push({ id, user_id, session_token, ip_address, user_agent, expires_at });
+    return { insertId: mockData.user_sessions.length };
+  }
+
+  // INSERT INTO audit_logs (best-effort)
+  if (sqlUpper.includes('INSERT INTO AUDIT_LOGS')) {
+    mockData.audit_logs = mockData.audit_logs || [];
+    mockData.audit_logs.push({ id: mockData.audit_logs.length + 1, params: params });
+    return { insertId: mockData.audit_logs.length };
+  }
+
+  // UPDATE users SET failed_login_attempts
+  if (sqlUpper.includes('UPDATE USERS SET') && sqlUpper.includes('FAILED_LOGIN_ATTEMPTS')) {
+    const id = params[params.length - 1];
+    const user = mockData.users.find(u => u.id === id);
+    if (user) {
+      user.failed_login_attempts = (user.failed_login_attempts || 0) + 1;
+      return { affectedRows: 1 };
+    }
+    return { affectedRows: 0 };
+  }
+
+  // Generic INSERT fallback: return a fake insertId
+  if (sqlUpper.includes('INSERT INTO')) {
+    return { insertId: Math.floor(Math.random() * 1000) };
+  }
+
+  // Generic UPDATE/DELETE fallback
+  if (/UPDATE|DELETE/.test(sqlUpper)) {
+    return { affectedRows: 1 };
+  }
+
+  return [];
+}
+
+async function getClient() {
+  return {
+    query: async (sql, params) => query(sql, params),
+    beginTransaction: async () => {},
+    commit: async () => {},
+    rollback: async () => {},
+    release: () => {},
+  };
+}
+
+module.exports = {
+  query,
+  getClient,
+  pool: null,
+  // expose raw data for tests/debugging
+  _mockData: mockData
+};
 

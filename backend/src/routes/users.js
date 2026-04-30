@@ -9,7 +9,8 @@ const router = express.Router();
 router.get('/', requirePermission('user.manage'), async (req, res) => {
   try {
     const { page = 1, limit = 50, search = '' } = req.query;
-    const offset = (page - 1) * limit;
+    const limitValue = parseInt(limit, 10);
+    const offsetValue = (parseInt(page, 10) - 1) * limitValue;
     
     let sql = `
       SELECT 
@@ -29,8 +30,7 @@ router.get('/', requirePermission('user.manage'), async (req, res) => {
       params.push(`%${search}%`, `%${search}%`);
     }
     
-    sql += ' ORDER BY u.created_at DESC LIMIT ? OFFSET ?';
-    params.push(parseInt(limit), parseInt(offset));
+    sql += ` ORDER BY u.created_at DESC LIMIT ${limitValue} OFFSET ${offsetValue}`;
 
     const users = await query(sql, params);
     

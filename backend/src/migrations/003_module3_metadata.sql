@@ -192,3 +192,127 @@ INSERT IGNORE INTO entity_fields (id, entity_id, code, label, data_type, require
 SELECT UUID(), e.id, 'status', 'Status', 'select', FALSE, 6
 FROM entities e WHERE e.code = 'produto'
   AND NOT EXISTS (SELECT 1 FROM entity_fields WHERE entity_id = e.id AND code = 'status');
+
+-- Entidade: Máquina
+INSERT IGNORE INTO entities (id, code, name, description, type, is_system)
+SELECT 
+  UUID(),
+  'maquina',
+  'Máquina',
+  'Máquinas e equipamentos industriais',
+  'master',
+  TRUE
+WHERE NOT EXISTS (SELECT 1 FROM entities WHERE code = 'maquina');
+
+-- Criar campos da entidade "maquina"
+INSERT IGNORE INTO entity_fields (id, entity_id, code, label, data_type, required, display_order)
+SELECT UUID(), e.id, 'codigo', 'Código', 'text', TRUE, 1
+FROM entities e WHERE e.code = 'maquina'
+  AND NOT EXISTS (SELECT 1 FROM entity_fields WHERE entity_id = e.id AND code = 'codigo');
+
+INSERT IGNORE INTO entity_fields (id, entity_id, code, label, data_type, required, display_order)
+SELECT UUID(), e.id, 'descricao', 'Descrição', 'text', TRUE, 2
+FROM entities e WHERE e.code = 'maquina'
+  AND NOT EXISTS (SELECT 1 FROM entity_fields WHERE entity_id = e.id AND code = 'descricao');
+
+INSERT IGNORE INTO entity_fields (id, entity_id, code, label, data_type, required, display_order)
+SELECT UUID(), e.id, 'tipo', 'Tipo', 'text', FALSE, 3
+FROM entities e WHERE e.code = 'maquina'
+  AND NOT EXISTS (SELECT 1 FROM entity_fields WHERE entity_id = e.id AND code = 'tipo');
+
+INSERT IGNORE INTO entity_fields (id, entity_id, code, label, data_type, required, display_order)
+SELECT UUID(), e.id, 'fabricante', 'Fabricante', 'text', FALSE, 4
+FROM entities e WHERE e.code = 'maquina'
+  AND NOT EXISTS (SELECT 1 FROM entity_fields WHERE entity_id = e.id AND code = 'fabricante');
+
+INSERT IGNORE INTO entity_fields (id, entity_id, code, label, data_type, required, display_order)
+SELECT UUID(), e.id, 'modelo', 'Modelo', 'text', FALSE, 5
+FROM entities e WHERE e.code = 'maquina'
+  AND NOT EXISTS (SELECT 1 FROM entity_fields WHERE entity_id = e.id AND code = 'modelo');
+
+INSERT IGNORE INTO entity_fields (id, entity_id, code, label, data_type, required, display_order)
+SELECT UUID(), e.id, 'ano', 'Ano', 'integer', FALSE, 6
+FROM entities e WHERE e.code = 'maquina'
+  AND NOT EXISTS (SELECT 1 FROM entity_fields WHERE entity_id = e.id AND code = 'ano');
+
+INSERT IGNORE INTO entity_fields (id, entity_id, code, label, data_type, required, display_order)
+SELECT UUID(), e.id, 'setor', 'Setor', 'text', FALSE, 7
+FROM entities e WHERE e.code = 'maquina'
+  AND NOT EXISTS (SELECT 1 FROM entity_fields WHERE entity_id = e.id AND code = 'setor');
+
+INSERT IGNORE INTO entity_fields (id, entity_id, code, label, data_type, required, display_order)
+SELECT UUID(), e.id, 'status', 'Status', 'select', FALSE, 8
+FROM entities e WHERE e.code = 'maquina'
+  AND NOT EXISTS (SELECT 1 FROM entity_fields WHERE entity_id = e.id AND code = 'status');
+
+INSERT IGNORE INTO entity_fields (id, entity_id, code, label, data_type, required, display_order)
+SELECT UUID(), e.id, 'ultima_manutencao', 'Últ. Manutenção', 'date', FALSE, 9
+FROM entities e WHERE e.code = 'maquina'
+  AND NOT EXISTS (SELECT 1 FROM entity_fields WHERE entity_id = e.id AND code = 'ultima_manutencao');
+
+INSERT IGNORE INTO entity_fields (id, entity_id, code, label, data_type, required, display_order)
+SELECT UUID(), e.id, 'proxima_manutencao', 'Próx. Manutenção', 'date', FALSE, 10
+FROM entities e WHERE e.code = 'maquina'
+  AND NOT EXISTS (SELECT 1 FROM entity_fields WHERE entity_id = e.id AND code = 'proxima_manutencao');
+
+-- Entidade: Apontamento (histórico de apontamentos)
+INSERT IGNORE INTO entities (id, code, name, description, type, is_system)
+SELECT 
+  UUID(),
+  'apontamento',
+  'Apontamento',
+  'Apontamentos de produção',
+  'transaction',
+  TRUE
+WHERE NOT EXISTS (SELECT 1 FROM entities WHERE code = 'apontamento');
+
+-- Criar campos da entidade "apontamento"
+INSERT IGNORE INTO entity_fields (id, entity_id, code, label, data_type, required, display_order)
+SELECT UUID(), e.id, 'op_id', 'OP', 'relation', TRUE, 1
+FROM entities e WHERE e.code = 'apontamento'
+  AND NOT EXISTS (SELECT 1 FROM entity_fields WHERE entity_id = e.id AND code = 'op_id');
+
+INSERT IGNORE INTO entity_fields (id, entity_id, code, label, data_type, required, display_order)
+SELECT UUID(), e.id, 'etapa', 'Etapa', 'text', TRUE, 2
+FROM entities e WHERE e.code = 'apontamento'
+  AND NOT EXISTS (SELECT 1 FROM entity_fields WHERE entity_id = e.id AND code = 'etapa');
+
+INSERT IGNORE INTO entity_fields (id, entity_id, code, label, data_type, required, display_order)
+SELECT UUID(), e.id, 'setor', 'Setor', 'text', FALSE, 3
+FROM entities e WHERE e.code = 'apontamento'
+  AND NOT EXISTS (SELECT 1 FROM entity_fields WHERE entity_id = e.id AND code = 'setor');
+
+INSERT IGNORE INTO entity_fields (id, entity_id, code, label, data_type, required, display_order)
+SELECT UUID(), e.id, 'operador', 'Operador', 'text', TRUE, 4
+FROM entities e WHERE e.code = 'apontamento'
+  AND NOT EXISTS (SELECT 1 FROM entity_fields WHERE entity_id = e.id AND code = 'operador');
+
+INSERT IGNORE INTO entity_fields (id, entity_id, code, label, data_type, required, display_order)
+SELECT UUID(), e.id, 'quantidade', 'Quantidade', 'number', TRUE, 5
+FROM entities e WHERE e.code = 'apontamento'
+  AND NOT EXISTS (SELECT 1 FROM entity_fields WHERE entity_id = e.id AND code = 'quantidade');
+
+INSERT IGNORE INTO entity_fields (id, entity_id, code, label, data_type, required, display_order)
+SELECT UUID(), e.id, 'refugo', 'Refugo', 'number', FALSE, 6
+FROM entities e WHERE e.code = 'apontamento'
+  AND NOT EXISTS (SELECT 1 FROM entity_fields WHERE entity_id = e.id AND code = 'refugo');
+
+INSERT IGNORE INTO entity_fields (id, entity_id, code, label, data_type, required, display_order)
+SELECT UUID(), e.id, 'observacao', 'Observação', 'textarea', FALSE, 7
+FROM entities e WHERE e.code = 'apontamento'
+  AND NOT EXISTS (SELECT 1 FROM entity_fields WHERE entity_id = e.id AND code = 'observacao');
+
+INSERT IGNORE INTO entity_fields (id, entity_id, code, label, data_type, required, display_order)
+SELECT UUID(), e.id, 'hora_inicio', 'Hora Início', 'datetime', FALSE, 8
+FROM entities e WHERE e.code = 'apontamento'
+  AND NOT EXISTS (SELECT 1 FROM entity_fields WHERE entity_id = e.id AND code = 'hora_inicio');
+
+INSERT IGNORE INTO entity_fields (id, entity_id, code, label, data_type, required, display_order)
+SELECT UUID(), e.id, 'hora_fim', 'Hora Fim', 'datetime', FALSE, 9
+FROM entities e WHERE e.code = 'apontamento'
+  AND NOT EXISTS (SELECT 1 FROM entity_fields WHERE entity_id = e.id AND code = 'hora_fim');
+
+INSERT IGNORE INTO entity_fields (id, entity_id, code, label, data_type, required, display_order)
+SELECT UUID(), e.id, 'status', 'Status', 'select', FALSE, 10
+FROM entities e WHERE e.code = 'apontamento'
+  AND NOT EXISTS (SELECT 1 FROM entity_fields WHERE entity_id = e.id AND code = 'status');

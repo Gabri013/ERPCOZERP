@@ -30,12 +30,20 @@ router.get('/', authenticateToken, async (req, res) => {
 
     const rules = await query(sql, params);
     
-    const parsed = rules.map(r => ({
-      ...r,
-      trigger_conditions: r.trigger_conditions ? JSON.parse(r.trigger_conditions) : [],
-      actions: r.actions ? JSON.parse(r.actions) : [],
-      config: r.config ? JSON.parse(r.config) : {}
-    }));
+    const parsed = rules.map(r => {
+      const safeParse = (val) => {
+        if (typeof val === 'string' && val.trim()) {
+          try { return JSON.parse(val); } catch { return val; }
+        }
+        return val || (Array.isArray(val) ? val : []);
+      };
+      return {
+        ...r,
+        trigger_conditions: safeParse(r.trigger_conditions),
+        actions: safeParse(r.actions),
+        config: safeParse(r.config)
+      };
+    });
 
     res.json({ success: true, data: parsed });
   } catch (err) {

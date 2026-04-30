@@ -1,7 +1,8 @@
 // Seed de dados iniciais — popula banco com dados de exemplo
 // Execute: npm run seed
 
-const { query } = require('../config/database');
+const db = require('../config/database');
+const { query } = db;
 const bcrypt = require('bcrypt');
 const { v4: uuidv4 } = require('uuid');
 
@@ -20,7 +21,7 @@ async function seed() {
     let masterId = uuidv4();
     const masterPassword = process.env.DEFAULT_MASTER_PASSWORD || 'master123_dev';
     console.log('[DEBUG] DEFAULT_MASTER_PASSWORD env:', JSON.stringify(process.env.DEFAULT_MASTER_PASSWORD));
-    console('[DEBUG] masterPassword usado:', JSON.stringify(masterPassword));
+    console.log('[DEBUG] masterPassword usado:', JSON.stringify(masterPassword));
     const masterHash = await bcrypt.hash(masterPassword, 12);
 
     await query(`
@@ -214,7 +215,118 @@ async function seed() {
 
     console.log('✅ Configurações padrão criadas');
 
-    // 8. Logs iniciais
+    // 8. Dados — Máquinas (Entidade: maquina)
+    console.log('🏭 Populando máquinas de exemplo...');
+    const entityMaquina = await query("SELECT id FROM entities WHERE code = 'maquina'");
+    
+    if (entityMaquina.length > 0) {
+      const maquinas = [
+        { codigo: 'TNC-01', descricao: 'Torno CNC 1', tipo: 'Torno CNC', fabricante: 'Romi', modelo: 'Sprint 32', ano: 2019, setor: 'Usinagem', status: 'Ativo', ultima_manutencao: '2026-03-10', proxima_manutencao: '2026-06-10' },
+        { codigo: 'TNC-02', descricao: 'Torno CNC 2', tipo: 'Torno CNC', fabricante: 'Romi', modelo: 'Sprint 32', ano: 2020, setor: 'Usinagem', status: 'Ativo', ultima_manutencao: '2026-03-12', proxima_manutencao: '2026-06-12' },
+        { codigo: 'CUS-01', descricao: 'Centro de Usinagem', tipo: 'Fresadora CNC', fabricante: 'Mazak', modelo: 'Variaxis 500', ano: 2021, setor: 'Usinagem', status: 'Manutenção', ultima_manutencao: '2026-04-18', proxima_manutencao: '2026-04-25' },
+        { codigo: 'RET-01', descricao: 'Retífica CIL-01', tipo: 'Retífica', fabricante: 'Jones', modelo: 'J-412', ano: 2015, setor: 'Acabamento', status: 'Ativo', ultima_manutencao: '2026-02-20', proxima_manutencao: '2026-05-20' },
+        { codigo: 'FRE-01', descricao: 'Fresadora Conv.', tipo: 'Fresadora', fabricante: 'Dmáquinas', modelo: 'FV-1', ano: 2010, setor: 'Usinagem', status: 'Ativo', ultima_manutencao: '2026-01-15', proxima_manutencao: '2026-04-15' },
+      ];
+
+      for (const maq of maquinas) {
+        const exists = await query(
+          'SELECT id FROM entity_records WHERE entity_id = ? AND JSON_EXTRACT(data, "$.codigo") = ?',
+          [entityMaquina[0].id, maq.codigo]
+        );
+        
+        if (exists.length === 0) {
+          await query(
+            'INSERT INTO entity_records (id, entity_id, data, created_by) VALUES (UUID(), ?, ?, ?)',
+            [entityMaquina[0].id, JSON.stringify(maq), adminId]
+          );
+          console.log(`   ✓ Máquina ${maq.codigo}`);
+        }
+      }
+    } else {
+      console.log('   ⚠️ Entidade "maquina" não encontrada, pulando...');
+    }
+
+    // 8B. Dados — Ordens de Produção (se não existirem)
+    console.log('🔧 Criando ordens de produção de exemplo...');
+    if (entityOP && entityOP.length > 0) {
+      const existingOPs = await query(
+        'SELECT COUNT(*) as cnt FROM entity_records WHERE entity_id = ?',
+        [entityOP[0].id]
+      );
+      
+      if (existingOPs[0].cnt === 0) {
+        const produtos = await query('SELECT id, data->>"$.codigo" as codigo, data->>"$.descricao" as descricao FROM entity_records WHERE entity_id = (SELECT id FROM entities WHERE code = "produto") LIMIT 3');
+        const clientes = await query('SELECT id, data->>"$.codigo" as codigo, data->>"$.razao_social" as razao FROM entity_records WHERE entity_id = (SELECT id FROM entities WHERE code = "cliente") LIMIT 3');
+        
+        for (let i = 0; i < 3; i++) {
+          const produto = produtos[i % produtos.length];
+          const cliente = clientes[i % clientes.length];
+          const opNum = `OP-${String(i + 1).padStart(5, '0')}`;
+          
+          await query(`
+            INSERT INTO entity_records (id, entity_id, data, created_by)
+            VALUES (UUID(), ?, ?, ?)
+          `, [entityOP[0].id, JSON.stringify({
+            numero: opNum,
+            produtoId: produto?.id,
+            produtoCodigo: produto?.codigo || 'PRD-001',
+            produtoDescricao: produto?.descricao || 'Produto Teste',
+            clienteId: cliente?.id,
+            clienteCodigo: cliente?.codigo || 'CLI-001',
+            clienteNome: cliente?.razao || 'Cliente Teste',
+            quantidade: 100 + (i * 50),
+            quantidadeProduzida: 0,
+            status: 'aberta',
+            prioridade: i === 0 ? 'alta' : 'media',
+            prazo: new Date(Date.now() + (i + 1) * 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            observacao: 'OP gerada automaticamente no seed'
+          }), adminId]);
+          console.log(`   ✓ Ordem de Produção ${opNum} criada`);
+        }
+      } else {
+        console.log(`   ℹ️ ${existingOPs[0].cnt} OPs já existem, pulando criação`);
+      }
+    }
+
+    // 9. Dados — Apontamentos (via tabela dedicada)
+    console.log('📝 Criando apontamentos de exemplo...');
+    // entityOP já foi declarado anteriormente (seção workflow)
+    if (entityOP && entityOP.length > 0) {
+      const ops = await query(
+        'SELECT id, data->>"$.numero" as numero FROM entity_records WHERE entity_id = ? LIMIT 3',
+        [entityOP[0].id]
+      );
+      
+      if (ops.length > 0) {
+        const SETORES = ['Laser', 'Rebarbação', 'Dobra', 'Solda', 'Montagem', 'Acabamento', 'Qualidade', 'Expedição'];
+        const ETAPAS = ['Programação','Engenharia','Corte a Laser','Retirada','Rebarbação','Dobra','Solda','Montagem','Acabamento','Qualidade','Embalagem','Expedição'];
+        const OPERADORES = ['José Pereira','Marcos Lima','Carlos Silva','Ana Souza','Roberto F.'];
+        
+        for (let i = 0; i < ops.length; i++) {
+          const op = ops[i];
+          const qtdApontamentos = 2 + Math.floor(Math.random() * 3);
+          
+          for (let j = 0; j < qtdApontamentos; j++) {
+            const etapa = ETAPAS[j % ETAPAS.length];
+            const setor = SETORES[j % SETORES.length];
+            const operador = OPERADORES[j % OPERADORES.length];
+            const qtdProd = 20 + Math.floor(Math.random() * 80);
+            
+            await query(`
+              INSERT INTO apontamentos 
+              (id, op_id, usuario_id, descricao, quantidade, status, refugo, observacao, iniciado_em, finalizado_em)
+              VALUES (UUID(), ?, ?, ?, ?, 'Finalizado', 0, 'Apontamento automático seed', 
+                      DATE_SUB(NOW(), INTERVAL ? HOUR), NOW())
+            `, [op.id, ops[0].id === op.id ? '2' : '3', etapa, qtdProd, (j + 1) * 2]);
+          }
+          console.log(`   ✓ OP ${op.numero}: ${qtdApontamentos} apontamentos criados`);
+        }
+      } else {
+        console.log('   ⚠️ Nenhuma OP para criar apontamentos');
+      }
+    }
+
+    // 9. Logs iniciais (renumerado)
     await query(`
       INSERT INTO audit_logs (user_id, action, metadata)
       VALUES (?, 'system.seed', ?)
@@ -234,4 +346,25 @@ async function seed() {
   }
 }
 
-seed();
+async function closePool() {
+  if (db.pool && typeof db.pool.end === 'function') {
+    try {
+      await db.pool.end();
+    } catch (err) {
+      console.warn('⚠️ Falha ao encerrar pool do banco:', err.message);
+    }
+  }
+}
+
+async function main() {
+  try {
+    await seed();
+  } finally {
+    await closePool();
+  }
+}
+
+main().catch(err => {
+  console.error('❌ Seed falhou de forma inesperada:', err.message);
+  process.exit(1);
+});

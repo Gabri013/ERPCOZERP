@@ -165,7 +165,15 @@ class PermissionEngine {
       return permAction === action;
     }
 
-    return false;
+    if (permCode.includes('.')) {
+      const parts = permCode.split('.');
+      const permEntity = parts[0];
+      const permAction = parts[1];
+      return (permEntity === '*' || permEntity === entity) &&
+             (permAction === '*' || permAction === action);
+    }
+
+    return permCode === entity;
   }
 
   async getRolePermissions() {

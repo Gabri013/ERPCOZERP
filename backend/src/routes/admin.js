@@ -237,8 +237,9 @@ router.get('/user/:userId/activity', requireMaster, async (req, res) => {
       params.push(end_date + ' 23:59:59');
     }
 
-    sql += ' ORDER BY al.created_at DESC LIMIT ? OFFSET ?';
-    params.push(parseInt(limit), (page - 1) * parseInt(limit));
+    const limitValue = parseInt(limit, 10);
+    const offsetValue = (parseInt(page, 10) - 1) * limitValue;
+    sql += ` ORDER BY al.created_at DESC LIMIT ${limitValue} OFFSET ${offsetValue}`;
 
     const logs = await query(sql, params);
 

@@ -20,6 +20,8 @@ router.get('/nfe', authenticateToken, requirePermission('ver_fiscal'), async (re
       page = 1, 
       limit = 50 
     } = req.query;
+    const limitValue = parseInt(limit, 10);
+    const offsetValue = (parseInt(page, 10) - 1) * limitValue;
 
     let sql = `
       SELECT nf.id, nf.numero, nf.serie, nf.emitido_em, nf.valor_total, nf.status, nf.tipo,
@@ -52,15 +54,14 @@ router.get('/nfe', authenticateToken, requirePermission('ver_fiscal'), async (re
       params.push(periodo_fim + ' 23:59:59');
     }
 
-    sql += ' ORDER BY nf.emitido_em DESC LIMIT ? OFFSET ?';
-    params.push(parseInt(limit), (page - 1) * parseInt(limit));
+    sql += ` ORDER BY nf.emitido_em DESC LIMIT ${limitValue} OFFSET ${offsetValue}`;
 
     const [nfes, count] = await Promise.all([
       query(sql, params),
       query('SELECT COUNT(*) as total FROM nfe WHERE 1=1' + 
         (status ? ' AND status = ?' : '') + 
         (tipo ? ' AND tipo = ?' : ''), 
-        params.slice(0, -2) // remove limit/offset
+        params
       )
     ]);
 

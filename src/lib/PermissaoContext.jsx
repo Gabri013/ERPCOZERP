@@ -57,6 +57,7 @@ export const PermissaoProvider = ({ children }) => {
   const pode = useCallback((acao) => {
     // Master nunca está impersonando, mas se não for master, verifica permissões
     if (!isImpersonating && user?.roles?.includes('master')) return true;
+    if (acao === 'impersonate' && !user?.roles?.includes('master')) return false;
     return permissoes.includes(acao);
   }, [permissoes, isImpersonating, user]);
 

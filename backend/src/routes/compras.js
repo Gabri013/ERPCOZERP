@@ -12,6 +12,8 @@ const router = express.Router();
 router.get('/fornecedores', requirePermission('ver_compras'), async (req, res) => {
   try {
     const { page = 1, limit = 50, search = '' } = req.query;
+    const limitValue = parseInt(limit, 10);
+    const offsetValue = (parseInt(page, 10) - 1) * limitValue;
     const entity = await query("SELECT id FROM entities WHERE code = 'fornecedor'");
     
     if (!entity.length) return res.json({ success: true, data: [], pagination: { page: 1, total: 0 } });
@@ -25,8 +27,7 @@ router.get('/fornecedores', requirePermission('ver_compras'), async (req, res) =
       params.push(`%${search}%`, `%${search}%`);
     }
 
-    sql += ' ORDER BY JSON_UNQUOTE(JSON_EXTRACT(data, "$.nome")) LIMIT ? OFFSET ?';
-    params.push(parseInt(limit), (page - 1) * parseInt(limit));
+    sql += ` ORDER BY JSON_UNQUOTE(JSON_EXTRACT(data, "$.nome")) LIMIT ${limitValue} OFFSET ${offsetValue}`;
 
     const [fornecedores, count] = await Promise.all([
       query(sql, params),
@@ -61,6 +62,8 @@ router.get('/fornecedores', requirePermission('ver_compras'), async (req, res) =
 router.get('/ordens-compra', requirePermission('ver_compras'), async (req, res) => {
   try {
     const { status, page = 1, limit = 50 } = req.query;
+    const limitValue = parseInt(limit, 10);
+    const offsetValue = (parseInt(page, 10) - 1) * limitValue;
     const entity = await query("SELECT id FROM entities WHERE code = 'ordem_compra'");
     
     if (!entity.length) return res.json({ success: true, data: [] });
@@ -79,8 +82,7 @@ router.get('/ordens-compra', requirePermission('ver_compras'), async (req, res) 
       params.push(status);
     }
 
-    sql += ' ORDER BY er.created_at DESC LIMIT ? OFFSET ?';
-    params.push(parseInt(limit), (page - 1) * parseInt(limit));
+    sql += ` ORDER BY er.created_at DESC LIMIT ${limitValue} OFFSET ${offsetValue}`;
 
     const [ordens, count] = await Promise.all([
       query(sql, params),
