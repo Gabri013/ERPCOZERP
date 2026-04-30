@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+﻿import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { authService } from '@/services/authService';
 import { resolveApiUrl } from '@/config/appConfig';
 
@@ -78,7 +78,14 @@ export function AuthProvider({ children }) {
       });
 
       if (!response.ok) {
-        throw new Error('Falha no login.');
+        let message = 'Falha no login.';
+        try {
+          const errorData = await response.json();
+          message = errorData?.error || message;
+        } catch {
+          // Mantem mensagem padrao se nao houver JSON na resposta
+        }
+        throw new Error(message);
       }
 
       const data = await response.json();
@@ -92,6 +99,9 @@ export function AuthProvider({ children }) {
 
       return { success: true, user: data.user };
     } catch (error) {
+      setStoredToken(null);
+      setToken(null);
+      setUser(null);
       setAuthError({ type: 'auth_required', message: error.message });
       return { success: false, error: error.message };
     } finally {

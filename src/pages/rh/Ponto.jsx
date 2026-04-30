@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import PageHeader from '@/components/common/PageHeader';
 import FormModal, { inp, lbl } from '@/components/common/FormModal';
 import { Clock, Plus, Download } from 'lucide-react';
@@ -76,7 +76,7 @@ export default function Ponto() {
       <PageHeader title="Ponto Eletrônico" breadcrumbs={['Início','RH','Ponto Eletrônico']}
         actions={<div className="flex gap-2">
           <button onClick={exportar} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded hover:bg-muted"><Download size={13}/> Exportar PDF</button>
-          <button onClick={()=>setShowModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs nomus-blue-bg text-white rounded hover:opacity-90"><Plus size={13}/> Registrar Ponto</button>
+          <button onClick={()=>setShowModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90"><Plus size={13}/> Registrar Ponto</button>
         </div>}
       />
       <div className="grid grid-cols-4 gap-3 mb-4">

@@ -1,4 +1,4 @@
-import { X, Printer, Download } from 'lucide-react';
+﻿import { X, Printer, Download } from 'lucide-react';
 
 // Modal de visualização de detalhes de qualquer registro
 export default function DetalheModal({ title, subtitle, onClose, onPrint, onExport, children }) {

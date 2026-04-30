@@ -6,21 +6,17 @@ services:
     ports:
       - "3001:3001"
     environment:
-      - MYSQL_HOST=db
-      - MYSQL_PORT=3306
-      - MYSQL_USER=root
-      - MYSQL_PASSWORD=secret
-      - MYSQL_DATABASE=erpcoz
+      - DB_TYPE=sqlite
+      - DB_PATH=/app/data/erpcoz.db
       - PORT=3001
       - NODE_ENV=development
-      - VITE_BACKEND_URL=http://localhost:3001
       - DEFAULT_MASTER_PASSWORD=master123_dev
       - DEFAULT_ADMIN_PASSWORD=admin123_dev
       - JWT_SECRET=dev_jwt_secret_change_me_please_12345
       - JWT_EXPIRES_IN=7d
       - REFRESH_TOKEN_EXPIRES_IN=30d
-    depends_on:
-      - db
+    volumes:
+      - backend_data:/app/data
     develop:
       watch:
         - action: sync
@@ -32,22 +28,10 @@ services:
       dockerfile: Dockerfile
     ports:
       - "5173:80"
-    env_file: .env
+    environment:
+      - VITE_BACKEND_URL=http://backend:3001
     depends_on:
       - backend
-  db:
-    image: mysql:8
-    restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: secret
-      MYSQL_DATABASE: erpcoz
-      MYSQL_TCP_PORT: 3306
-      MYSQL_ROOT_HOST: "127.0.0.1"
-    ports:
-      - "3307:3306"
-    volumes:
-      - db_data:/var/lib/mysql
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
 volumes:
-  db_data:
+  backend_data:
     driver: local

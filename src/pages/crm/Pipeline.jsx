@@ -1,4 +1,4 @@
-import PageHeader from '@/components/common/PageHeader';
+﻿import PageHeader from '@/components/common/PageHeader';
 
 const estagios = [
   { nome:'Contato Inicial', cor:'bg-gray-200', cards:[

@@ -1,4 +1,4 @@
-import PageHeader from '@/components/common/PageHeader';
+﻿import PageHeader from '@/components/common/PageHeader';
 import { BarChart2, ShoppingCart, Package, Factory, DollarSign } from 'lucide-react';
 
 const RELATORIOS = [

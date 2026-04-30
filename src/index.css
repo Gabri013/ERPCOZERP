@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+﻿@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -32,9 +32,9 @@
     --sidebar-text: 210 20% 85%;
     --sidebar-text-muted: 210 15% 60%;
     --header-bg: 0 0% 100%;
-    --nomus-blue: 211 100% 40%;
-    --nomus-blue-dark: 213 80% 25%;
-    --nomus-blue-light: 211 80% 95%;
+    --cozinha-blue: 211 100% 40%;
+    --cozinha-blue-dark: 213 80% 25%;
+    --cozinha-blue-light: 211 80% 95%;
     --nomus-gray: 210 15% 94%;
     --success: 142 70% 42%;
     --warning: 38 95% 52%;
@@ -98,9 +98,9 @@
 .sidebar-active { background: hsl(var(--sidebar-active)); }
 .sidebar-text { color: hsl(var(--sidebar-text)); }
 .sidebar-text-muted { color: hsl(var(--sidebar-text-muted)); }
-.nomus-blue { color: hsl(var(--nomus-blue)); }
-.nomus-blue-bg { background: hsl(var(--nomus-blue)); }
-.nomus-blue-light-bg { background: hsl(var(--nomus-blue-light)); }
+.cozinha-blue { color: hsl(var(--cozinha-blue)); }
+.cozinha-blue-bg { background: hsl(var(--cozinha-blue)); }
+.cozinha-blue-light-bg { background: hsl(var(--cozinha-blue-light)); }
 .text-success { color: hsl(var(--success)); }
 .text-warning { color: hsl(var(--warning)); }
 .text-info { color: hsl(var(--info)); }

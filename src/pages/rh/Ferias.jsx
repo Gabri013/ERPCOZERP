@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import PageHeader from '@/components/common/PageHeader';
 import DataTable from '@/components/common/DataTable';
 import FormModal, { inp, lbl, req } from '@/components/common/FormModal';
@@ -73,7 +73,7 @@ export default function Ferias() {
   return (
     <div>
       <PageHeader title="Férias" breadcrumbs={['Início','RH','Férias']}
-        actions={<button onClick={()=>setShowModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs nomus-blue-bg text-white rounded hover:opacity-90"><Plus size={13}/> Solicitar Férias</button>}
+        actions={<button onClick={()=>setShowModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90"><Plus size={13}/> Solicitar Férias</button>}
       />
       <div className="bg-white border border-border rounded-lg overflow-hidden">
         <DataTable columns={columns} data={data} onRowClick={row=>setDetalhe(row)}/>

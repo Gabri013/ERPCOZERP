@@ -1,4 +1,4 @@
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+﻿import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import PageHeader from '@/components/common/PageHeader';
 
 const vendasMes = [
@@ -90,7 +90,7 @@ export default function RelatoriosVendas() {
                 <td className="px-4 py-2">R$ {c.valor.toLocaleString('pt-BR')}</td>
                 <td className="px-4 py-2">
                   <div className="flex items-center gap-2">
-                    <div className="flex-1 bg-muted rounded-full h-1.5"><div className="nomus-blue-bg h-1.5 rounded-full" style={{width:`${(c.valor/54000*100).toFixed(0)}%`}}/></div>
+                    <div className="flex-1 bg-muted rounded-full h-1.5"><div className="cozinha-blue-bg h-1.5 rounded-full" style={{width:`${(c.valor/54000*100).toFixed(0)}%`}}/></div>
                     <span className="text-muted-foreground w-8 text-right">{(c.valor/165600*100).toFixed(0)}%</span>
                   </div>
                 </td>

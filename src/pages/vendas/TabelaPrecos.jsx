@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import PageHeader from '@/components/common/PageHeader';
 import FilterBar from '@/components/common/FilterBar';
 import DataTable from '@/components/common/DataTable';
@@ -91,7 +91,7 @@ export default function TabelaPrecos() {
       <PageHeader title="Tabela de Preços" breadcrumbs={['Início','Vendas','Tabela de Preços']}
         actions={<div className="flex gap-2">
           <button onClick={()=>setShowReajuste(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded hover:bg-muted"><Tag size={13}/> Reajuste em Lote</button>
-          <button onClick={()=>{setEditando(null);setForm({ codigo:'', descricao:'', grupo:'', unidade:'UN', preco_custo:0, preco_venda:0 });setShowModal(true);}} className="flex items-center gap-1.5 px-3 py-1.5 text-xs nomus-blue-bg text-white rounded hover:opacity-90"><Plus size={13}/> Novo Item</button>
+          <button onClick={()=>{setEditando(null);setForm({ codigo:'', descricao:'', grupo:'', unidade:'UN', preco_custo:0, preco_venda:0 });setShowModal(true);}} className="flex items-center gap-1.5 px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90"><Plus size={13}/> Novo Item</button>
         </div>}
       />
       <div className="bg-white border border-border rounded-lg overflow-hidden">
@@ -131,7 +131,7 @@ export default function TabelaPrecos() {
             </div>
             <div className="flex justify-end gap-2">
               <button onClick={()=>setShowReajuste(false)} className="px-4 py-1.5 text-xs border border-border rounded hover:bg-muted">Cancelar</button>
-              <button onClick={aplicarReajuste} className="px-4 py-1.5 text-xs nomus-blue-bg text-white rounded hover:opacity-90">Aplicar Reajuste</button>
+              <button onClick={aplicarReajuste} className="px-4 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90">Aplicar Reajuste</button>
             </div>
           </div>
         </div>

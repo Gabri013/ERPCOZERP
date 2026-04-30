@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import PageHeader from '@/components/common/PageHeader';
 import FilterBar from '@/components/common/FilterBar';
 import DataTable from '@/components/common/DataTable';
@@ -75,7 +75,7 @@ export default function ContasPagar() {
   return (
     <div>
       <PageHeader title="Contas a Pagar" breadcrumbs={['Início','Financeiro','Contas a Pagar']}
-        actions={<button onClick={()=>setShowModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs nomus-blue-bg text-white rounded hover:opacity-90"><Plus size={13}/> Novo Lançamento</button>}
+        actions={<button onClick={()=>setShowModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90"><Plus size={13}/> Novo Lançamento</button>}
       />
       <div className="grid grid-cols-3 gap-3 mb-3">
         {[{label:'Em Aberto',val:fmtR(totalAberto),color:'text-blue-600',bg:'bg-blue-50'},{label:'Vencido',val:fmtR(totalVencido),color:'text-destructive',bg:'bg-red-50'},{label:'Pago (mês)',val:fmtR(totalPago),color:'text-success',bg:'bg-green-50'}].map(s=>(
@@ -109,7 +109,7 @@ export default function ContasPagar() {
           </div>
           <div className="mt-3 flex justify-end gap-2">
             {detalhe.status !== 'Pago' && <button onClick={()=>marcarPago(detalhe.id)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-green-600 text-white rounded hover:opacity-90"><CheckCircle size={12}/> Marcar como Pago</button>}
-            <button onClick={()=>{setEditando(detalhe);setDetalhe(null);}} className="px-3 py-1.5 text-xs nomus-blue-bg text-white rounded hover:opacity-90">Editar</button>
+            <button onClick={()=>{setEditando(detalhe);setDetalhe(null);}} className="px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90">Editar</button>
           </div>
         </DetalheModal>
       )}

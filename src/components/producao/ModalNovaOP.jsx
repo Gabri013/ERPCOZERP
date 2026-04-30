@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { X, AlertCircle } from 'lucide-react';
 
 const ETAPAS_DEFAULT = ['Programação','Engenharia','Corte a Laser','Retirada','Rebarbação','Dobra','Solda','Montagem','Acabamento','Qualidade','Embalagem','Expedição'];
@@ -164,7 +164,7 @@ export default function ModalNovaOP({ onClose, onSave }) {
         <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-border bg-muted/30">
           <button onClick={onClose} className="px-4 py-1.5 text-xs border border-border rounded hover:bg-muted">Cancelar</button>
           <button onClick={handleSave} disabled={saving}
-            className="px-4 py-1.5 text-xs nomus-blue-bg text-white rounded hover:opacity-90 disabled:opacity-60 flex items-center gap-1.5">
+            className="px-4 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90 disabled:opacity-60 flex items-center gap-1.5">
             {saving ? 'Salvando...' : 'Criar Ordem de Produção'}
           </button>
         </div>

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Impersonation Banner — aparece no topo quando master está visualizando como outro usuário
  */
 import { useImpersonation } from '@/contexts/ImpersonationContext';

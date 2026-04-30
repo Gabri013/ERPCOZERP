@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import PageHeader from '@/components/common/PageHeader';
 import { Save, Plus, Eye, Trash2, GripVertical, Type, Hash, Image, Table, Minus, QrCode, BarChart } from 'lucide-react';
 
@@ -87,7 +87,7 @@ export default function ModeloOP() {
         actions={
           <div className="flex gap-2">
             <button onClick={()=>setPreview(!preview)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded hover:bg-muted"><Eye size={13}/>{preview?'Fechar Preview':'Preview'}</button>
-            <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs nomus-blue-bg text-white rounded hover:opacity-90"><Save size={13}/> Salvar Modelo</button>
+            <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90"><Save size={13}/> Salvar Modelo</button>
           </div>
         }
       />
@@ -104,7 +104,7 @@ export default function ModeloOP() {
             <div className="space-y-1">
               {modelos.map(m => (
                 <button key={m.id} onClick={()=>setModeloAtivo(m.id)}
-                  className={`w-full flex items-center justify-between px-2.5 py-2 rounded text-xs transition-colors ${modeloAtivo===m.id?'nomus-blue-bg text-white':'hover:bg-muted'}`}>
+                  className={`w-full flex items-center justify-between px-2.5 py-2 rounded text-xs transition-colors ${modeloAtivo===m.id?'cozinha-blue-bg text-white':'hover:bg-muted'}`}>
                   <span>{m.nome}</span>
                   {m.padrao && <span className={`text-[10px] px-1.5 py-0.5 rounded ${modeloAtivo===m.id?'bg-white/20':'bg-green-100 text-green-700'}`}>Padrão</span>}
                 </button>
@@ -136,7 +136,7 @@ export default function ModeloOP() {
                   </select>
                 </div>
               )}
-              <button onClick={addElemento} className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs nomus-blue-bg text-white rounded hover:opacity-90">
+              <button onClick={addElemento} className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs cozinha-blue-bg text-white rounded hover:opacity-90">
                 <Plus size={12}/> Adicionar
               </button>
             </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import PageHeader from '@/components/common/PageHeader';
 import { CheckCircle, AlertCircle, Clock } from 'lucide-react';
 
@@ -41,7 +41,7 @@ export default function ConciliacaoBancaria() {
         <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border">
           {['Todos','Conciliado','Pendente','Divergente'].map(f=>(
             <button key={f} onClick={()=>setFiltro(f)}
-              className={`px-3 py-1 rounded text-xs font-medium transition-colors ${filtro===f?'nomus-blue-bg text-white':'bg-muted text-muted-foreground hover:bg-border'}`}>
+              className={`px-3 py-1 rounded text-xs font-medium transition-colors ${filtro===f?'cozinha-blue-bg text-white':'bg-muted text-muted-foreground hover:bg-border'}`}>
               {f}
             </button>
           ))}

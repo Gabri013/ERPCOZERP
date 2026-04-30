@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+﻿import { useState, useMemo } from 'react';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { TrendingUp, DollarSign, ArrowUpCircle, ArrowDownCircle, Calendar } from 'lucide-react';
 import PageHeader from '@/components/common/PageHeader';

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import FormModal, { inp, lbl, req } from '@/components/common/FormModal';
 
 const EMPTY = { codigo:'', descricao:'', referencia:'', grupo:'', unidade:'UN', preco_custo:0, preco_venda:0, estoque_atual:0, estoque_minimo:0, estoque_maximo:'', localizacao:'', tipo:'Produto', ncm:'', ean:'', peso_bruto:'', peso_liquido:'', status:'Ativo', observacoes:'' };

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import PageHeader from '@/components/common/PageHeader';
 import { Save } from 'lucide-react';
 
@@ -35,7 +35,7 @@ export default function Parametros() {
   return (
     <div>
       <PageHeader title="Parâmetros do Sistema" breadcrumbs={['Início','Configurações','Parâmetros']}
-        actions={<button className="flex items-center gap-1.5 px-3 py-1.5 text-xs nomus-blue-bg text-white rounded hover:opacity-90"><Save size={13}/> Salvar</button>}
+        actions={<button className="flex items-center gap-1.5 px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90"><Save size={13}/> Salvar</button>}
       />
       <div className="space-y-4">
         {SECTIONS.map(s=>(
@@ -49,7 +49,7 @@ export default function Parametros() {
                   <label className="text-xs text-foreground">{p.label}</label>
                   {p.tipo==='bool' && (
                     <button onClick={()=>upd(p.key,!dados[p.key])}
-                      className={`w-9 h-5 rounded-full transition-colors relative ${dados[p.key]?'nomus-blue-bg':'bg-muted'}`}>
+                      className={`w-9 h-5 rounded-full transition-colors relative ${dados[p.key]?'cozinha-blue-bg':'bg-muted'}`}>
                       <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${dados[p.key]?'left-4':'left-0.5'}`}/>
                     </button>
                   )}

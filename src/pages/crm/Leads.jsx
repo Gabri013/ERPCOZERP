@@ -1,4 +1,4 @@
-import PageHeader from '@/components/common/PageHeader';
+﻿import PageHeader from '@/components/common/PageHeader';
 import DataTable from '@/components/common/DataTable';
 import { Plus } from 'lucide-react';
 
@@ -26,7 +26,7 @@ export default function Leads() {
   return (
     <div>
       <PageHeader title="Leads" breadcrumbs={['Início','CRM','Leads']}
-        actions={<button className="flex items-center gap-1.5 px-3 py-1.5 text-xs nomus-blue-bg text-white rounded hover:opacity-90"><Plus size={13}/> Novo Lead</button>}
+        actions={<button className="flex items-center gap-1.5 px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90"><Plus size={13}/> Novo Lead</button>}
       />
       <div className="bg-white border border-border rounded-lg overflow-hidden">
         <DataTable columns={columns} data={MOCK} />

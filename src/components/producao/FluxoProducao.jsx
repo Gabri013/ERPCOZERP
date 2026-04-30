@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom';
+﻿import { Link, useLocation } from 'react-router-dom';
 import { Factory, ClipboardList, KanbanSquare, Settings2, MonitorCog } from 'lucide-react';
 import { usePermissao } from '@/lib/PermissaoContext';
 

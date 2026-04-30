@@ -129,7 +129,7 @@ app.get('/health', (req, res) => {
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({ 
-    name: 'Base44 ERP API',
+    name: 'Cozinha ERP API',
     version: '1.0.0',
     status: 'online',
     documentation: '/api/docs',
@@ -165,7 +165,7 @@ app.post('/api/test-login', async (req, res) => {
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({ 
-    name: 'Base44 ERP API',
+    name: 'Cozinha ERP API',
     version: '1.0.0',
     status: 'online',
     documentation: '/api/docs',
@@ -260,7 +260,7 @@ const PORT = process.env.PORT || 3001;
 const BASE_URL = process.env.RENDER_EXTERNAL_URL || process.env.EXTERNAL_URL || `http://localhost:${PORT}`;
 
 server.listen(PORT, '0.0.0.0', () => {
-  logger.info(`Base44 ERP Backend rodando na porta ${PORT}`);
+  logger.info(`Cozinha ERP Backend rodando na porta ${PORT}`);
   logger.info(`API: http://localhost:${PORT}/api`);
   logger.info(`Health: http://localhost:${PORT}/health`);
   logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);

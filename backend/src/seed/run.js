@@ -25,10 +25,10 @@ async function seed() {
 
     await query(`
       INSERT IGNORE INTO users (id, email, password_hash, full_name, email_verified, active)
-      VALUES (?, 'master@base44.com', ?, 'Master / Owner', TRUE, TRUE)
+      VALUES (?, 'master@Cozinha.com', ?, 'Master / Owner', TRUE, TRUE)
     `, [masterId, masterHash]);
 
-    const masterUser = await query("SELECT id FROM users WHERE email = 'master@base44.com'");
+    const masterUser = await query("SELECT id FROM users WHERE email = 'master@Cozinha.com'");
     masterId = masterUser[0].id;
 
     // Atribui role master
@@ -40,7 +40,7 @@ async function seed() {
       `, [masterId, masterRole[0].id, masterId]);
     }
 
-    console.log(`✅ Usuário master criado (master@base44.com / ${process.env.DEFAULT_MASTER_PASSWORD || 'master123_dev'})`);
+    console.log(`✅ Usuário master criado (master@Cozinha.com / ${process.env.DEFAULT_MASTER_PASSWORD || 'master123_dev'})`);
 
     // 2. Cria usuário admin
     console.log('👤 Criando usuário admin...');
@@ -50,10 +50,10 @@ async function seed() {
 
     await query(`
       INSERT IGNORE INTO users (id, email, password_hash, full_name, email_verified, active)
-      VALUES (?, 'admin@base44.com', ?, 'Administrador', TRUE, TRUE)
+      VALUES (?, 'admin@Cozinha.com', ?, 'Administrador', TRUE, TRUE)
     `, [adminId, adminHash]);
 
-    const adminUser = await query("SELECT id FROM users WHERE email = 'admin@base44.com'");
+    const adminUser = await query("SELECT id FROM users WHERE email = 'admin@Cozinha.com'");
     adminId = adminUser[0].id;
 
     const adminRole = await query("SELECT id FROM roles WHERE code = 'admin'");
@@ -64,7 +64,7 @@ async function seed() {
       `, [adminId, adminRole[0].id, masterId]);
     }
 
-    console.log('✅ Usuário admin criado (admin@base44.com / ' + (process.env.DEFAULT_ADMIN_PASSWORD || 'admin123_dev') + ')');
+    console.log('✅ Usuário admin criado (admin@Cozinha.com / ' + (process.env.DEFAULT_ADMIN_PASSWORD || 'admin123_dev') + ')');
 
     // 3. Dados de exemplo — Produtos (se não existirem)
     console.log('📦 Populando produtos de exemplo...');
@@ -222,8 +222,8 @@ async function seed() {
 
     console.log('\n✨ Seed concluído com sucesso!');
     console.log('\n📌 Logins iniciais:');
-    console.log(`   Master: master@base44.com / ${process.env.DEFAULT_MASTER_PASSWORD || 'master123_dev'}`);
-    console.log(`   Admin:  admin@base44.com  / ${process.env.DEFAULT_ADMIN_PASSWORD || 'admin123_dev'}`);
+    console.log(`   Master: master@Cozinha.com / ${process.env.DEFAULT_MASTER_PASSWORD || 'master123_dev'}`);
+    console.log(`   Admin:  admin@Cozinha.com  / ${process.env.DEFAULT_ADMIN_PASSWORD || 'admin123_dev'}`);
     console.log('\n⚠️  IMPORTANTE: Altere as senhas em produção!');
     console.log('💡 Dica: Use variáveis de ambiente DEFAULT_MASTER_PASSWORD e DEFAULT_ADMIN_PASSWORD');
 

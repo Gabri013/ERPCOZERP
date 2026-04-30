@@ -1,4 +1,4 @@
-import { TrendingUp, TrendingDown } from 'lucide-react';
+﻿import { TrendingUp, TrendingDown } from 'lucide-react';
 
 export default function WidgetKPI({ label, value, sub, icon: Icon, trend, trendVal, badge }) {
   return (
@@ -12,7 +12,7 @@ export default function WidgetKPI({ label, value, sub, icon: Icon, trend, trendV
           <p className="text-xl font-bold text-foreground truncate">{value}</p>
           <p className="text-[11px] text-muted-foreground mt-0.5">{sub}</p>
         </div>
-        <div className="w-9 h-9 nomus-blue-bg rounded-lg flex items-center justify-center shrink-0 ml-2">
+        <div className="w-9 h-9 cozinha-blue-bg rounded-lg flex items-center justify-center shrink-0 ml-2">
           <Icon size={16} className="text-white" />
         </div>
       </div>

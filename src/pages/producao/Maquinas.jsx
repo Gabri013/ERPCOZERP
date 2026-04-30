@@ -1,4 +1,4 @@
-import PageHeader from '@/components/common/PageHeader';
+﻿import PageHeader from '@/components/common/PageHeader';
 import DataTable from '@/components/common/DataTable';
 import { Plus } from 'lucide-react';
 
@@ -27,7 +27,7 @@ export default function Maquinas() {
   return (
     <div>
       <PageHeader title="Máquinas e Equipamentos" breadcrumbs={['Início','Produção','Máquinas']}
-        actions={<button className="flex items-center gap-1.5 px-3 py-1.5 text-xs nomus-blue-bg text-white rounded hover:opacity-90"><Plus size={13}/> Nova Máquina</button>}
+        actions={<button className="flex items-center gap-1.5 px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90"><Plus size={13}/> Nova Máquina</button>}
       />
       <div className="grid grid-cols-3 gap-3 mb-3">
         {[

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import PageHeader from '@/components/common/PageHeader';
 import DataTable from '@/components/common/DataTable';
 import FormModal, { inp, lbl, req } from '@/components/common/FormModal';
@@ -45,7 +45,7 @@ export default function Usuarios() {
 
   const columns = [
     { key: 'avatar', label: '', width: 40, sortable: false, render: (v, row) => (
-      <div className="w-7 h-7 nomus-blue-bg rounded-full flex items-center justify-center text-white text-[10px] font-bold">{v || row.nome?.slice(0,2).toUpperCase()}</div>
+      <div className="w-7 h-7 cozinha-blue-bg rounded-full flex items-center justify-center text-white text-[10px] font-bold">{v || row.nome?.slice(0,2).toUpperCase()}</div>
     )},
     { key: 'nome', label: 'Nome' },
     { key: 'email', label: 'E-mail', width: 200 },
@@ -83,7 +83,7 @@ export default function Usuarios() {
     <div>
       <PageHeader title="Usuários do Sistema" breadcrumbs={['Início', 'Configurações', 'Usuários']}
         actions={pode('gerenciar_usuarios') && (
-          <button onClick={() => { setEditando(null); setShowModal(true); }} className="flex items-center gap-1.5 px-3 py-1.5 text-xs nomus-blue-bg text-white rounded hover:opacity-90">
+          <button onClick={() => { setEditando(null); setShowModal(true); }} className="flex items-center gap-1.5 px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90">
             <UserPlus size={13} /> Novo Usuário
           </button>
         )}
@@ -171,7 +171,7 @@ function PermissoesModal({ usuario, onClose, onToggle }) {
           ))}
         </div>
         <div className="flex justify-end px-5 py-3 border-t border-border">
-          <button onClick={onClose} className="px-4 py-1.5 text-xs nomus-blue-bg text-white rounded hover:opacity-90">Fechar</button>
+          <button onClick={onClose} className="px-4 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90">Fechar</button>
         </div>
       </div>
     </div>

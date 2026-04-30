@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -47,7 +47,7 @@ export default function Login() {
               <div className="w-8 h-8 text-white">ERP</div>
             </div>
           </div>
-          <CardTitle>Nomus ERP</CardTitle>
+          <CardTitle>Cozinha ERP</CardTitle>
           <CardDescription>Faca login para continuar</CardDescription>
         </CardHeader>
         <CardContent>

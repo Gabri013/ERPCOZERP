@@ -1,4 +1,4 @@
-const statusMap = {
+﻿const statusMap = {
   // Pedido Venda
   'Orçamento': 'bg-gray-100 text-gray-600',
   'Aprovado': 'bg-blue-100 text-blue-700',

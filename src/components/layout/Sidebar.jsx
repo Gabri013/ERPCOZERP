@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, ShoppingCart, Truck, Factory,
@@ -63,6 +63,7 @@ export default function Sidebar({ collapsed, onToggle, onNavigate }) {
       const isActive = location.pathname === item.path;
       return (
         <Link
+          key={item.path || item.label}
           to={item.path}
           onClick={onNavigate}
           className={`flex items-center gap-2.5 px-3 py-2 rounded-md mx-2 my-0.5 transition-all duration-150 sidebar-text text-sm
@@ -158,17 +159,17 @@ export default function Sidebar({ collapsed, onToggle, onNavigate }) {
       <div className="flex items-center justify-between px-3 py-3 border-b border-white/10">
         {!collapsed && (
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 nomus-blue-bg rounded flex items-center justify-center">
+            <div className="w-7 h-7 cozinha-blue-bg rounded flex items-center justify-center">
               <Factory size={14} className="text-white" />
             </div>
             <div>
-              <div className="text-white font-bold text-sm leading-tight">NOMUS</div>
+              <div className="text-white font-bold text-sm leading-tight">COZINHA</div>
               <div className="sidebar-text-muted text-[10px]">ERP Industrial</div>
             </div>
           </div>
         )}
         {collapsed && (
-          <div className="w-7 h-7 nomus-blue-bg rounded flex items-center justify-center mx-auto">
+          <div className="w-7 h-7 cozinha-blue-bg rounded flex items-center justify-center mx-auto">
             <Factory size={14} className="text-white" />
           </div>
         )}
@@ -180,13 +181,17 @@ export default function Sidebar({ collapsed, onToggle, onNavigate }) {
       </div>
 
       <div className="flex-1 overflow-y-auto py-2">
-        {staticMenuItems.map((item, i) => renderMenuItem(item))}
+        {staticMenuItems.map((item) => (
+          <div key={item.path || item.label}>
+            {renderMenuItem(item)}
+          </div>
+        ))}
         {renderDynamicSection()}
       </div>
 
       <div className="border-t border-white/10 px-3 py-2">
         {!collapsed ? (
-          <div className="sidebar-text-muted text-[10px]">v2.6.0 | © Base44</div>
+          <div className="sidebar-text-muted text-[10px]">v2.6.0 | © Cozinha ERP</div>
         ) : (
           <button onClick={onToggle} className="sidebar-text-muted hover:text-white transition-colors w-full flex justify-center">
             <ChevronRight size={14} />

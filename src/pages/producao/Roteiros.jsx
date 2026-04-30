@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import PageHeader from '@/components/common/PageHeader';
 import { Plus, ChevronDown, ChevronRight } from 'lucide-react';
 
@@ -62,7 +62,7 @@ export default function Roteiros() {
   return (
     <div>
       <PageHeader title="Roteiros de Produção" breadcrumbs={['Início','Produção','Roteiros']}
-        actions={<button className="flex items-center gap-1.5 px-3 py-1.5 text-xs nomus-blue-bg text-white rounded hover:opacity-90"><Plus size={13}/> Novo Roteiro</button>}
+        actions={<button className="flex items-center gap-1.5 px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90"><Plus size={13}/> Novo Roteiro</button>}
       />
       <div>{ROTEIROS.map(r=><RoteiItem key={r.id} r={r}/>)}</div>
     </div>

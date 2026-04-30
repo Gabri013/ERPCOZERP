@@ -1,4 +1,4 @@
-import PageHeader from '@/components/common/PageHeader';
+﻿import PageHeader from '@/components/common/PageHeader';
 import DataTable from '@/components/common/DataTable';
 import { ClipboardList } from 'lucide-react';
 
@@ -30,7 +30,7 @@ export default function Inventario() {
   return (
     <div>
       <PageHeader title="Inventário" breadcrumbs={['Início','Estoque','Inventário']}
-        actions={<button className="flex items-center gap-1.5 px-3 py-1.5 text-xs nomus-blue-bg text-white rounded hover:opacity-90"><ClipboardList size={13}/> Iniciar Contagem</button>}
+        actions={<button className="flex items-center gap-1.5 px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90"><ClipboardList size={13}/> Iniciar Contagem</button>}
       />
       <div className="grid grid-cols-3 gap-3 mb-3">
         {[

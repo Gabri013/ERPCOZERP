@@ -1,4 +1,4 @@
-import PageHeader from '@/components/common/PageHeader';
+﻿import PageHeader from '@/components/common/PageHeader';
 import FluxoProducao from '@/components/producao/FluxoProducao';
 
 const MAQUINAS = [
@@ -51,7 +51,7 @@ export default function ChaoDeFabrica() {
                   <span>Progresso</span><span className="font-medium">{m.progresso}%</span>
                 </div>
                 <div className="bg-white/70 rounded-full h-2">
-                  <div className="nomus-blue-bg h-2 rounded-full transition-all" style={{width:`${m.progresso}%`}}/>
+                  <div className="cozinha-blue-bg h-2 rounded-full transition-all" style={{width:`${m.progresso}%`}}/>
                 </div>
               </>
             ) : (

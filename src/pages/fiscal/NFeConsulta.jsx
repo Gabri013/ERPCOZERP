@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import PageHeader from '@/components/common/PageHeader';
 import { Search } from 'lucide-react';
 
@@ -22,7 +22,7 @@ export default function NFeConsulta() {
             <input value={chave} onChange={e=>setChave(e.target.value)} placeholder="Informe a chave de acesso (44 dígitos)..."
               className="bg-transparent text-xs outline-none text-foreground placeholder:text-muted-foreground w-full"/>
           </div>
-          <button className="px-4 py-2 text-xs nomus-blue-bg text-white rounded hover:opacity-90">Consultar</button>
+          <button className="px-4 py-2 text-xs cozinha-blue-bg text-white rounded hover:opacity-90">Consultar</button>
         </div>
       </div>
       <div className="bg-white border border-border rounded-lg divide-y divide-border">

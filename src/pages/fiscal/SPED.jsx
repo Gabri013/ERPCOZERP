@@ -1,4 +1,4 @@
-import PageHeader from '@/components/common/PageHeader';
+﻿import PageHeader from '@/components/common/PageHeader';
 import { Download, CheckCircle, Clock } from 'lucide-react';
 
 const OBRIGACOES = [
@@ -48,7 +48,7 @@ export default function SPED() {
                 <td className="px-4 py-2">
                   {o.status==='Entregue'
                     ?<button className="flex items-center gap-1 text-[11px] text-primary hover:underline"><Download size={11}/>Baixar</button>
-                    :<button className="text-[11px] nomus-blue-bg text-white px-2 py-0.5 rounded hover:opacity-90">Gerar</button>
+                    :<button className="text-[11px] cozinha-blue-bg text-white px-2 py-0.5 rounded hover:opacity-90">Gerar</button>
                   }
                 </td>
               </tr>

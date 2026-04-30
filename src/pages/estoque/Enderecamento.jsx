@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import PageHeader from '@/components/common/PageHeader';
 import { MapPin, Package } from 'lucide-react';
 
@@ -68,7 +68,7 @@ export default function Enderecamento() {
               <div>
                 <span className="text-muted-foreground">Ocupação:</span>
                 <div className="mt-1 bg-muted rounded-full h-2">
-                  <div className="nomus-blue-bg h-2 rounded-full" style={{width:`${Math.round((selected.qtd/selected.capacidade)*100)}%`}}/>
+                  <div className="cozinha-blue-bg h-2 rounded-full" style={{width:`${Math.round((selected.qtd/selected.capacidade)*100)}%`}}/>
                 </div>
                 <span className="text-muted-foreground">{Math.round((selected.qtd/selected.capacidade)*100)}%</span>
               </div>

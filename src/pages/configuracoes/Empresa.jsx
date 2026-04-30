@@ -1,11 +1,11 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import PageHeader from '@/components/common/PageHeader';
 import { Save, Building2 } from 'lucide-react';
 
 export default function Empresa() {
   const [form, setForm] = useState({
     razao_social:'Nomus Indústria e Comércio Ltda',
-    nome_fantasia:'Nomus ERP',
+    nome_fantasia:'Cozinha ERP',
     cnpj:'12.345.678/0001-90',
     ie:'123.456.789.000',
     im:'12345678',
@@ -26,11 +26,11 @@ export default function Empresa() {
   return (
     <div>
       <PageHeader title="Dados da Empresa" breadcrumbs={['Início','Configurações','Empresa']}
-        actions={<button className="flex items-center gap-1.5 px-3 py-1.5 text-xs nomus-blue-bg text-white rounded hover:opacity-90"><Save size={13}/> Salvar</button>}
+        actions={<button className="flex items-center gap-1.5 px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90"><Save size={13}/> Salvar</button>}
       />
       <div className="bg-white border border-border rounded-lg p-5">
         <div className="flex items-center gap-3 mb-5 pb-4 border-b border-border">
-          <div className="w-14 h-14 nomus-blue-bg rounded-lg flex items-center justify-center"><Building2 size={28} className="text-white"/></div>
+          <div className="w-14 h-14 cozinha-blue-bg rounded-lg flex items-center justify-center"><Building2 size={28} className="text-white"/></div>
           <div>
             <div className="font-semibold text-sm">{form.razao_social}</div>
             <div className="text-xs text-muted-foreground">CNPJ: {form.cnpj}</div>

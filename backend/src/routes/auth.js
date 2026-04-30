@@ -140,42 +140,16 @@ router.post('/change-password', authenticateToken, async (req, res) => {
 // ============================================
 router.get('/me', authenticateToken, async (req, res) => {
   try {
-    const decoded = req.user;
+    // Retorna dados do usuário que estão no JWT token
+    const user = req.user;
     
-    // Busca dados completos do usuário
-    const users = await query(`
-      SELECT 
-        u.id, u.email, u.full_name, u.active, u.email_verified, u.last_login_at,
-        (SELECT JSON_ARRAYAGG(r.code) 
-         FROM user_roles ur 
-         JOIN roles r ON ur.role_id = r.id 
-         WHERE ur.user_id = u.id) as roles,
-        (SELECT JSON_ARRAYAGG(p.code) 
-         FROM (
-           SELECT DISTINCT p.code 
-           FROM user_roles ur 
-           JOIN role_permissions rp ON ur.role_id = rp.role_id 
-           JOIN permissions p ON rp.permission_id = p.id 
-           WHERE ur.user_id = u.id AND rp.granted = 1
-         ) AS p
-        ) as permissions
-      FROM users u WHERE u.id = ?
-    `, [decoded.userId]);
-
-    if (users.length === 0) {
-      return res.status(404).json({ error: 'Usuário não encontrado' });
-    }
-
-    const user = users[0];
     res.json({
       id: user.id,
       email: user.email,
-      full_name: user.full_name,
-      active: user.active,
-      email_verified: user.email_verified,
-      last_login_at: user.last_login_at,
-      roles: user.roles ? JSON.parse(user.roles) : [],
-      permissions: user.permissions ? JSON.parse(user.permissions) : []
+      full_name: user.full_name || user.email,
+      roles: user.roles || [],
+      iat: user.iat,
+      exp: user.exp
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

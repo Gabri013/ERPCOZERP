@@ -1,4 +1,4 @@
-const db = globalThis.__B44_DB__ || { auth:{ isAuthenticated: async()=>false, me: async()=>null }, entities:new Proxy({}, { get:()=>({ filter:async()=>[], get:async()=>null, create:async()=>({}), update:async()=>({}), delete:async()=>({}) }) }), integrations:{ Core:{ UploadFile:async()=>({ file_url:'' }) } } };
+﻿const db = globalThis.__B44_DB__ || { auth:{ isAuthenticated: async()=>false, me: async()=>null }, entities:new Proxy({}, { get:()=>({ filter:async()=>[], get:async()=>null, create:async()=>({}), update:async()=>({}), delete:async()=>({}) }) }), integrations:{ Core:{ UploadFile:async()=>({ file_url:'' }) } } };
 
 import { useState } from 'react';
 import { Menu, Bell, Search, ChevronDown, Settings, LogOut, HelpCircle, Users, Eye } from 'lucide-react';
@@ -67,7 +67,7 @@ export default function Header({ onMenuToggle }) {
                   onClick={() => { iniciarImpersonate(u.id); setSwitchOpen(false); }}
                   className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted transition-colors text-left ${impersonando?.id === u.id ? 'bg-orange-50 text-orange-700' : ''}`}
                 >
-                  <div className="w-5 h-5 nomus-blue-bg rounded-full flex items-center justify-center text-white text-[9px] font-bold shrink-0">{u.avatar}</div>
+                  <div className="w-5 h-5 cozinha-blue-bg rounded-full flex items-center justify-center text-white text-[9px] font-bold shrink-0">{u.avatar}</div>
                   <div>
                     <div className="font-medium">{u.nome}</div>
                     <div className="text-[10px] text-muted-foreground">{PERFIS_LABELS[u.perfil]}</div>
@@ -86,7 +86,7 @@ export default function Header({ onMenuToggle }) {
           className="relative text-muted-foreground hover:text-foreground transition-colors p-1"
         >
           <Bell size={16} />
-          <span className="absolute -top-0.5 -right-0.5 w-4 h-4 nomus-blue-bg text-white text-[9px] rounded-full flex items-center justify-center font-bold">
+          <span className="absolute -top-0.5 -right-0.5 w-4 h-4 cozinha-blue-bg text-white text-[9px] rounded-full flex items-center justify-center font-bold">
             {notifications.length}
           </span>
         </button>
@@ -120,7 +120,7 @@ export default function Header({ onMenuToggle }) {
           onClick={() => { setUserOpen(!userOpen); setNotifOpen(false); setSwitchOpen(false); }}
           className="flex items-center gap-2 hover:bg-muted rounded px-2 py-1 transition-colors"
         >
-          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold ${impersonando ? 'bg-orange-500' : 'nomus-blue-bg'}`}>
+          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold ${impersonando ? 'bg-orange-500' : 'cozinha-blue-bg'}`}>
             {nomeExibido.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase()}
           </div>
           <div className="text-left hidden sm:block">

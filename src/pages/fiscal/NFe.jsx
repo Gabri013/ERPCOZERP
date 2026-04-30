@@ -1,4 +1,4 @@
-import PageHeader from '@/components/common/PageHeader';
+﻿import PageHeader from '@/components/common/PageHeader';
 import DataTable from '@/components/common/DataTable';
 import { Plus, FileText } from 'lucide-react';
 
@@ -27,7 +27,7 @@ export default function NFe() {
       <PageHeader title="Emissão de NF-e" breadcrumbs={['Início','Fiscal','NF-e Emissão']}
         actions={<div className="flex gap-2">
           <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded hover:bg-muted"><FileText size={13}/> Importar XML</button>
-          <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs nomus-blue-bg text-white rounded hover:opacity-90"><Plus size={13}/> Nova NF-e</button>
+          <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90"><Plus size={13}/> Nova NF-e</button>
         </div>}
       />
       <div className="bg-white border border-border rounded-lg overflow-hidden">

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { X, Settings, RotateCcw, Check } from 'lucide-react';
 import { ALL_WIDGETS } from '@/services/dashboardConfig';
 
@@ -52,7 +52,7 @@ export default function DashboardConfigurador({ ativos, onSave, onReset, onClose
           </button>
           <div className="flex gap-2">
             <button onClick={onClose} className="px-4 py-1.5 text-xs border border-border rounded hover:bg-muted">Cancelar</button>
-            <button onClick={() => onSave(selecionados)} className="px-4 py-1.5 text-xs nomus-blue-bg text-white rounded hover:opacity-90">
+            <button onClick={() => onSave(selecionados)} className="px-4 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90">
               Salvar ({selecionados.length} widgets)
             </button>
           </div>

@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { DollarSign, Factory, Package, Users } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { resolveApiUrl } from '@/config/appConfig';
+import { useAuth } from '@/lib/AuthContext';
 
 const cards = [
   {
@@ -31,6 +32,7 @@ const cards = [
 ];
 
 export default function Dashboard() {
+  const { token } = useAuth();
   const [kpis, setKpis] = useState({});
   const [loading, setLoading] = useState(true);
 
@@ -38,8 +40,15 @@ export default function Dashboard() {
     let mounted = true;
 
     async function loadDashboardData() {
+      if (!token) {
+        if (mounted) setLoading(false);
+        return;
+      }
+
       try {
-        const response = await fetch(resolveApiUrl('/api/dashboard/kpis'));
+        const response = await fetch(resolveApiUrl('/api/dashboard'), {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         const json = await response.json();
 
         if (mounted && json?.success) {
@@ -61,7 +70,7 @@ export default function Dashboard() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [token]);
 
   if (loading) {
     return <div className="flex items-center justify-center h-64">Carregando...</div>;

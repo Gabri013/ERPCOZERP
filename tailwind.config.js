@@ -13,9 +13,9 @@ module.exports = {
 			inter: ['Inter', 'sans-serif'],
 		},
 		colors: {
-			'nomus-blue': 'hsl(var(--nomus-blue))',
-			'nomus-blue-dark': 'hsl(var(--nomus-blue-dark))',
-			'nomus-blue-light': 'hsl(var(--nomus-blue-light))',
+			'cozinha-blue': 'hsl(var(--cozinha-blue))',
+			'cozinha-blue-dark': 'hsl(var(--cozinha-blue-dark))',
+			'cozinha-blue-light': 'hsl(var(--cozinha-blue-light))',
 			success: 'hsl(var(--success))',
 			warning: 'hsl(var(--warning))',
 			info: 'hsl(var(--info))',

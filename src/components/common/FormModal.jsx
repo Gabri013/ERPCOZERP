@@ -1,4 +1,4 @@
-import { X } from 'lucide-react';
+﻿import { X } from 'lucide-react';
 
 // Modal genérico reutilizável para todos os formulários de criação/edição
 export const inp = 'w-full border border-border rounded px-2.5 py-1.5 text-xs bg-white outline-none focus:border-primary';
@@ -28,7 +28,7 @@ export default function FormModal({ title, subtitle, onClose, onSave, saving, ch
           <button
             onClick={onSave}
             disabled={saving}
-            className="px-4 py-1.5 text-xs nomus-blue-bg text-white rounded hover:opacity-90 disabled:opacity-60 min-w-[100px]"
+            className="px-4 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90 disabled:opacity-60 min-w-[100px]"
           >
             {saving ? 'Salvando...' : 'Salvar'}
           </button>

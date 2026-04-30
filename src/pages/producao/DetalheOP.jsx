@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Play, Download, Printer } from 'lucide-react';
 import { opService } from '@/services/opService';
@@ -283,7 +283,7 @@ export default function DetalheOP() {
         <div className="bg-white border border-border rounded-lg overflow-hidden">
           <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
             <h3 className="text-xs font-semibold">Revisões de Prazo</h3>
-            <button className="px-3 py-1.5 text-xs nomus-blue-bg text-white rounded hover:opacity-90">+ Nova Revisão</button>
+            <button className="px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90">+ Nova Revisão</button>
           </div>
           {revisoes.length === 0 ? (
             <div className="px-4 py-8 text-center text-xs text-muted-foreground">Nenhuma revisão registrada</div>

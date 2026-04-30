@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import FormModal, { inp, lbl, req } from '@/components/common/FormModal';
 
 const DEPTOS = ['Produção','Qualidade','Vendas','Financeiro','RH','Compras','TI','Diretoria'];

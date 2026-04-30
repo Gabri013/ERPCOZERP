@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+﻿import { Link } from 'react-router-dom';
 import { useMemo } from 'react';
 import { AlertTriangle, Clock, DollarSign, CheckCircle } from 'lucide-react';
 import { getEstoqueCritico, getSaldoFinanceiro, getPedidosAguardando } from '@/services/businessLogic';

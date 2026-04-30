@@ -1,4 +1,4 @@
-/**
+﻿/**
  * ImpersonateBanner — Exibido quando master está visualizando como outro usuário
  * Este componente é fixo no topo da tela e mostra quem está sendo visualizado
  */

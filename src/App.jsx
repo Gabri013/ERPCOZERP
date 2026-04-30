@@ -1,4 +1,4 @@
-import { Toaster } from '@/components/ui/toaster'
+﻿import { Toaster } from '@/components/ui/toaster'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom'
 import { queryClientInstance } from '@/lib/query-client'
@@ -80,7 +80,7 @@ function App() {
       <ImpersonationProvider>
         <PermissaoProvider>
           <QueryClientProvider client={queryClientInstance}>
-            <Router>
+            <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
               <AuthenticatedApp />
             </Router>
             <Toaster />

@@ -1,7 +1,8 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+﻿import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/AuthContext';
 import { useImpersonation } from '@/contexts/ImpersonationContext';
 import { getPermissoesPorPerfil } from '@/lib/perfis';
+import { resolveApiUrl } from '@/config/appConfig';
 
 const PermissaoContext = createContext({ pode: () => true, papel: 'dono' });
 
@@ -14,17 +15,43 @@ export const PermissaoProvider = ({ children }) => {
   
   // Permissões efetivas do usuário visível
   const [permissoes, setPermissoes] = useState([]);
+  const [modules, setModules] = useState({});
+  const [isLoadingPermissions, setIsLoadingPermissions] = useState(false);
 
-  // Carrega permissões do usuário visível
+  // Carrega permissões do backend
+  const loadPermissionsFromBackend = useCallback(async () => {
+    if (!token || !usuarioVisivel?.id) return;
+
+    setIsLoadingPermissions(true);
+    try {
+      const response = await fetch(resolveApiUrl('/api/permissions/me'), {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setPermissoes(data.permissions || []);
+        setModules(data.modules || {});
+        console.log('[Backend Permissões] Carregado:', {
+          roles: data.user.roles,
+          modules: data.modules,
+          permissionCount: data.permissions?.length || 0
+        });
+      }
+    } catch (err) {
+      console.warn('[Backend Permissões] Erro ao carregar, usando permissões locais:', err);
+    } finally {
+      setIsLoadingPermissions(false);
+    }
+  }, [token, usuarioVisivel?.id]);
+
+  // Carrega permissões do usuário visível (tenta backend primeiro, fallback para local)
   useEffect(() => {
     if (!usuarioVisivel?.id) return;
 
-    // No futuro, buscar do backend: /api/permissions/user/:userId
-    // Por enquanto, usa perfil local + custom
-    const base = getPermissoesPorPerfil(usuarioVisivel.perfil || usuarioVisivel.roles?.[0] || 'visualizador');
-    const custom = usuarioVisivel.permissoesCustom || [];
-    setPermissoes([...new Set([...base, ...custom])]);
-  }, [usuarioVisivel]);
+    // Tenta carregar do backend
+    loadPermissionsFromBackend();
+  }, [usuarioVisivel, loadPermissionsFromBackend]);
 
   // Verifica permissão
   const pode = useCallback((acao) => {
@@ -32,6 +59,12 @@ export const PermissaoProvider = ({ children }) => {
     if (!isImpersonating && user?.roles?.includes('master')) return true;
     return permissoes.includes(acao);
   }, [permissoes, isImpersonating, user]);
+
+  // Verifica se pode visualizar módulo
+  const podeVerModulo = useCallback((modulo) => {
+    if (!modulo) return true;
+    return modules[modulo] === true;
+  }, [modules]);
 
   // Iniciar impersonation (delegado para o contexto de impersonation)
   const iniciarImpersonate = async (usuarioId, reason = '') => {
@@ -45,6 +78,7 @@ export const PermissaoProvider = ({ children }) => {
   return (
     <PermissaoContext.Provider value={{
       pode,
+      podeVerModulo,
       papel: usuarioVisivel?.perfil || usuarioVisivel?.roles?.[0] || 'dono',
       usuarioAtual: user,
       usuarioVisivel,
@@ -52,6 +86,9 @@ export const PermissaoProvider = ({ children }) => {
       iniciarImpersonate,
       pararImpersonate,
       permissoes,
+      modules,
+      isLoadingPermissions,
+      reloadPermissions: loadPermissionsFromBackend,
     }}>
       {children}
     </PermissaoContext.Provider>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function DataTable({ columns, data, loading, onRowClick, pageSize = 15 }) {
@@ -108,7 +108,7 @@ export default function DataTable({ columns, data, loading, onRowClick, pageSize
                 <button
                   key={p}
                   onClick={() => setPage(p)}
-                  className={`w-6 h-6 rounded text-[11px] font-medium transition-colors ${p === page ? 'nomus-blue-bg text-white' : 'hover:bg-muted text-muted-foreground'}`}
+                  className={`w-6 h-6 rounded text-[11px] font-medium transition-colors ${p === page ? 'cozinha-blue-bg text-white' : 'hover:bg-muted text-muted-foreground'}`}
                 >
                   {p}
                 </button>

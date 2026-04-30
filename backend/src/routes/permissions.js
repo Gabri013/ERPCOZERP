@@ -4,6 +4,94 @@ const { authenticateToken, requirePermission, requireMaster } = require('../midd
 
 const router = express.Router();
 
+// ACL Permissions by role (for mock database)
+const PERMISSIONS = {
+  admin: [
+    'dashboard:view', 'users:manage', 'roles:manage', 'empresa:manage', 'parametros:view',
+    'clientes:view', 'clientes:create', 'clientes:edit', 'clientes:delete',
+    'produtos:view', 'produtos:create', 'produtos:edit', 'produtos:delete',
+    'estoque:view', 'estoque:manage',
+    'pedidos:view', 'pedidos:create', 'pedidos:edit', 'pedidos:delete',
+    'producao:view', 'producao:manage',
+    'compras:view', 'compras:create', 'compras:edit',
+    'financeiro:view', 'financeiro:manage',
+    'relatorios:view', 'audit:view'
+  ],
+  master: [
+    'dashboard:view', 'users:view', 'users:create', 'users:edit',
+    'clientes:view', 'clientes:create', 'clientes:edit', 'clientes:delete',
+    'produtos:view', 'produtos:create', 'produtos:edit', 'produtos:delete',
+    'estoque:view', 'estoque:manage',
+    'pedidos:view', 'pedidos:create', 'pedidos:edit', 'pedidos:delete',
+    'producao:view', 'producao:manage',
+    'compras:view', 'compras:create', 'compras:edit',
+    'financeiro:view', 'financeiro:edit',
+    'relatorios:view', 'audit:view'
+  ],
+  operador: [
+    'dashboard:view',
+    'estoque:view', 'estoque:edit',
+    'produtos:view',
+    'clientes:view',
+    'pedidos:view', 'pedidos:create'
+  ],
+  vendedor: [
+    'dashboard:view',
+    'clientes:view', 'clientes:create', 'clientes:edit',
+    'produtos:view',
+    'pedidos:view', 'pedidos:create', 'pedidos:edit',
+    'relatorios:view'
+  ]
+};
+
+// ============================================
+// PERMISSÕES DO USUÁRIO LOGADO
+// ============================================
+
+// GET /api/permissions/me — retorna permissões do usuário logado
+router.get('/me', authenticateToken, (req, res) => {
+  try {
+    const userRoles = req.user?.roles || [];
+    
+    // Coleta todas as permissões dos roles do usuário
+    const permissions = new Set();
+    userRoles.forEach(role => {
+      const rolePermissions = PERMISSIONS[role] || [];
+      rolePermissions.forEach(perm => permissions.add(perm));
+    });
+
+    // Mapeia permissões para módulos
+    const modules = {
+      dashboard: permissions.has('dashboard:view'),
+      clientes: permissions.has('clientes:view'),
+      produtos: permissions.has('produtos:view'),
+      estoque: permissions.has('estoque:view'),
+      pedidos: permissions.has('pedidos:view'),
+      producao: permissions.has('producao:view'),
+      compras: permissions.has('compras:view'),
+      financeiro: permissions.has('financeiro:view'),
+      relatorios: permissions.has('relatorios:view'),
+      admin: permissions.has('users:manage') || permissions.has('roles:manage'),
+      usuarios: permissions.has('users:view') || permissions.has('users:manage'),
+      auditoria: permissions.has('audit:view')
+    };
+
+    res.json({
+      user: {
+        id: req.user.id,
+        email: req.user.email,
+        name: req.user.full_name || req.user.email,
+        roles: userRoles
+      },
+      permissions: Array.from(permissions),
+      modules,
+      hasPermission: (permission) => permissions.has(permission)
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ============================================
 // PERMISSÕES E ROLES
 // ============================================

@@ -8,25 +8,96 @@ const logger = winston.createLogger({
     winston.format.errors({ stack: true }),
     winston.format.json()
   ),
-  defaultMeta: { service: 'base44-backend-db' },
+  defaultMeta: { service: 'Cozinha-backend-db' },
   transports: [new winston.transports.Console()]
 });
 
 // Database wrapper: MySQL is the primary target for this ERP.
-const DB_CLIENT = (process.env.DB_CLIENT || 'mysql').toLowerCase();
+const DB_CLIENT = (process.env.DB_CLIENT || process.env.DB_TYPE || 'mysql').toLowerCase();
 
-function getMysqlSslConfig() {
-  const host = process.env.MYSQL_HOST || '';
-  const port = process.env.MYSQL_PORT || '';
-  const enabled =
-    String(process.env.MYSQL_SSL || '').toLowerCase() === 'true' ||
-    host.includes('tidbcloud.com') ||
-    port === '4000';
+if (DB_CLIENT === 'mock' || DB_CLIENT === 'memory') {
+  logger.info('Using in-memory mock database for development/testing');
+  module.exports = require('./mockDatabase');
 
-  return enabled ? { minVersion: 'TLSv1.2', rejectUnauthorized: true } : undefined;
-}
+} else if (DB_CLIENT === 'sqlite') {
+  const sql = require('sql.js');
+  const fs = require('fs');
+  const path = require('path');
 
-if (DB_CLIENT === 'mysql') {
+  let db = null;
+  const dbPath = process.env.DB_PATH || '/app/data/erpcoz.db';
+  const dbDir = path.dirname(dbPath);
+  
+  // Create directory if it doesn't exist
+  if (!fs.existsSync(dbDir)) {
+    fs.mkdirSync(dbDir, { recursive: true });
+  }
+
+  // Initialize SQLite in async context
+  const initDB = async () => {
+    const SQL = await sql();
+    
+    // Load existing DB or create new
+    let data;
+    try {
+      data = fs.readFileSync(dbPath);
+    } catch {
+      data = null;
+    }
+    
+    const database = new SQL.Database(data);
+    return database;
+  };
+
+  module.exports = {
+    query: async (sqlQuery, params = []) => {
+      if (!db) db = await initDB();
+      try {
+        const stmt = db.prepare(sqlQuery);
+        if (params.length > 0) {
+          stmt.bind(params);
+        }
+        const result = [];
+        while (stmt.step()) {
+          result.push(stmt.getAsObject());
+        }
+        stmt.free();
+        
+        // Save to file
+        const data = db.export();
+        fs.writeFileSync(dbPath, data);
+        
+        return result;
+      } catch (err) {
+        logger.error('SQLite query error:', err);
+        throw err;
+      }
+    },
+    getClient: async () => {
+      if (!db) db = await initDB();
+      return {
+        query: async (sqlQuery, params = []) => {
+          const stmt = db.prepare(sqlQuery);
+          if (params.length > 0) {
+            stmt.bind(params);
+          }
+          const result = [];
+          while (stmt.step()) {
+            result.push(stmt.getAsObject());
+          }
+          stmt.free();
+          return result;
+        },
+        beginTransaction: async () => db.run('BEGIN TRANSACTION'),
+        commit: async () => db.run('COMMIT'),
+        rollback: async () => db.run('ROLLBACK'),
+        release: () => {},
+      };
+    },
+    pool: null
+  };
+
+} else if (DB_CLIENT === 'mysql') {
   const mysql = require('mysql2/promise');
 
   const pool = mysql.createPool({
