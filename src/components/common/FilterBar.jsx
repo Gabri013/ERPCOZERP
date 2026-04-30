@@ -1,4 +1,4 @@
-import { Search, Filter, X } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 
 export default function FilterBar({ search, onSearch, filters = [], onFilterChange, activeFilters = {}, onClear }) {
   const hasActive = Object.values(activeFilters).some(v => v && v !== '');

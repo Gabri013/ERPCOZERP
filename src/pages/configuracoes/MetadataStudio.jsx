@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPut, apiDelete } from '@/utils/api';
+import { apiPost, apiPut, apiDelete } from '@/utils/api';
 import { useEffect, useState } from 'react';
 import { useMetadataStore } from '@/stores/metadataStore';
 import { Button } from '@/components/ui/button';
@@ -18,13 +18,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import DynamicEntityPage from '@/components/metadata/DynamicEntityPage';
 import {
   Plus,
   Edit,
   Trash2,
   GripVertical,
-  Type,
   Package,
   Users,
   Settings,
@@ -39,7 +37,6 @@ import {
   Box,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useAuth } from '@/lib/AuthContext';
 
 const fieldTypeOptions = [
   { id: 'text', label: 'Texto' },

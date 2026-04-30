@@ -2,12 +2,11 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, ShoppingCart, Truck, Factory,
-  DollarSign, BarChart2, Settings, ChevronDown, ChevronRight,
-  FileText, Boxes, UserCheck, TrendingUp, Plus, Database
+  DollarSign, ChevronDown, ChevronRight,
+  FileText, Boxes, Database
 } from 'lucide-react';
 import { usePermissao } from '@/lib/PermissaoContext';
 import { useMetadataStore } from '@/stores/metadataStore';
-import { toast } from 'sonner';
 
 const staticMenuItems = [
   { label: 'Dashboard', icon: LayoutDashboard, path: '/', alwaysShow: true },

@@ -2,7 +2,6 @@ import { apiGet } from '@/utils/api';
 import { useNavigate } from 'react-router-dom';
 import { useMetadataStore } from '@/stores/metadataStore';
 import { useAuth } from '@/lib/AuthContext';
-import { usePermissionEngine } from '@/lib/PermissaoContext';
 import DynamicFormModal from './DynamicFormModal';
 import { 
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow 

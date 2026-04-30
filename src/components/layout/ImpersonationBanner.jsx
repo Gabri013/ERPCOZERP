@@ -2,7 +2,7 @@
  * Impersonation Banner — aparece no topo quando master está visualizando como outro usuário
  */
 import { useImpersonation } from '@/contexts/ImpersonationContext';
-import { AlertTriangle, UserX, Shield } from 'lucide-react';
+import { UserX, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import PageHeader from '@/components/common/PageHeader';
 import StatusBadge from '@/components/common/StatusBadge';
-import { CheckCircle, XCircle, AlertTriangle, DollarSign } from 'lucide-react';
+import { CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import { aprovarPedidoGerencial, rejeitarPedido, getPedidosAguardando, CONFIG } from '@/services/businessLogic';
 
 const fmtR = v => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;

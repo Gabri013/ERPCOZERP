@@ -126,8 +126,34 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Health check under /api (for nginx proxy)
-app.get('/api/health', (req, res) => {
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({ 
+    name: 'Base44 ERP API',
+    version: '1.0.0',
+    status: 'online',
+    documentation: '/api/docs',
+    health: '/health'
+  });
+});
+
+// TEST: simplified login endpoint that bypasses body parser issues
+app.post('/api/test-login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Missing fields' });
+    }
+    const result = await require('./services/authService').AuthService.authenticate(email, password, '127.0.0.1', 'test');
+    res.json(result);
+  } catch (err) {
+    console.error('Test login error:', err);
+    res.status(401).json({ error: err.message });
+   }
+ });
+ 
+ // Health check under /api (for nginx proxy)
+ app.get('/api/health', (req, res) => {
   res.status(200).json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(), 

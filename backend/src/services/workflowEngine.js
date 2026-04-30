@@ -245,7 +245,7 @@ class WorkflowEngine {
 
       // AVISO: Em produção, use sandbox seguro (vm2, etc)
       // Esta é uma versão simplificada
-      return eval(expr); // eslint-disable-line no-eval
+      return eval(expr);  
     } catch (err) {
       console.error('Erro ao avaliar expressão:', err);
       return false;

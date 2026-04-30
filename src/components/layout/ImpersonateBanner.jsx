@@ -3,7 +3,7 @@
  * Este componente é fixo no topo da tela e mostra quem está sendo visualizado
  */
 import { useImpersonation } from '@/contexts/ImpersonationContext';
-import { AlertTriangle, UserX, Shield, Eye } from 'lucide-react';
+import { UserX, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 

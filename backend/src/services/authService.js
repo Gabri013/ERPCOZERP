@@ -50,7 +50,7 @@ class AuthService {
   /**
    * Autentica usuário
    */
-  static async authenticate(email, password, ip, userAgent) {
+  static async authenticate(email, password, ip = '127.0.0.1', userAgent = 'unknown') {
     const users = await query(`
       SELECT 
         u.*,

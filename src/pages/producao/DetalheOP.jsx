@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Play, FileText, Download, Printer } from 'lucide-react';
+import { ArrowLeft, Play, Download, Printer } from 'lucide-react';
 import { opService } from '@/services/opService';
 import { apontamentoService } from '@/services/apontamentoService';
-import StatusBadge from '@/components/common/StatusBadge';
 import ApontamentoModal from '@/components/producao/ApontamentoModal';
 import { PodeRender } from '@/lib/PermissaoContext';
 import { exportPdfReport } from '@/services/pdfExport';

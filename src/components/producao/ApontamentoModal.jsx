@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Play, Pause, CheckCircle } from 'lucide-react';
+import { X, Play } from 'lucide-react';
 
 const ETAPAS = ['Programação','Engenharia','Corte a Laser','Retirada','Rebarbação','Dobra','Solda','Montagem','Acabamento','Qualidade','Embalagem','Expedição'];
 const OPERADORES = ['José Pereira','Marcos Lima','Carlos Silva','Ana Souza','Roberto F.'];

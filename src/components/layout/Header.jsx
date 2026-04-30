@@ -1,7 +1,7 @@
 const db = globalThis.__B44_DB__ || { auth:{ isAuthenticated: async()=>false, me: async()=>null }, entities:new Proxy({}, { get:()=>({ filter:async()=>[], get:async()=>null, create:async()=>({}), update:async()=>({}), delete:async()=>({}) }) }), integrations:{ Core:{ UploadFile:async()=>({ file_url:'' }) } } };
 
 import { useState } from 'react';
-import { Menu, Bell, Search, User, ChevronDown, Settings, LogOut, HelpCircle, Users, Eye } from 'lucide-react';
+import { Menu, Bell, Search, ChevronDown, Settings, LogOut, HelpCircle, Users, Eye } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import { useAuth } from '@/lib/AuthContext';

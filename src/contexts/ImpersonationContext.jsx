@@ -1,47 +1,60 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from '@/lib/AuthContext';
 import { api } from '@/services/api';
-import { resolveApiUrl } from '@/config/appConfig';
 
 const ImpersonationContext = createContext(null);
+
+const decodeJwtPayload = (jwtToken) => {
+  try {
+    const payload = jwtToken.split('.')[1];
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
+    return JSON.parse(atob(padded));
+  } catch {
+    return null;
+  }
+};
 
 /**
  * Provedor de contexto para gerenciar modo de impersonation
  * Usado para que o master possa visualizar o sistema como outro usuário
  */
 export function ImpersonationProvider({ children }) {
-  const { user, setUser: setAuthUser } = useAuth();
+  const { user, token, authChecked, setUser: setAuthUser } = useAuth();
   const [isImpersonating, setIsImpersonating] = useState(false);
   const [originalUser, setOriginalUser] = useState(null);
   const [impersonatedUser, setImpersonatedUser] = useState(null);
 
   // No mount, verifica se há token de impersonation ativo
   useEffect(() => {
-    const checkImpersonationStatus = async () => {
-      // Tenta verificar status via API (mais seguro)
-      try {
-        const response = await fetch(resolveApiUrl('/api/admin/impersonation/status'), {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-          }
-        });
-        const data = await response.json();
-        
-        if (data?.isImpersonating) {
-          setIsImpersonating(true);
-          setOriginalUser(data.masterUser);
-          setImpersonatedUser(data.impersonatedUser);
-          // Atualiza contexto de auth com usuário alvo
-          setAuthUser(data.impersonatedUser);
-        }
-      } catch (err) {
-        // Se der erro (401), remove token de impersonation se existir
-        localStorage.removeItem('impersonation_token');
-      }
-    };
+    if (!authChecked || !token) {
+      return;
+    }
 
-    checkImpersonationStatus();
-  }, []);
+    const impersonationToken = localStorage.getItem('impersonation_token');
+    if (!impersonationToken) {
+      return;
+    }
+
+    const payload = decodeJwtPayload(impersonationToken);
+    if (!payload?.impersonation || !payload?.userId) {
+      localStorage.removeItem('impersonation_token');
+      return;
+    }
+
+    setIsImpersonating(true);
+    setOriginalUser({ id: payload.impersonatedBy || null });
+    setImpersonatedUser({
+      id: payload.userId,
+      email: payload.email,
+      roles: payload.roles || [],
+    });
+    setAuthUser({
+      id: payload.userId,
+      email: payload.email,
+      roles: payload.roles || [],
+    });
+  }, [authChecked, token, setAuthUser]);
 
   /**
    * Inicia modo de impersonation
@@ -77,7 +90,7 @@ export function ImpersonationProvider({ children }) {
      try {
        const impToken = localStorage.getItem('impersonation_token');
        if (impToken) {
-         await api.post('/admin/stop-impersonate');
+         await api.post('/api/admin/stop-impersonate');
        }
      } finally {
       // Limpa storage

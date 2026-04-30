@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
-import { TrendingUp, TrendingDown, DollarSign, ArrowUpCircle, ArrowDownCircle, Calendar } from 'lucide-react';
+import { TrendingUp, DollarSign, ArrowUpCircle, ArrowDownCircle, Calendar } from 'lucide-react';
 import PageHeader from '@/components/common/PageHeader';
 import { getFluxoCaixaProjetado, getSaldoFinanceiro } from '@/services/businessLogic';
 import { storage } from '@/services/storage';

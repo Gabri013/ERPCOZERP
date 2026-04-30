@@ -19,6 +19,8 @@ async function seed() {
     console.log('👤 Criando usuário master...');
     let masterId = uuidv4();
     const masterPassword = process.env.DEFAULT_MASTER_PASSWORD || 'master123_dev';
+    console.log('[DEBUG] DEFAULT_MASTER_PASSWORD env:', JSON.stringify(process.env.DEFAULT_MASTER_PASSWORD));
+    console('[DEBUG] masterPassword usado:', JSON.stringify(masterPassword));
     const masterHash = await bcrypt.hash(masterPassword, 12);
 
     await query(`

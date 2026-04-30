@@ -1,6 +1,5 @@
-import { Link } from 'react-router-dom';
 import PageHeader from '@/components/common/PageHeader';
-import { BarChart2, ShoppingCart, Package, Truck, Factory, DollarSign, Users, TrendingUp } from 'lucide-react';
+import { BarChart2, ShoppingCart, Package, Factory, DollarSign } from 'lucide-react';
 
 const RELATORIOS = [
   { categoria:'Vendas', icone:ShoppingCart, cor:'bg-blue-100 text-blue-700', items:[

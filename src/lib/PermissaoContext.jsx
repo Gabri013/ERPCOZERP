@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/AuthContext';
 import { useImpersonation } from '@/contexts/ImpersonationContext';
+import { getPermissoesPorPerfil } from '@/lib/perfis';
 
 const PermissaoContext = createContext({ pode: () => true, papel: 'dono' });
 
@@ -20,7 +21,6 @@ export const PermissaoProvider = ({ children }) => {
 
     // No futuro, buscar do backend: /api/permissions/user/:userId
     // Por enquanto, usa perfil local + custom
-    const { getPermissoesPorPerfil } = require('@/lib/perfis');
     const base = getPermissoesPorPerfil(usuarioVisivel.perfil || usuarioVisivel.roles?.[0] || 'visualizador');
     const custom = usuarioVisivel.permissoesCustom || [];
     setPermissoes([...new Set([...base, ...custom])]);

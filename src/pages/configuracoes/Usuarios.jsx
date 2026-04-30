@@ -4,7 +4,7 @@ import DataTable from '@/components/common/DataTable';
 import FormModal, { inp, lbl, req } from '@/components/common/FormModal';
 import { UserPlus, Edit2, Eye, Trash2, Shield } from 'lucide-react';
 import { userService } from '@/services/userService';
-import { PERFIS_LABELS, TODAS_PERMISSOES, PERMISSOES_PERFIL, getPermissoesPorPerfil } from '@/lib/perfis';
+import { PERFIS_LABELS, TODAS_PERMISSOES, getPermissoesPorPerfil } from '@/lib/perfis';
 import { usePermissao } from '@/lib/PermissaoContext';
 
 const statusCor = { true: 'bg-green-100 text-green-700', false: 'bg-gray-100 text-gray-600' };

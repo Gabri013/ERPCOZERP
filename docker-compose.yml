@@ -16,6 +16,9 @@ services:
       - VITE_BACKEND_URL=http://localhost:3001
       - DEFAULT_MASTER_PASSWORD=master123_dev
       - DEFAULT_ADMIN_PASSWORD=admin123_dev
+      - JWT_SECRET=dev_jwt_secret_change_me_please_12345
+      - JWT_EXPIRES_IN=7d
+      - REFRESH_TOKEN_EXPIRES_IN=30d
     depends_on:
       - db
     develop:
