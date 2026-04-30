@@ -259,10 +259,10 @@ const PORT = process.env.PORT || 3001;
 
 const BASE_URL = process.env.RENDER_EXTERNAL_URL || process.env.EXTERNAL_URL || `http://localhost:${PORT}`;
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   logger.info(`Base44 ERP Backend rodando na porta ${PORT}`);
-  logger.info(`API: ${BASE_URL}/api`);
-  logger.info(`Health: ${BASE_URL}/health`);
+  logger.info(`API: http://localhost:${PORT}/api`);
+  logger.info(`Health: http://localhost:${PORT}/health`);
   logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 

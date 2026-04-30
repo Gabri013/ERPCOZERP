@@ -150,11 +150,15 @@ router.get('/me', authenticateToken, async (req, res) => {
          FROM user_roles ur 
          JOIN roles r ON ur.role_id = r.id 
          WHERE ur.user_id = u.id) as roles,
-        (SELECT JSON_ARRAYAGG(DISTINCT p.code) 
-         FROM user_roles ur 
-         JOIN role_permissions rp ON ur.role_id = rp.role_id 
-         JOIN permissions p ON rp.permission_id = p.id 
-         WHERE ur.user_id = u.id AND rp.granted = 1) as permissions
+        (SELECT JSON_ARRAYAGG(p.code) 
+         FROM (
+           SELECT DISTINCT p.code 
+           FROM user_roles ur 
+           JOIN role_permissions rp ON ur.role_id = rp.role_id 
+           JOIN permissions p ON rp.permission_id = p.id 
+           WHERE ur.user_id = u.id AND rp.granted = 1
+         ) AS p
+        ) as permissions
       FROM users u WHERE u.id = ?
     `, [decoded.userId]);
 

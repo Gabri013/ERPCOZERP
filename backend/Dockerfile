@@ -1,8 +1,8 @@
 # Dockerfile for backend service
-FROM node:18-alpine
+FROM node:18
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --silent
+RUN npm install --silent && npm rebuild bcrypt --build-from-source
 COPY . .
-EXPOSE 3000
+EXPOSE 3001
 CMD ["npm","run","dev"]
