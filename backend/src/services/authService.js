@@ -51,34 +51,29 @@ class AuthService {
    * Autentica usuário
    */
   static async authenticate(email, password, ip = '127.0.0.1', userAgent = 'unknown') {
+    // Busca usuário (sem agregações JSON, para compatibilidade com MySQL/MariaDB)
     const users = await query(`
-      SELECT 
-        u.*,
-        (SELECT JSON_ARRAYAGG(r.code) 
-         FROM user_roles ur 
-         JOIN roles r ON ur.role_id = r.id 
-         WHERE ur.user_id = u.id) as roles
-      FROM users u
-      WHERE u.email = ? AND u.active = TRUE
+      SELECT u.* FROM users u WHERE u.email = ? AND u.active = TRUE
     `, [email]);
 
-     if (users.length === 0) {
-       throw new Error('Usuário não encontrado');
-     }
+    if (users.length === 0) {
+      throw new Error('Usuário não encontrado');
+    }
 
-     const user = users[0];
-     let userRoles = [];
-     if (user.roles) {
-       if (Array.isArray(user.roles)) {
-         userRoles = user.roles;
-       } else {
-         try {
-           userRoles = JSON.parse(user.roles);
-         } catch (e) {
-           userRoles = [];
-         }
-       }
-     }
+    const user = users[0];
+
+    // Busca papéis do usuário — usa GROUP_CONCAT como fallback caso JSON_ARRAYAGG não exista
+    let rolesRes = await query(`
+      SELECT GROUP_CONCAT(r.code) as roles_str
+      FROM user_roles ur
+      JOIN roles r ON ur.role_id = r.id
+      WHERE ur.user_id = ?
+    `, [user.id]);
+
+    let userRoles = [];
+    if (rolesRes && rolesRes.length > 0 && rolesRes[0].roles_str) {
+      userRoles = rolesRes[0].roles_str.split(',').map(s => s.trim()).filter(Boolean);
+    }
 
     // Verificar conta bloqueada
     if (user.locked_until && new Date(user.locked_until) > new Date()) {
@@ -228,31 +223,21 @@ class AuthService {
     }
 
     // Busca user com roles
-    const users = await query(`
-      SELECT 
-        u.id, u.email,
-        (SELECT JSON_ARRAYAGG(r.code) 
-         FROM user_roles ur 
-         JOIN roles r ON ur.role_id = r.id 
-         WHERE ur.user_id = u.id) as roles
-      FROM users u WHERE u.id = ?
-    `, [decoded.userId]);
+    const users = await query(`SELECT id, email FROM users WHERE id = ?`, [decoded.userId]);
+    if (users.length === 0) throw new Error('Usuário não encontrado');
+    const user = users[0];
 
-     if (users.length === 0) throw new Error('Usuário não encontrado');
+    const rolesRes = await query(`
+      SELECT GROUP_CONCAT(r.code) as roles_str
+      FROM user_roles ur
+      JOIN roles r ON ur.role_id = r.id
+      WHERE ur.user_id = ?
+    `, [user.id]);
 
-     const user = users[0];
-     let userRoles = [];
-     if (user.roles) {
-       if (Array.isArray(user.roles)) {
-         userRoles = user.roles;
-       } else {
-         try {
-           userRoles = JSON.parse(user.roles);
-         } catch (e) {
-           userRoles = [];
-         }
-       }
-     }
+    let userRoles = [];
+    if (rolesRes && rolesRes.length > 0 && rolesRes[0].roles_str) {
+      userRoles = rolesRes[0].roles_str.split(',').map(s => s.trim()).filter(Boolean);
+    }
 
     const newAccessToken = jwt.sign(
       {

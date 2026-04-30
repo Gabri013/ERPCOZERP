@@ -30,10 +30,11 @@ router.get('/', authenticateToken, async (req, res) => {
     const entities = await query(`
       SELECT 
         e.*,
-        (SELECT JSON_ARRAYAGG(
+        (SELECT CONCAT('[', IFNULL(GROUP_CONCAT(
           JSON_OBJECT('id', f.id, 'code', f.code, 'label', f.label, 'data_type', f.data_type,
                       'required', f.required, 'display_order', f.display_order)
-        ) FROM entity_fields f WHERE f.entity_id = e.id ORDER BY f.display_order) as fields
+          ORDER BY f.display_order SEPARATOR ','
+        ), ''), ']') FROM entity_fields f WHERE f.entity_id = e.id) as fields
       FROM entities e
       ORDER BY e.name
     `);
@@ -58,14 +59,15 @@ router.get('/:code', authenticateToken, async (req, res) => {
     const entities = await query(`
       SELECT 
         e.*,
-        (SELECT JSON_ARRAYAGG(
+        (SELECT CONCAT('[', IFNULL(GROUP_CONCAT(
           JSON_OBJECT('id', f.id, 'code', f.code, 'label', f.label, 
                       'data_type', f.data_type, 'data_type_params', f.data_type_params,
                       'required', f.required, 'unique_field', f.unique_field,
                       'readonly', f.readonly, 'hidden', f.hidden,
                       'default_value', f.default_value, 'validation_rules', f.validation_rules,
                       'display_order', f.display_order, 'width', f.width)
-        ) FROM entity_fields f WHERE f.entity_id = e.id ORDER BY f.display_order) as fields
+          ORDER BY f.display_order SEPARATOR ','
+        ), ''), ']') FROM entity_fields f WHERE f.entity_id = e.id) as fields
       FROM entities e WHERE e.code = ?
     `, [code]);
 

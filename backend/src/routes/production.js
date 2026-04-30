@@ -25,7 +25,10 @@ router.get('/ops/:id', requirePermission('ver_op'), async (req, res) => {
       SELECT 
         er.id, er.data, er.created_at, er.updated_at,
         u.full_name as created_by_name,
-        (SELECT JSON_ARRAYAGG(JSON_OBJECT('etapa', a.descricao, 'status', a.status, 'quantidade', a.quantidade, 'refugo', a.refugo))
+        (SELECT CONCAT('[', IFNULL(GROUP_CONCAT(
+          JSON_OBJECT('etapa', a.descricao, 'status', a.status, 'quantidade', a.quantidade, 'refugo', a.refugo)
+          ORDER BY a.created_at SEPARATOR ','
+        ), ''), ']')
          FROM apontamentos a WHERE a.op_id = er.id) as apontamentos
       FROM entity_records er
       LEFT JOIN users u ON er.created_by = u.id
@@ -82,7 +85,10 @@ router.get('/ops', requirePermission('ver_op'), async (req, res) => {
       SELECT 
         er.id, er.data, er.created_at, er.updated_at,
         u.full_name as created_by_name,
-        (SELECT JSON_ARRAYAGG(JSON_OBJECT('etapa', a.descricao, 'status', a.status, 'quantidade', a.quantidade, 'refugo', a.refugo))
+        (SELECT CONCAT('[', IFNULL(GROUP_CONCAT(
+          JSON_OBJECT('etapa', a.descricao, 'status', a.status, 'quantidade', a.quantidade, 'refugo', a.refugo)
+          ORDER BY a.created_at SEPARATOR ','
+        ), ''), ']')
          FROM apontamentos a WHERE a.op_id = er.id) as apontamentos
       FROM entity_records er
       LEFT JOIN users u ON er.created_by = u.id

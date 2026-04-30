@@ -11,10 +11,10 @@ const https = require('https');
 const BACKEND_URL = 'http://localhost:3001';
 const FRONTEND_URL = 'http://localhost:5173';
 
-// Credenciais do seed Docker (MySQL)
+// Credenciais do ambiente de teste — podem ser sobrescritas por variáveis de ambiente
 const TEST_CREDENTIALS = {
-  email: 'admin@Cozinha.com',
-  password: 'admin123_dev'
+  email: process.env.SMOKE_USER_EMAIL || 'master@erpcoz.local',
+  password: process.env.SMOKE_USER_PASSWORD || 'master123_dev'
 };
 
 // Armazena resultados
@@ -241,7 +241,7 @@ async function runSmokeTests() {
   // ====================
   console.log('\n--- 6. ROTAS PÚBLICAS ---\n');
 
-    const loginPageRes = await request('GET', `${FRONTEND_URL}/login`);
+    const loginPageRes = await request('GET', `${FRONTEND_URL}/login/`);
     const isLoginHtml = loginPageRes.body && (loginPageRes.body.toLowerCase().includes('<!doctype html>') || loginPageRes.body.includes('id="root"') || loginPageRes.body.includes('React'));
     logTest('SPA GET /login', loginPageRes.status === 200 && isLoginHtml, 
       loginPageRes.status === 200 ? (isLoginHtml ? 'HTML login OK' : '200 sem DOCTYPE') : `Status: ${loginPageRes.status}`);

@@ -1,6 +1,6 @@
 {
-  "passed": 3,
-  "failed": 1,
+  "passed": 22,
+  "failed": 0,
   "tests": [
     {
       "name": "Backend /health",
@@ -14,8 +14,98 @@
     },
     {
       "name": "Login com test-login",
-      "success": false,
-      "details": "Status: 429, Body: Too many requests from this IP, please try again later."
+      "success": true,
+      "details": "Token obtido (eyJhbGciOiJIUzI1NiIs...)"
+    },
+    {
+      "name": "GET /api/entities",
+      "success": true,
+      "details": "Lista de entidades obtida"
+    },
+    {
+      "name": "GET /api/records?entity=produto",
+      "success": true,
+      "details": "Produtos listados"
+    },
+    {
+      "name": "GET /api/production/ops",
+      "success": true,
+      "details": "Ordens de produção listadas"
+    },
+    {
+      "name": "GET /api/production/ops/:id",
+      "success": true,
+      "details": "Nenhuma OP para testar detalhe (skip)"
+    },
+    {
+      "name": "GET /api/production/apontamentos/:id",
+      "success": true,
+      "details": "Nenhuma OP para testar (skip)"
+    },
+    {
+      "name": "GET /api/records?entity=maquina",
+      "success": true,
+      "details": "Máquinas listadas"
+    },
+    {
+      "name": "GET /api/records?entity=apontamento",
+      "success": true,
+      "details": "Apontamentos (records) listados"
+    },
+    {
+      "name": "SPA GET /producao/ordens",
+      "success": true,
+      "details": "HTML React retornado"
+    },
+    {
+      "name": "SPA GET /producao/ordens/novo",
+      "success": true,
+      "details": "HTML React retornado"
+    },
+    {
+      "name": "SPA GET /producao/ordens/123",
+      "success": true,
+      "details": "HTML React retornado"
+    },
+    {
+      "name": "SPA GET /producao/maquinas",
+      "success": true,
+      "details": "HTML React retornado"
+    },
+    {
+      "name": "SPA GET /producao/pcp",
+      "success": true,
+      "details": "HTML React retornado"
+    },
+    {
+      "name": "SPA GET /producao/kanban",
+      "success": true,
+      "details": "HTML React retornado"
+    },
+    {
+      "name": "SPA GET /producao/chao-fabrica",
+      "success": true,
+      "details": "HTML React retornado"
+    },
+    {
+      "name": "SPA GET /producao/roteiros",
+      "success": true,
+      "details": "HTML React retornado"
+    },
+    {
+      "name": "SPA GET /producao/apontamento",
+      "success": true,
+      "details": "HTML React retornado"
+    },
+    {
+      "name": "GET /api/records com entity inexistente (deve 404)",
+      "success": true,
+      "details": "Status: 404"
+    },
+    {
+      "name": "SPA fallback para route desconhecida",
+      "success": true,
+      "details": "Status: 200, HTML: true"
     },
     {
       "name": "SPA GET /login",
