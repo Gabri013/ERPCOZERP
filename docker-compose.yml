@@ -6,7 +6,7 @@ services:
     ports:
       - "3001:3001"
     environment:
-      - DB_TYPE=sqlite
+      - DB_TYPE=mock
       - DB_PATH=/app/data/erpcoz.db
       - PORT=3001
       - NODE_ENV=development
@@ -17,6 +17,7 @@ services:
       - REFRESH_TOKEN_EXPIRES_IN=30d
     volumes:
       - backend_data:/app/data
+      - ./backend/src:/app/src
     develop:
       watch:
         - action: sync

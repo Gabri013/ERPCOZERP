@@ -18,11 +18,8 @@ COPY postcss.config.js ./
 COPY eslint.config.js ./
 COPY components.json ./
 
-# Copy frontend source directory
-COPY frontend/ ./frontend/
-
-# Copy public directory if it exists
-COPY public/ ./public/ 2>/dev/null || true
+# Copy source directories
+COPY src/ ./src/
 
 # Build the application
 RUN npm run build

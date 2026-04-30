@@ -13,6 +13,9 @@ RUN npm install --silent && npm rebuild bcrypt --build-from-source
 COPY src/ ./src/
 COPY .env.example ./
 
+# Create data directory
+RUN mkdir -p /app/data
+
 # Expose port
 EXPOSE 3001
 

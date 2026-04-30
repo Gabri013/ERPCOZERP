@@ -24,9 +24,6 @@ __tests__/
 *.cjs
 backend/
 public/
-src/
-entities/
-entites/
 Dockerfile*
 docker-compose*
 *.yml

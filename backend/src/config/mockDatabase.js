@@ -3,22 +3,8 @@ const mockData = {
   users: [
     {
       id: '1',
-      email: 'admin@erpcoz.local',
-      password_hash: '$2b$12$16qbgrLlP4MOjrzkgVXet.NZE/LaxmnwTUNGssMcwVyzofBrTYa9m', // admin123
-      full_name: 'Administrador',
-      active: true,
-      locked_until: null,
-      failed_login_attempts: 0,
-      last_login_at: null,
-      email_verified: true,
-      roles: JSON.stringify(['admin']),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    },
-    {
-      id: '2',
       email: 'master@erpcoz.local',
-      password_hash: '$2b$12$16qbgrLlP4MOjrzkgVXet.NZE/LaxmnwTUNGssMcwVyzofBrTYa9m', // admin123
+      password_hash: '$2b$12$LQ/qXVmyXVPHTe4IT99nXu/oXJ97tmZeLAFdEld3GibViT42m/Ufa', // master123_dev
       full_name: 'Master User',
       active: true,
       locked_until: null,
@@ -26,6 +12,20 @@ const mockData = {
       last_login_at: null,
       email_verified: true,
       roles: JSON.stringify(['master']),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    },
+    {
+      id: '2',
+      email: 'admin@erpcoz.local',
+      password_hash: '$2b$12$16qbgrLlP4MOjrzkgVXet.NZE/LaxmnwTUNGssMcwVyzofBrTYa9m', // admin123
+      full_name: 'Admin User',
+      active: true,
+      locked_until: null,
+      failed_login_attempts: 0,
+      last_login_at: null,
+      email_verified: true,
+      roles: JSON.stringify(['admin']),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     },
@@ -56,181 +56,295 @@ const mockData = {
       roles: JSON.stringify(['vendedor']),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
+    },
+    {
+      id: '5',
+      email: 'supervisor.producao@erpcoz.local',
+      password_hash: '$2b$12$16qbgrLlP4MOjrzkgVXet.NZE/LaxmnwTUNGssMcwVyzofBrTYa9m', // admin123
+      full_name: 'Supervisor de Produção',
+      active: true,
+      locked_until: null,
+      failed_login_attempts: 0,
+      last_login_at: null,
+      email_verified: true,
+      roles: JSON.stringify(['supervisor']),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    },
+    {
+      id: '6',
+      email: 'analista.compras@erpcoz.local',
+      password_hash: '$2b$12$16qbgrLlP4MOjrzkgVXet.NZE/LaxmnwTUNGssMcwVyzofBrTYa9m', // admin123
+      full_name: 'Analista de Compras',
+      active: true,
+      locked_until: null,
+      failed_login_attempts: 0,
+      last_login_at: null,
+      email_verified: true,
+      roles: JSON.stringify(['compras']),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    },
+    {
+      id: '7',
+      email: 'financeiro@erpcoz.local',
+      password_hash: '$2b$12$16qbgrLlP4MOjrzkgVXet.NZE/LaxmnwTUNGssMcwVyzofBrTYa9m', // admin123
+      full_name: 'Analista Financeiro',
+      active: true,
+      locked_until: null,
+      failed_login_attempts: 0,
+      last_login_at: null,
+      email_verified: true,
+      roles: JSON.stringify(['financeiro']),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    },
+    {
+      id: '8',
+      email: 'rh@erpcoz.local',
+      password_hash: '$2b$12$16qbgrLlP4MOjrzkgVXet.NZE/LaxmnwTUNGssMcwVyzofBrTYa9m', // admin123
+      full_name: 'Analista de RH',
+      active: true,
+      locked_until: null,
+      failed_login_attempts: 0,
+      last_login_at: null,
+      email_verified: true,
+      roles: JSON.stringify(['rh']),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     }
   ],
-  clientes: [],
-  produtos: [],
-  pedidos: [],
-  user_sessions: [],
-  audit_logs: [],
   roles: [
-    { id: '1', code: 'admin', name: 'Administrador', description: 'Acesso total' },
-    { id: '2', code: 'master', name: 'Master', description: 'Acesso total com auditoria' },
-    { id: '3', code: 'operador', name: 'Operador', description: 'Gestão de estoque e recebimento' },
-    { id: '4', code: 'vendedor', name: 'Vendedor', description: 'Pedidos e clientes' }
+    {
+      id: '1',
+      code: 'master',
+      name: 'Master',
+      description: 'Acesso total ao sistema',
+      active: true,
+      permissions: JSON.stringify(['user.manage', 'role.manage', 'permission.manage', 'entity.*.*', 'workflow.create', 'workflow.execute', 'rule.manage', 'system.config', 'ver_financeiro', 'ver_fiscal', 'emitir_nfe', 'cancelar_nfe'])
+    },
+    {
+      id: '2',
+      code: 'admin',
+      name: 'Administrador',
+      description: 'Administração geral',
+      active: true,
+      permissions: JSON.stringify(['user.manage'])
+    }
   ],
-  // ACL - Define permissões por role
-  permissions: {
-    admin: [
-      'dashboard:view', 'users:manage', 'roles:manage', 'empresa:manage', 'parametros:view',
-      'clientes:view', 'clientes:create', 'clientes:edit', 'clientes:delete',
-      'produtos:view', 'produtos:create', 'produtos:edit', 'produtos:delete',
-      'estoque:view', 'estoque:manage',
-      'pedidos:view', 'pedidos:create', 'pedidos:edit', 'pedidos:delete',
-      'producao:view', 'producao:manage',
-      'compras:view', 'compras:create', 'compras:edit',
-      'financeiro:view', 'financeiro:manage',
-      'relatorios:view', 'audit:view'
-    ],
-    master: [
-      'dashboard:view', 'users:view', 'users:create', 'users:edit',
-      'clientes:view', 'clientes:create', 'clientes:edit', 'clientes:delete',
-      'produtos:view', 'produtos:create', 'produtos:edit', 'produtos:delete',
-      'estoque:view', 'estoque:manage',
-      'pedidos:view', 'pedidos:create', 'pedidos:edit', 'pedidos:delete',
-      'producao:view', 'producao:manage',
-      'compras:view', 'compras:create', 'compras:edit',
-      'financeiro:view', 'financeiro:edit',
-      'relatorios:view', 'audit:view'
-    ],
-    operador: [
-      'dashboard:view',
-      'estoque:view', 'estoque:edit',
-      'produtos:view',
-      'clientes:view',
-      'pedidos:view', 'pedidos:create'
-    ],
-    vendedor: [
-      'dashboard:view',
-      'clientes:view', 'clientes:create', 'clientes:edit',
-      'produtos:view',
-      'pedidos:view', 'pedidos:create', 'pedidos:edit',
-      'relatorios:view'
-    ]
-  }
+  permissions: [
+    {
+      id: '1',
+      code: 'user.manage',
+      name: 'Gerenciar usuários',
+      category: 'user',
+      description: 'Criar, editar e excluir usuários',
+      type: 'action',
+      active: true
+    },
+    {
+      id: '2',
+      code: 'role.manage',
+      name: 'Gerenciar papéis',
+      category: 'permission',
+      description: 'Criar e alterar papéis',
+      type: 'action',
+      active: true
+    },
+    {
+      id: '3',
+      code: 'permission.manage',
+      name: 'Gerenciar permissões',
+      category: 'permission',
+      description: 'Associar permissões aos papéis',
+      type: 'action',
+      active: true
+    },
+    {
+      id: '4',
+      code: 'entity.*.*',
+      name: 'Acesso total a entidades',
+      category: 'entity',
+      description: 'Todas as acoes em todas as entidades',
+      type: 'entity',
+      active: true
+    },
+    {
+      id: '5',
+      code: 'workflow.create',
+      name: 'Criar workflows',
+      category: 'workflow',
+      description: 'Criar workflows',
+      type: 'action',
+      active: true
+    },
+    {
+      id: '6',
+      code: 'workflow.execute',
+      name: 'Executar workflows',
+      category: 'workflow',
+      description: 'Executar transicoes de workflow',
+      type: 'action',
+      active: true
+    },
+    {
+      id: '7',
+      code: 'rule.manage',
+      name: 'Gerenciar regras',
+      category: 'rule',
+      description: 'Criar e alterar regras de negocio',
+      type: 'action',
+      active: true
+    },
+    {
+      id: '8',
+      code: 'system.config',
+      name: 'Configurar sistema',
+      category: 'system',
+      description: 'Alterar configuracoes do sistema',
+      type: 'action',
+      active: true
+    },
+    {
+      id: '9',
+      code: 'ver_financeiro',
+      name: 'Ver financeiro',
+      category: 'financeiro',
+      description: 'Acessar financeiro',
+      type: 'action',
+      active: true
+    },
+    {
+      id: '10',
+      code: 'ver_fiscal',
+      name: 'Ver fiscal',
+      category: 'fiscal',
+      description: 'Acessar fiscal',
+      type: 'action',
+      active: true
+    },
+    {
+      id: '11',
+      code: 'emitir_nfe',
+      name: 'Emitir NFe',
+      category: 'fiscal',
+      description: 'Emitir notas fiscais',
+      type: 'action',
+      active: true
+    },
+    {
+      id: '12',
+      code: 'cancelar_nfe',
+      name: 'Cancelar NFe',
+      category: 'fiscal',
+      description: 'Cancelar notas fiscais',
+      type: 'action',
+      active: true
+    }
+  ],
+  user_roles: [
+    {
+      id: '1',
+      user_id: '1',
+      role_id: '1'
+    },
+    {
+      id: '2',
+      user_id: '2',
+      role_id: '2'
+    }
+  ],
+  role_permissions: [
+    {
+      id: '1',
+      role_id: '1',
+      permission_id: '1',
+      granted: true
+    },
+    {
+      id: '2',
+      role_id: '1',
+      permission_id: '2',
+      granted: true
+    },
+    {
+      id: '3',
+      role_id: '1',
+      permission_id: '3',
+      granted: true
+    },
+    {
+      id: '4',
+      role_id: '1',
+      permission_id: '4',
+      granted: true
+    },
+    {
+      id: '5',
+      role_id: '1',
+      permission_id: '5',
+      granted: true
+    },
+    {
+      id: '6',
+      role_id: '1',
+      permission_id: '6',
+      granted: true
+    },
+    {
+      id: '7',
+      role_id: '1',
+      permission_id: '7',
+      granted: true
+    },
+    {
+      id: '8',
+      role_id: '1',
+      permission_id: '8',
+      granted: true
+    },
+    {
+      id: '9',
+      role_id: '1',
+      permission_id: '9',
+      granted: true
+    },
+    {
+      id: '10',
+      role_id: '1',
+      permission_id: '10',
+      granted: true
+    },
+    {
+      id: '11',
+      role_id: '1',
+      permission_id: '11',
+      granted: true
+    },
+    {
+      id: '12',
+      role_id: '1',
+      permission_id: '12',
+      granted: true
+    },
+    {
+      id: '13',
+      role_id: '2',
+      permission_id: '1',
+      granted: true
+    }
+  ],
+  entities: [],
+  entity_records: [],
+  workflows: [],
+  workflow_steps: [],
+  workflow_history: [],
+  business_rules: [],
+  rule_executions: [],
+  system_config: [],
+  config_versions: [],
+  audit_logs: [],
+  access_logs: []
 };
-
-// Simple query parser
-function parseQuery(sql, params = []) {
-  const sqlUpper = sql.toUpperCase();
-  console.log('[MockDB] SQL:', sql);
-  console.log('[MockDB] Params:', params);
-  
-  // SELECT queries
-  if (sqlUpper.includes('SELECT')) {
-    console.log('[MockDB] Processing SELECT query...');
-    console.log('[MockDB] SQL Upper:', sqlUpper.substring(0, 200));
-    console.log('[MockDB] Contains FROM USERS?', sqlUpper.includes('FROM USERS'));
-    if (sqlUpper.includes('FROM USERS') || sqlUpper.includes('FROM U')) {
-      console.log('[MockDB] Detected FROM users query');
-      let results = mockData.users.slice(); // Copy array
-      console.log('[MockDB] Total users before filtering:', results.length);
-      
-      // Handle WHERE email = ?
-      if (sqlUpper.includes('WHERE') && params.length > 0) {
-        // First param is usually email in login queries
-        const emailToFind = params[0];
-        const before = results.length;
-        results = results.filter(u => {
-          const match = u.email === emailToFind;
-          console.log(`[MockDB] User ${u.email} matches ${emailToFind}? ${match}`);
-          return match;
-        });
-        console.log(`[MockDB] Filtered by email: ${emailToFind}, Before: ${before}, After: ${results.length}`);
-      }
-      
-      // Handle AND u.active = TRUE or AND active = TRUE
-      if ((sqlUpper.includes('AND U.ACTIVE') || sqlUpper.includes('AND ACTIVE')) && sqlUpper.includes('TRUE')) {
-        const before = results.length;
-        results = results.filter(u => {
-          console.log(`[MockDB] User ${u.email} active? ${u.active}`);
-          return u.active === true;
-        });
-        console.log(`[MockDB] Filtered by active=true, Before: ${before}, After: ${results.length}`);
-      }
-      
-      console.log('[MockDB] Final results:', results.map(r => r.email));
-      return results;
-    } else if (sqlUpper.includes('FROM ROLES') || sqlUpper.includes('FROM R')) {
-      let results = mockData.roles;
-      if (sqlUpper.includes('code = ?') && params[0]) {
-        results = results.filter(r => r.code === params[0]);
-      }
-      return results;
-    }
-    
-    return [];
-  }
-  
-  // INSERT queries
-  if (sqlUpper.includes('INSERT INTO')) {
-    if (sqlUpper.includes('audit_logs')) {
-      mockData.audit_logs.push({
-        id: Math.random().toString(36).substr(2, 9),
-        ...params.reduce((acc, val, idx) => ({ ...acc, [`col_${idx}`]: val }), {})
-      });
-      return { insertId: mockData.audit_logs.length - 1 };
-    }
-    if (sqlUpper.includes('user_sessions')) {
-      mockData.user_sessions.push({
-        id: params[0],
-        user_id: params[1],
-        session_token: params[2],
-        ip_address: params[3],
-        user_agent: params[4],
-        expires_at: params[5]
-      });
-      return { insertId: 1 };
-    }
-    if (sqlUpper.includes('access_logs')) {
-      // Mock access log
-      return { insertId: 1 };
-    }
-    return { insertId: Math.random().toString(36).substr(2, 9) };
-  }
-  
-  // UPDATE queries
-  if (sqlUpper.includes('UPDATE')) {
-    if (sqlUpper.includes('users SET')) {
-      // Mock: pretend update succeeded
-      return { affectedRows: 1 };
-    }
-    return { affectedRows: 1 };
-  }
-  
-  // DELETE queries
-  if (sqlUpper.includes('DELETE')) {
-    return { affectedRows: 1 };
-  }
-  
-  return [];
-}
-
-// Simple in-memory database mock
-class MockDB {
-  async query(sql, params = []) {
-    try {
-      return parseQuery(sql, params);
-    } catch (err) {
-      console.error('MockDB query error:', err);
-      throw err;
-    }
-  }
-
-  async getClient() {
-    return {
-      query: this.query.bind(this),
-      beginTransaction: async () => {},
-      commit: async () => {},
-      rollback: async () => {},
-      release: () => {}
-    };
-  }
-}
-
-module.exports = {
-  query: (sql, params) => new MockDB().query(sql, params),
-  getClient: () => new MockDB().getClient(),
-  pool: new MockDB()
-};
+module.exports = mockData;
 
