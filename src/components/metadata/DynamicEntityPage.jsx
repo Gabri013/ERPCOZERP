@@ -18,15 +18,15 @@ import {
   DropdownMenuTrigger, DropdownMenuSeparator 
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
- import { useEffect, useState, useMemo } from 'react';
- import { usePermissionEngine } from '@/lib/PermissaoContext';
+import { useEffect, useState, useMemo } from 'react';
+import { usePermissionEngine } from '@/lib/PermissaoContext';
 
- export default function DynamicEntityPage({ entityCode }) {
-   const navigate = useNavigate();
-   const { user } = useAuth();
-   const { getEntity, loadEntities, loading } = useMetadataStore();
-   const { getRecords, setRecords, setFilter, clearEntityCache } = useDataStore();
-   const permissionEngine = usePermissionEngine();
+export default function DynamicEntityPage({ entityCode }) {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { getEntity, loadEntities, loading } = useMetadataStore();
+  const { getRecords, setRecords, setFilter, clearEntityCache } = useDataStore();
+  const permissionEngine = usePermissionEngine();
 
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState({});
