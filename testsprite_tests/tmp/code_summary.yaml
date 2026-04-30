@@ -1,0 +1,313 @@
+version: "2"
+type: frontend
+tech_stack:
+  - language: JavaScript (ESM)
+  - framework: React 18 + Vite
+  - ui_library: Radix UI + Tailwind CSS
+  - other:
+      - react-router-dom (routing)
+      - "@tanstack/react-query (data fetching/cache)"
+      - react-hot-toast / sonner (notifications)
+      - zod (validation)
+      - stripe-js (payments integration)
+routes:
+  - path: /login
+    file: src/pages/Login.jsx
+    auth_required: false
+    description: User login page (email + password)
+  - path: /
+    file: src/pages/Dashboard.jsx
+    auth_required: true
+    description: Main dashboard (KPIs and widgets)
+  - path: /entidades/:codigo
+    file: src/pages/dinamico/EntityDynamicPage.jsx
+    auth_required: true
+    description: Dynamic entity page driven by metadata
+  - path: /relatorios
+    file: src/pages/Relatorios.jsx
+    auth_required: true
+    description: Reports hub
+  - path: /vendas/pedidos
+    file: src/pages/vendas/PedidosVenda.jsx
+    auth_required: true
+    description: Sales orders list and management
+  - path: /vendas/clientes
+    file: src/pages/vendas/Clientes.jsx
+    auth_required: true
+    description: Customers list and management
+  - path: /vendas/orcamentos
+    file: src/pages/vendas/Orcamentos.jsx
+    auth_required: true
+    description: Quotes/budgets management
+  - path: /vendas/tabela-precos
+    file: src/pages/vendas/TabelaPrecos.jsx
+    auth_required: true
+    description: Price table management
+  - path: /vendas/relatorios
+    file: src/pages/vendas/RelatoriosVendas.jsx
+    auth_required: true
+    description: Sales reports
+  - path: /estoque/produtos
+    file: src/pages/estoque/Produtos.jsx
+    auth_required: true
+    description: Products catalog
+  - path: /estoque/movimentacoes
+    file: src/pages/estoque/Movimentacoes.jsx
+    auth_required: true
+    description: Inventory movements (in/out/adjustments)
+  - path: /estoque/inventario
+    file: src/pages/estoque/Inventario.jsx
+    auth_required: true
+    description: Inventory counting
+  - path: /estoque/enderecamento
+    file: src/pages/estoque/Enderecamento.jsx
+    auth_required: true
+    description: Warehouse addressing (locations)
+  - path: /producao/ordens
+    file: src/pages/producao/OrdensProducao.jsx
+    auth_required: true
+    description: Production orders listing
+  - path: /producao/ordens/:id
+    file: src/pages/producao/DetalheOP.jsx
+    auth_required: true
+    description: Production order detail
+  - path: /producao/pcp
+    file: src/pages/producao/PCP.jsx
+    auth_required: true
+    description: Production planning (PCP)
+  - path: /producao/kanban
+    file: src/pages/producao/KanbanProducao.jsx
+    auth_required: true
+    description: Production kanban board
+  - path: /producao/chao-fabrica
+    file: src/pages/producao/ChaoDeFabrica.jsx
+    auth_required: true
+    description: Shop floor view
+  - path: /producao/roteiros
+    file: src/pages/producao/Roteiros.jsx
+    auth_required: true
+    description: Production routings (process steps)
+  - path: /producao/maquinas
+    file: src/pages/producao/Maquinas.jsx
+    auth_required: true
+    description: Machines registry
+  - path: /producao/apontamento/:opId?
+    file: src/pages/producao/Apontamento.jsx
+    auth_required: true
+    description: Time/production reporting (apontamento)
+  - path: /crm/pipeline
+    file: src/pages/crm/Pipeline.jsx
+    auth_required: true
+    description: CRM pipeline view
+  - path: /crm/oportunidades
+    file: src/pages/crm/Oportunidades.jsx
+    auth_required: true
+    description: CRM opportunities
+  - path: /crm/leads
+    file: src/pages/crm/Leads.jsx
+    auth_required: true
+    description: CRM leads
+  - path: /crm/atividades
+    file: src/pages/crm/Atividades.jsx
+    auth_required: true
+    description: CRM activities
+  - path: /rh/funcionarios
+    file: src/pages/rh/Funcionarios.jsx
+    auth_required: true
+    description: Employees management
+  - path: /rh/ponto
+    file: src/pages/rh/Ponto.jsx
+    auth_required: true
+    description: Time clock / attendance
+  - path: /rh/folha-pagamento
+    file: src/pages/rh/FolhaPagamento.jsx
+    auth_required: true
+    description: Payroll
+  - path: /rh/ferias
+    file: src/pages/rh/Ferias.jsx
+    auth_required: true
+    description: Vacation management
+  - path: /compras/fornecedores
+    file: src/pages/compras/Fornecedores.jsx
+    auth_required: true
+    description: Suppliers registry
+  - path: /compras/ordens-compra
+    file: src/pages/compras/OrdensCompra.jsx
+    auth_required: true
+    description: Purchase orders
+  - path: /compras/cotacoes
+    file: src/pages/compras/Cotacoes.jsx
+    auth_required: true
+    description: Purchase quotations
+  - path: /compras/recebimentos
+    file: src/pages/compras/Recebimentos.jsx
+    auth_required: true
+    description: Goods receiving
+  - path: /fiscal/nfe
+    file: src/pages/fiscal/NFe.jsx
+    auth_required: true
+    description: NFe emission workflow
+  - path: /fiscal/nfe-consulta
+    file: src/pages/fiscal/NFeConsulta.jsx
+    auth_required: true
+    description: NFe search/consultation
+  - path: /fiscal/sped
+    file: src/pages/fiscal/SPED.jsx
+    auth_required: true
+    description: SPED related views
+  - path: /financeiro/receber
+    file: src/pages/financeiro/ContasReceber.jsx
+    auth_required: true
+    description: Accounts receivable
+  - path: /financeiro/pagar
+    file: src/pages/financeiro/ContasPagar.jsx
+    auth_required: true
+    description: Accounts payable
+  - path: /financeiro/fluxo-caixa
+    file: src/pages/financeiro/FluxoCaixa.jsx
+    auth_required: true
+    description: Cash flow
+  - path: /financeiro/dre
+    file: src/pages/financeiro/DRE.jsx
+    auth_required: true
+    description: Income statement (DRE)
+  - path: /financeiro/conciliacao-bancaria
+    file: src/pages/financeiro/ConciliacaoBancaria.jsx
+    auth_required: true
+    description: Bank reconciliation
+  - path: /financeiro/relatorio
+    file: src/pages/financeiro/RelatorioFinanceiro.jsx
+    auth_required: true
+    description: Financial reports
+  - path: /financeiro/aprovacao-pedidos
+    file: src/pages/financeiro/AprovacaoPedidos.jsx
+    auth_required: true
+    description: Approve orders/payments
+  - path: /configuracoes/empresa
+    file: src/pages/configuracoes/Empresa.jsx
+    auth_required: true
+    description: Company settings
+  - path: /configuracoes/usuarios
+    file: src/pages/configuracoes/Usuarios.jsx
+    auth_required: true
+    description: Users management
+  - path: /configuracoes/parametros
+    file: src/pages/configuracoes/Parametros.jsx
+    auth_required: true
+    description: Parameter settings
+  - path: /configuracoes/modelo-op
+    file: src/pages/configuracoes/ModeloOP.jsx
+    auth_required: true
+    description: Production order model settings
+  - path: /configuracoes/metadata-studio
+    file: src/pages/configuracoes/MetadataStudio.jsx
+    auth_required: true
+    description: Metadata studio (entity definitions)
+  - path: /configuracoes/workflows
+    file: src/pages/configuracoes/WorkflowBuilder.jsx
+    auth_required: true
+    description: Workflow builder
+features:
+  - name: User Login
+    description: Authenticate via email/password and open the ERP dashboard
+    files:
+      - src/pages/Login.jsx
+      - src/lib/AuthContext.jsx
+      - src/services/authService.js
+    entry_route: /login
+    user_interactions:
+      - Fill email input
+      - Fill password input
+      - Click "Entrar"
+      - See success toast and be redirected to "/"
+      - See inline error and toast if invalid credentials
+    api_calls:
+      - method: POST
+        endpoint: /api/auth/login
+      - method: GET
+        endpoint: /api/auth/me
+    auth_required: false
+  - name: Session and Route Guarding
+    description: Protect all application routes (except /login) by checking session and redirecting when needed
+    files:
+      - src/App.jsx
+      - src/lib/AuthContext.jsx
+      - src/services/authService.js
+    entry_route: /
+    user_interactions:
+      - Open the app directly at "/"
+      - See a loading spinner while auth is checked
+      - Get redirected to login if not authenticated
+    api_calls:
+      - method: GET
+        endpoint: /api/auth/me
+      - method: POST
+        endpoint: /api/auth/logout
+    auth_required: true
+  - name: Module Navigation (ERP Layout)
+    description: Navigate across ERP modules via the main layout (sidebar/header) and open module pages
+    files:
+      - src/components/layout/ERPLayout.jsx
+      - src/components/layout/Sidebar.jsx
+      - src/components/layout/Header.jsx
+      - src/App.jsx
+    entry_route: /
+    user_interactions:
+      - Use the sidebar to open a module page (e.g. Vendas, Estoque, Produção, Financeiro)
+      - Confirm the URL updates and the corresponding page loads
+    api_calls: []
+    auth_required: true
+  - name: Dynamic Entities (Metadata-driven pages)
+    description: Open a dynamic entity page by route parameter and interact with metadata-based UI
+    files:
+      - src/pages/dinamico/EntityDynamicPage.jsx
+      - src/stores/metadataStore.js
+      - src/lib/metadata/storage.js
+    entry_route: /entidades/:codigo
+    user_interactions:
+      - Navigate to a specific entity page (e.g. /entidades/clientes)
+      - Use filters/search (if available) and open an entity record
+    api_calls: []
+    auth_required: true
+  - name: Sales Orders (Pedidos de Venda)
+    description: View and manage sales orders with filtering and detail views
+    files:
+      - src/pages/vendas/PedidosVenda.jsx
+      - src/services/pedidosService.js
+      - src/services/api.js
+    entry_route: /vendas/pedidos
+    user_interactions:
+      - Open sales orders list
+      - Filter/search orders
+      - Open order details (if available in UI)
+    api_calls:
+      - method: GET
+        endpoint: /api/vendas/pedidos
+      - method: POST
+        endpoint: /api/vendas/pedidos
+    auth_required: true
+  - name: Finance (Accounts Receivable/Payable)
+    description: Manage financeiro pages like Contas a Receber and Contas a Pagar
+    files:
+      - src/pages/financeiro/ContasReceber.jsx
+      - src/pages/financeiro/ContasPagar.jsx
+      - src/services/financeiroService.js
+      - src/services/api.js
+    entry_route: /financeiro/receber
+    user_interactions:
+      - Open accounts receivable page and inspect items
+      - Open accounts payable page and inspect items
+      - Apply filters and open detail dialogs (when available)
+    api_calls:
+      - method: GET
+        endpoint: /api/financeiro/receber
+      - method: GET
+        endpoint: /api/financeiro/pagar
+    auth_required: true
+known_limitations:
+  - issue: In Vite development mode, src/services/api.js returns mocked data and does not call real backend endpoints.
+    location: src/services/api.js
+    impact: UI flows may pass without a live backend; production behavior differs.
+  - issue: Most routes are wrapped by permission checks (PermissaoRoute); missing permissions may block navigation depending on user profile.
+    location: src/components/PermissaoRoute.jsx
+    impact: Some module pages may be inaccessible for certain users during tests.
