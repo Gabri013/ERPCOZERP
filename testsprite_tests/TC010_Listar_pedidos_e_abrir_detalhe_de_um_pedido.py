@@ -33,12 +33,15 @@ async def run_test():
         # -> Navigate to http://localhost:5173
         await page.goto("http://localhost:5173")
         
-        # -> Navigate to /login and wait for the UI to finish loading so we can locate the login form.
+        # -> Navigate to /login to reach the login screen (explicit navigation requested in the test steps).
         await page.goto("http://localhost:5173/login")
+        
+        # -> Reload the app by navigating to the root URL and wait for the SPA to initialize so we can find the login elements. If the page remains blank after reload+wait, re-evaluate and report BLOCKED.
+        await page.goto("http://localhost:5173")
         
         # --> Assertions to verify final state
         frame = context.pages[-1]
-        assert await frame.locator("xpath=//*[contains(., 'Detalhes do pedido')]").nth(0).is_visible(), "A visualização de detalhe do pedido deve ser exibida após abrir um pedido"
+        assert await frame.locator("xpath=//*[contains(., 'Detalhes do pedido')]").nth(0).is_visible(), "The sales order detail view should be visible after opening a sales order from the list"
         await asyncio.sleep(5)
 
     finally:

@@ -33,12 +33,12 @@ async def run_test():
         # -> Navigate to http://localhost:5173
         await page.goto("http://localhost:5173")
         
-        # -> Navigate explicitly to /login so the app routes to the login page (per test step).
+        # -> Navigate to /login and load the login page so I can fill credentials.
         await page.goto("http://localhost:5173/login")
         
         # --> Assertions to verify final state
         frame = context.pages[-1]
-        assert await frame.locator("xpath=//*[contains(., 'Sales Orders')]").nth(0).is_visible(), "The sales orders list should be visible after navigating to the sales orders module"
+        assert await frame.locator("xpath=//*[contains(., 'Showing results for 2024-01-01 to 2024-01-31')]").nth(0).is_visible(), "The report should show data for 2024-01-01 to 2024-01-31 after applying the date range filter."
         await asyncio.sleep(5)
 
     finally:

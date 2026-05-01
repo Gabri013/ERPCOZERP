@@ -9,16 +9,20 @@ const router = express.Router();
 // COMPRAS — FORNECEDORES
 // ============================================
 
+async function getFornecedorEntityId() {
+  const entity = await query("SELECT id FROM entities WHERE code = 'fornecedor'");
+  return entity.length ? entity[0].id : null;
+}
+
 router.get('/fornecedores', requirePermission('ver_compras'), async (req, res) => {
   try {
     const { page = 1, limit = 50, search = '' } = req.query;
     const limitValue = parseInt(limit, 10);
     const offsetValue = (parseInt(page, 10) - 1) * limitValue;
-    const entity = await query("SELECT id FROM entities WHERE code = 'fornecedor'");
+    const entityId = await getFornecedorEntityId();
     
-    if (!entity.length) return res.json({ success: true, data: [], pagination: { page: 1, total: 0 } });
-    
-    const entityId = entity[0].id;
+    if (!entityId) return res.json({ success: true, data: [], pagination: { page: 1, total: 0 } });
+ 
     let sql = `SELECT id, data, created_at FROM entity_records WHERE entity_id = ? AND deleted_at IS NULL`;
     const params = [entityId];
 
@@ -50,6 +54,79 @@ router.get('/fornecedores', requirePermission('ver_compras'), async (req, res) =
         totalPages: Math.ceil(count[0].total / limit)
       }
     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/fornecedores', requirePermission('ver_compras'), async (req, res) => {
+  try {
+    const entityId = await getFornecedorEntityId();
+    if (!entityId) return res.status(404).json({ error: 'Entidade fornecedor não configurada' });
+
+    const data = req.body?.data || req.body;
+    if (!data?.nome) {
+      return res.status(400).json({ error: 'nome é obrigatório' });
+    }
+
+    const id = uuidv4();
+    await query(
+      'INSERT INTO entity_records (id, entity_id, data, created_by, updated_by) VALUES (?, ?, ?, ?, ?)',
+      [id, entityId, JSON.stringify(data), req.user.userId, req.user.userId]
+    );
+
+    res.status(201).json({ success: true, data: { id, ...data } });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/fornecedores/:id', requirePermission('ver_compras'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const entityId = await getFornecedorEntityId();
+    if (!entityId) return res.status(404).json({ error: 'Entidade fornecedor não configurada' });
+
+    const data = req.body?.data || req.body;
+    if (!data?.nome) {
+      return res.status(400).json({ error: 'nome é obrigatório' });
+    }
+
+    const existing = await query(
+      'SELECT id FROM entity_records WHERE id = ? AND entity_id = ? AND deleted_at IS NULL',
+      [id, entityId]
+    );
+    if (!existing.length) return res.status(404).json({ error: 'Fornecedor não encontrado' });
+
+    await query(
+      'UPDATE entity_records SET data = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND entity_id = ?',
+      [JSON.stringify(data), req.user.userId, id, entityId]
+    );
+
+    res.json({ success: true, data: { id, ...data } });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/fornecedores/:id', requirePermission('ver_compras'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const entityId = await getFornecedorEntityId();
+    if (!entityId) return res.status(404).json({ error: 'Entidade fornecedor não configurada' });
+
+    const existing = await query(
+      'SELECT id FROM entity_records WHERE id = ? AND entity_id = ? AND deleted_at IS NULL',
+      [id, entityId]
+    );
+    if (!existing.length) return res.status(404).json({ error: 'Fornecedor não encontrado' });
+
+    await query(
+      'UPDATE entity_records SET deleted_at = CURRENT_TIMESTAMP, updated_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND entity_id = ?',
+      [req.user.userId, id, entityId]
+    );
+
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

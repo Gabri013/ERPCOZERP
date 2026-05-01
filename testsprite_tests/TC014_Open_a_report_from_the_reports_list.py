@@ -33,12 +33,12 @@ async def run_test():
         # -> Navigate to http://localhost:5173
         await page.goto("http://localhost:5173")
         
-        # -> Navigate to /login to attempt to load the login screen (explicit step from plan).
+        # -> Navigate to the login page (/login) to try to reach the login form and show interactive elements.
         await page.goto("http://localhost:5173/login")
         
         # --> Assertions to verify final state
         frame = context.pages[-1]
-        assert await frame.locator("xpath=//*[contains(., 'Visualização do relatório')]").nth(0).is_visible(), "The selected report view should be visible after opening a report from the Reports Hub"
+        assert await frame.locator("xpath=//*[contains(., 'Report View')]").nth(0).is_visible(), "The report view should be displayed after selecting a report from the Reports Hub."
         await asyncio.sleep(5)
 
     finally:

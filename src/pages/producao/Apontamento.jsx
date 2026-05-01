@@ -23,9 +23,9 @@ export default function Apontamento() {
   async function loadData() {
     if (!opId) return;
     try {
-      const opRes = await api.get(`/production/ops/${opId}`);
+      const opRes = await api.get(`/api/production/ops/${opId}`);
       setOp(opRes.data);
-      const aptRes = await api.get(`/production/apontamentos/${opId}`);
+      const aptRes = await api.get(`/api/production/apontamentos/${opId}`);
       setApontamentos(aptRes.data);
     } catch (err) {
       console.error('Erro ao carregar dados:', err);
@@ -36,7 +36,7 @@ export default function Apontamento() {
 
   async function handleSaveApontamento(data) {
     try {
-      await api.post(`/production/ops/${opId}/apontamento`, data);
+      await api.post(`/api/production/ops/${opId}/apontamento`, data);
       setModalOpen(false);
       loadData(); // recarrega
     } catch (err) {

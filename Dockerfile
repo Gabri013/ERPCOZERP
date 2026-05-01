@@ -1,5 +1,6 @@
 # Dockerfile for frontend (Vite production)
-FROM node:18-alpine AS builder
+# Debian slim evita falhas de npm ci com binários opcionais do Rollup no musl/Alpine
+FROM node:18-slim AS builder
 
 WORKDIR /app
 

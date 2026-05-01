@@ -33,15 +33,15 @@ async def run_test():
         # -> Navigate to http://localhost:5173
         await page.goto("http://localhost:5173")
         
-        # -> Navigate to /login and wait for the page to render so I can find the login form.
+        # -> Navigate to the login page (/login) so the SPA can initialize and show the login form.
         await page.goto("http://localhost:5173/login")
         
-        # -> Try a different route to reach the product list or SPA (navigate to /products) and observe whether the SPA renders a UI. If the route also shows raw/static content, mark the test as BLOCKED because the SPA is not rendering.
-        await page.goto("http://localhost:5173/products")
+        # -> Try to reload / root page so the SPA can initialize and render the login form, then re-evaluate visible interactive elements.
+        await page.goto("http://localhost:5173/")
         
         # --> Assertions to verify final state
         frame = context.pages[-1]
-        assert await frame.locator("xpath=//*[contains(., 'Product Details')]").nth(0).is_visible(), "The product details view should be displayed after opening a product."
+        assert await frame.locator("xpath=//*[contains(., 'Detalhes do Produto')]").nth(0).is_visible(), "The product details view should be visible after opening a product from the filtered list"
         await asyncio.sleep(5)
 
     finally:

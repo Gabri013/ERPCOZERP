@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+﻿import { useId, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,8 @@ import toast from 'react-hot-toast';
 export default function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
+  const emailId = useId();
+  const passwordId = useId();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -59,8 +61,9 @@ export default function Login() {
             )}
 
             <div>
-              <label className="block text-sm font-medium mb-2">Email</label>
+              <label htmlFor={emailId} className="block text-sm font-medium mb-2">Email</label>
               <Input
+                id={emailId}
                 type="email"
                 placeholder="seu@email.com"
                 value={email}
@@ -70,8 +73,9 @@ export default function Login() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">Senha</label>
+              <label htmlFor={passwordId} className="block text-sm font-medium mb-2">Senha</label>
               <Input
+                id={passwordId}
                 type="password"
                 placeholder="********"
                 value={password}

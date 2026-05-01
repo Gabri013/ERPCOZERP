@@ -33,12 +33,18 @@ async def run_test():
         # -> Navigate to http://localhost:5173
         await page.goto("http://localhost:5173")
         
-        # -> Navigate to /login
+        # -> Navigate to the login page (/login) so we can observe the login form and proceed with authentication.
+        await page.goto("http://localhost:5173/login")
+        
+        # -> Navigate to the app root (http://localhost:5173) and wait for the SPA to render. After wait, re-check the page for the login form or other interactive elements. If still blank, try a reload or report blocked.
+        await page.goto("http://localhost:5173")
+        
+        # -> Reload /login and wait for the SPA to render. If the page remains blank after reload+wait, report the test as BLOCKED.
         await page.goto("http://localhost:5173/login")
         
         # --> Assertions to verify final state
         frame = context.pages[-1]
-        assert await frame.locator("xpath=//*[contains(., 'Produtos')]").nth(0).is_visible(), "The products list page should display Produtos after navigating to the products module"
+        assert await frame.locator("xpath=//*[contains(., 'Produtos')]").nth(0).is_visible(), "The products list page should be displayed after navigating to the products module."
         await asyncio.sleep(5)
 
     finally:

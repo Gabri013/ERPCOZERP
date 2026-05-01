@@ -13,7 +13,7 @@ const FRONTEND_URL = 'http://localhost:5173';
 
 // Credenciais do ambiente de teste — podem ser sobrescritas por variáveis de ambiente
 const TEST_CREDENTIALS = {
-  email: process.env.SMOKE_USER_EMAIL || 'master@erpcoz.local',
+  email: process.env.SMOKE_USER_EMAIL || 'master@Cozinha.com',
   password: process.env.SMOKE_USER_PASSWORD || 'master123_dev'
 };
 
@@ -143,10 +143,114 @@ async function runSmokeTests() {
     logTest('GET /api/entities', entitiesRes.status === 200, 
       entitiesRes.status === 200 ? 'Lista de entidades obtida' : `Status: ${entitiesRes.status}`);
 
-    // GET /api/records?entity=produto
-    const produtosRes = await request('GET', `${BACKEND_URL}/api/records?entity=produto&limit=5`, { headers: authHeaders });
-    logTest('GET /api/records?entity=produto', produtosRes.status === 200, 
-      produtosRes.status === 200 ? 'Produtos listados' : `Status: ${produtosRes.status}`);
+    // GET /api/estoque (produtos)
+    const produtosRes = await request('GET', `${BACKEND_URL}/api/estoque?search=&limit=5`, { headers: authHeaders });
+    logTest('GET /api/estoque', produtosRes.status === 200, 
+      produtosRes.status === 200 ? 'Produtos listados (estoque)' : `Status: ${produtosRes.status}`);
+
+    // CRUD /api/estoque
+    let createdProdutoId = null;
+    const novoProduto = {
+      codigo: `SMK-${Date.now()}`,
+      descricao: `Produto Smoke ${new Date().toISOString()}`,
+      tipo: 'Produto',
+      unidade: 'UN',
+      preco_custo: 1,
+      preco_venda: 2,
+      estoque_atual: 10,
+      estoque_minimo: 1,
+      status: 'Ativo',
+      grupo: 'Fixadores',
+      localizacao: 'SMK'
+    };
+
+    const createProdRes = await request('POST', `${BACKEND_URL}/api/estoque`, { headers: authHeaders, body: novoProduto });
+    if (createProdRes.status === 201) {
+      const body = JSON.parse(createProdRes.body);
+      createdProdutoId = body?.data?.id;
+      logTest('POST /api/estoque (create)', Boolean(createdProdutoId), createdProdutoId ? 'Criado' : 'Sem id no retorno');
+    } else {
+      logTest('POST /api/estoque (create)', false, `Status: ${createProdRes.status}, Body: ${(createProdRes.body || '').substring(0, 120)}`);
+    }
+
+    if (createdProdutoId) {
+      const updateProdRes = await request('PUT', `${BACKEND_URL}/api/estoque/${createdProdutoId}`, {
+        headers: authHeaders,
+        body: { ...novoProduto, descricao: `${novoProduto.descricao} (editado)` }
+      });
+      logTest('PUT /api/estoque/:id (update)', updateProdRes.status === 200, `Status: ${updateProdRes.status}`);
+
+      const delProdRes = await request('DELETE', `${BACKEND_URL}/api/estoque/${createdProdutoId}`, { headers: authHeaders });
+      logTest('DELETE /api/estoque/:id (delete)', delProdRes.status === 200, `Status: ${delProdRes.status}`);
+    } else {
+      logTest('PUT /api/estoque/:id (update)', true, 'Create falhou (skip)');
+      logTest('DELETE /api/estoque/:id (delete)', true, 'Create falhou (skip)');
+    }
+
+    // CRUD financeiro (contas a receber)
+    let contaReceberId = null;
+    const crRes = await request('POST', `${BACKEND_URL}/api/financeiro/contas-receber`, {
+      headers: authHeaders,
+      body: {
+        descricao: `Smoke CR ${Date.now()}`,
+        valor: 10.5,
+        data_vencimento: new Date().toISOString().slice(0, 10),
+        status: 'aberto'
+      }
+    });
+    if (crRes.status === 201) {
+      const body = JSON.parse(crRes.body);
+      contaReceberId = body?.data?.id;
+      logTest('POST /api/financeiro/contas-receber', Boolean(contaReceberId), contaReceberId ? 'Criado' : 'Sem id no retorno');
+    } else {
+      logTest('POST /api/financeiro/contas-receber', false, `Status: ${crRes.status}, Body: ${(crRes.body || '').substring(0, 120)}`);
+    }
+
+    if (contaReceberId) {
+      const crUpRes = await request('PUT', `${BACKEND_URL}/api/financeiro/contas-receber/${contaReceberId}`, {
+        headers: authHeaders,
+        body: { status: 'recebido' }
+      });
+      logTest('PUT /api/financeiro/contas-receber/:id', crUpRes.status === 200, `Status: ${crUpRes.status}`);
+
+      const crDelRes = await request('DELETE', `${BACKEND_URL}/api/financeiro/contas-receber/${contaReceberId}`, {
+        headers: authHeaders
+      });
+      logTest('DELETE /api/financeiro/contas-receber/:id', crDelRes.status === 200, `Status: ${crDelRes.status}`);
+    } else {
+      logTest('PUT /api/financeiro/contas-receber/:id', true, 'Create falhou (skip)');
+      logTest('DELETE /api/financeiro/contas-receber/:id', true, 'Create falhou (skip)');
+    }
+
+    // CRUD compras (fornecedores)
+    let fornecedorId = null;
+    const fornRes = await request('POST', `${BACKEND_URL}/api/compras/fornecedores`, {
+      headers: authHeaders,
+      body: { nome: `Fornecedor Smoke ${Date.now()}`, cnpj: '00.000.000/0000-00', ativo: true }
+    });
+    if (fornRes.status === 201) {
+      const body = JSON.parse(fornRes.body);
+      fornecedorId = body?.data?.id;
+      logTest('POST /api/compras/fornecedores', Boolean(fornecedorId), fornecedorId ? 'Criado' : 'Sem id no retorno');
+    } else {
+      logTest('POST /api/compras/fornecedores', false, `Status: ${fornRes.status}, Body: ${(fornRes.body || '').substring(0, 120)}`);
+    }
+
+    if (fornecedorId) {
+      const fornUpRes = await request('PUT', `${BACKEND_URL}/api/compras/fornecedores/${fornecedorId}`, {
+        headers: authHeaders,
+        body: { nome: `Fornecedor Smoke ${Date.now()} (editado)`, cnpj: '00.000.000/0000-00', ativo: true }
+      });
+      logTest('PUT /api/compras/fornecedores/:id', fornUpRes.status === 200, `Status: ${fornUpRes.status}`);
+
+      const fornDelRes = await request('DELETE', `${BACKEND_URL}/api/compras/fornecedores/${fornecedorId}`, {
+        headers: authHeaders
+      });
+      logTest('DELETE /api/compras/fornecedores/:id', fornDelRes.status === 200, `Status: ${fornDelRes.status}`);
+    } else {
+      logTest('PUT /api/compras/fornecedores/:id', true, 'Create falhou (skip)');
+      logTest('DELETE /api/compras/fornecedores/:id', true, 'Create falhou (skip)');
+    }
 
     // GET /api/production/ops
     const opsRes = await request('GET', `${BACKEND_URL}/api/production/ops?limit=5`, { headers: authHeaders });

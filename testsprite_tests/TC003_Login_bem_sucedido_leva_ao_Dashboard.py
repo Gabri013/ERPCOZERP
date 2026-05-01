@@ -33,14 +33,14 @@ async def run_test():
         # -> Navigate to http://localhost:5173
         await page.goto("http://localhost:5173")
         
-        # -> Navigate to /login and wait for the page to render
+        # -> Navigate to /login to reach the login page (explicit step provided).
         await page.goto("http://localhost:5173/login")
         
         # --> Assertions to verify final state
         frame = context.pages[-1]
         current_url = await frame.evaluate("() => window.location.href")
-        assert '/dashboard' in current_url, "The page should have navigated to /dashboard after successful login"
-        assert await frame.locator("xpath=//*[contains(., 'Login realizado com sucesso')]").nth(0).is_visible(), "A success confirmation should be visible on the dashboard after successful login"
+        assert '/dashboard' in current_url, "The page should have navigated to the Dashboard after successful login"
+        assert await frame.locator("xpath=//*[contains(., 'Login efetuado com sucesso')]").nth(0).is_visible(), "A success confirmation should be visible on the dashboard after login"
         await asyncio.sleep(5)
 
     finally:

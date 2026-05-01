@@ -2,23 +2,19 @@
   "status": "commited",
   "type": "frontend",
   "scope": "codebase",
-  "localEndpoint": "http://localhost:5173",
+  "localEndpoint": "http://127.0.0.1:5173",
   "loginUser": "master@Cozinha.com",
   "loginPassword": "master123_dev",
   "executionArgs": {
     "projectName": "ERPCOZERP",
     "projectPath": "C:/Users/Gabriel Costa/Documents/GitHub/ERPCOZERP",
-    "testIds": [
-      "TC002",
-      "TC003",
-      "TC012"
-    ],
-    "additionalInstruction": "Re-run apenas os testes de login/fluxo inicial (TC002, TC003, TC012). O endpoint /login deve renderizar a SPA com inputs de email e senha e botão 'Entrar'. Se houver redirecionamento automático por sessão existente, limpe storage/cookies antes de iniciar. Registre evidências de UI carregada e resultado do login (sucesso e credenciais inválidas).",
-    "serverMode": "development",
+    "testIds": [],
+    "additionalInstruction": "Re-run suite após ajuste de endpoint para 127.0.0.1. Validar login, navegação e CRUD de Estoque/Produtos. Se ainda houver falha de túnel/porta, reportar claramente.",
+    "serverMode": "production",
     "envs": {
       "API_KEY": "sk-user-XFygx18hFd688lhRwf3SuAUZ4XJ-pZtZqZIHH0AsAeves2XXDK0IEKuha7K7LV5w5OIj0_W5SlIRPFOJi9TGbHVvmgVnkEvvbsK8js4hXMNtVbPCtObj6A3fWrsL-jdJHrc"
     }
   },
-  "serverPort": 52502,
-  "proxy": "http://e064adbd-ae34-4048-b462-053e140b7f5c:46ExS9B4cK05xqb9lCqEEo3hjAyv6t0t@tun.testsprite.com:8080"
+  "serverPort": 62621,
+  "proxy": "http://fa8d4ebd-3932-41c7-aaff-34c949aec4c7:R2MeUUlpbiAVqX06gt69oN1zMdyvr5mq@tun.testsprite.com:8080"
 }

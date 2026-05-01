@@ -33,12 +33,12 @@ async def run_test():
         # -> Navigate to http://localhost:5173
         await page.goto("http://localhost:5173")
         
-        # -> Navigate explicitly to /login so the app routes to the login page (per test step).
+        # -> Navigate explicitly to the login route (/login) to see if the SPA exposes the login page. If that fails, re-evaluate for blocking issues.
         await page.goto("http://localhost:5173/login")
         
         # --> Assertions to verify final state
         frame = context.pages[-1]
-        assert await frame.locator("xpath=//*[contains(., 'Sales Orders')]").nth(0).is_visible(), "The sales orders list should be visible after navigating to the sales orders module"
+        assert await frame.locator("xpath=//*[contains(., 'Produtos')]").nth(0).is_visible(), "The products catalog should be displayed after opening the products module from the sidebar."
         await asyncio.sleep(5)
 
     finally:

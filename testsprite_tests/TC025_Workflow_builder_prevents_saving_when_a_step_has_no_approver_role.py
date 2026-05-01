@@ -33,12 +33,12 @@ async def run_test():
         # -> Navigate to http://localhost:5173
         await page.goto("http://localhost:5173")
         
-        # -> Navigate explicitly to /login so the app routes to the login page (per test step).
+        # -> Navigate to /login and wait for the page to render so I can locate the login form.
         await page.goto("http://localhost:5173/login")
         
         # --> Assertions to verify final state
         frame = context.pages[-1]
-        assert await frame.locator("xpath=//*[contains(., 'Sales Orders')]").nth(0).is_visible(), "The sales orders list should be visible after navigating to the sales orders module"
+        assert await frame.locator("xpath=//*[contains(., 'An approver role is required')]").nth(0).is_visible(), "A validation error stating 'An approver role is required' should be visible when attempting to save a workflow step without assigning an approver role"
         await asyncio.sleep(5)
 
     finally:

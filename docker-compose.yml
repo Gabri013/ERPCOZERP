@@ -1,6 +1,7 @@
 services:
   mysql:
     image: mysql:8.0
+    restart: unless-stopped
     ports:
       - "3307:3306"
     environment:
@@ -21,35 +22,60 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    restart: unless-stopped
     ports:
       - "3001:3001"
     environment:
-      - DB_TYPE=mysql
-      - MYSQL_HOST=mysql
-      - MYSQL_PORT=3306
-      - MYSQL_USER=erpcoz
-      - MYSQL_PASSWORD=erpcozpass
-      - MYSQL_DATABASE=erpcoz
-      - MYSQL_SSL=false
-      - PORT=3001
-      - NODE_ENV=development
-      - DEFAULT_MASTER_PASSWORD=master123_dev
-      - DEFAULT_ADMIN_PASSWORD=admin123_dev
-      - JWT_SECRET=dev_jwt_secret_change_me_please_12345
-      - JWT_EXPIRES_IN=7d
-      - REFRESH_TOKEN_EXPIRES_IN=30d
+      DB_TYPE: mysql
+      MYSQL_HOST: mysql
+      MYSQL_PORT: "3306"
+      MYSQL_USER: erpcoz
+      MYSQL_PASSWORD: erpcozpass
+      MYSQL_DATABASE: erpcoz
+      MYSQL_SSL: "false"
+      PORT: "3001"
+      NODE_ENV: production
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      JWT_SECRET: ${JWT_SECRET:-dev_jwt_secret_change_me_please_12345}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      REFRESH_TOKEN_EXPIRES_IN: ${REFRESH_TOKEN_EXPIRES_IN:-30d}
+      SEED_ENABLED: ${SEED_ENABLED:-true}
+      DEFAULT_MASTER_PASSWORD: ${DEFAULT_MASTER_PASSWORD:-master123_dev}
+      DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD:-admin123_dev}
     depends_on:
       mysql:
         condition: service_healthy
     command: sh -c "npm run migrate && npm run seed && npm start"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 120s
+
   frontend:
     build:
       context: .
       dockerfile: Dockerfile
+    restart: unless-stopped
     ports:
       - "5173:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
 volumes:
   mysql_data:
     driver: local

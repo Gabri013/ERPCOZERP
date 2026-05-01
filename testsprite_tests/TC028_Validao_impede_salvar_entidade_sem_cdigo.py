@@ -33,12 +33,15 @@ async def run_test():
         # -> Navigate to http://localhost:5173
         await page.goto("http://localhost:5173")
         
-        # -> Navigate explicitly to /login so the app routes to the login page (per test step).
+        # -> Navigate directly to /login and wait for the page to finish loading, then re-check interactive elements (look for login fields).
         await page.goto("http://localhost:5173/login")
+        
+        # -> Reload the app root (http://localhost:5173) to force a full page load, then wait 5 seconds for the SPA to render and re-check for interactive elements (login form).
+        await page.goto("http://localhost:5173")
         
         # --> Assertions to verify final state
         frame = context.pages[-1]
-        assert await frame.locator("xpath=//*[contains(., 'Sales Orders')]").nth(0).is_visible(), "The sales orders list should be visible after navigating to the sales orders module"
+        assert await frame.locator("xpath=//*[contains(., 'Campo obrigatório')]").nth(0).is_visible(), "The system should display a required-field validation error when attempting to save the entity without providing the mandatory code"
         await asyncio.sleep(5)
 
     finally:

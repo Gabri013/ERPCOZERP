@@ -6,8 +6,9 @@ WORKDIR /app
 # Copy package files first for better layer caching
 COPY package*.json ./
 
-# Install dependencies and rebuild bcrypt
-RUN npm install --silent && npm rebuild bcrypt --build-from-source
+# Instala só dependências de runtime; migrate/seed/start não precisam de devDependencies
+RUN npm ci --silent --omit=dev
+RUN npm rebuild bcrypt --build-from-source
 
 # Copy application files
 COPY src/ ./src/

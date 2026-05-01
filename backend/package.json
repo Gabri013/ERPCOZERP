@@ -10,7 +10,7 @@
      "test:coverage": "jest --coverage",
      "lint": "eslint src/",
      "migrate": "node src/migrations/run.js",
-     "seed": "SEED_ENABLED=true node src/seed/run.js"
+     "seed": "node src/seed/run.js"
    },
    "dependencies": {
      "express": "^4.18.2",

@@ -33,12 +33,18 @@ async def run_test():
         # -> Navigate to http://localhost:5173
         await page.goto("http://localhost:5173")
         
-        # -> Navigate to the login page at /login and wait for the login form to appear so we can fill credentials.
+        # -> Navigate to the login page at /login so the app can render the login form and allow authentication.
         await page.goto("http://localhost:5173/login")
+        
+        # -> Try to reload/navigate to the app root to force the SPA to initialize, then wait for the UI to render and check for interactive elements (login form).
+        await page.goto("http://localhost:5173")
+        
+        # -> Attempt a hash-based route (/#/login) to trigger SPA routing and wait for the UI to render.
+        await page.goto("http://localhost:5173/#/login")
         
         # --> Assertions to verify final state
         frame = context.pages[-1]
-        assert await frame.locator("xpath=//*[contains(., 'Produtos')]").nth(0).is_visible(), "O catálogo de produtos deve ser exibido após navegar para Estoque/Produtos"
+        assert await frame.locator("xpath=//*[contains(., 'Produtos')]").nth(0).is_visible(), "The products catalog should be visible after opening the Estoque/Produtos module from the sidebar"
         await asyncio.sleep(5)
 
     finally:

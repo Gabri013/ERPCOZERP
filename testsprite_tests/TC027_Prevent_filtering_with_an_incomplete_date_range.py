@@ -33,12 +33,12 @@ async def run_test():
         # -> Navigate to http://localhost:5173
         await page.goto("http://localhost:5173")
         
-        # -> Navigate explicitly to /login so the app routes to the login page (per test step).
+        # -> Navigate to /login and load the login page so we can attempt authentication.
         await page.goto("http://localhost:5173/login")
         
         # --> Assertions to verify final state
         frame = context.pages[-1]
-        assert await frame.locator("xpath=//*[contains(., 'Sales Orders')]").nth(0).is_visible(), "The sales orders list should be visible after navigating to the sales orders module"
+        assert await frame.locator("xpath=//*[contains(., 'Please provide both start and end dates')]").nth(0).is_visible(), "The date range validation error should be visible when only the start date is provided."
         await asyncio.sleep(5)
 
     finally:

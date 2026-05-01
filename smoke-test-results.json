@@ -1,5 +1,5 @@
 {
-  "passed": 22,
+  "passed": 31,
   "failed": 0,
   "tests": [
     {
@@ -23,9 +23,54 @@
       "details": "Lista de entidades obtida"
     },
     {
-      "name": "GET /api/records?entity=produto",
+      "name": "GET /api/estoque",
       "success": true,
-      "details": "Produtos listados"
+      "details": "Produtos listados (estoque)"
+    },
+    {
+      "name": "POST /api/estoque (create)",
+      "success": true,
+      "details": "Criado"
+    },
+    {
+      "name": "PUT /api/estoque/:id (update)",
+      "success": true,
+      "details": "Status: 200"
+    },
+    {
+      "name": "DELETE /api/estoque/:id (delete)",
+      "success": true,
+      "details": "Status: 200"
+    },
+    {
+      "name": "POST /api/financeiro/contas-receber",
+      "success": true,
+      "details": "Criado"
+    },
+    {
+      "name": "PUT /api/financeiro/contas-receber/:id",
+      "success": true,
+      "details": "Status: 200"
+    },
+    {
+      "name": "DELETE /api/financeiro/contas-receber/:id",
+      "success": true,
+      "details": "Status: 200"
+    },
+    {
+      "name": "POST /api/compras/fornecedores",
+      "success": true,
+      "details": "Criado"
+    },
+    {
+      "name": "PUT /api/compras/fornecedores/:id",
+      "success": true,
+      "details": "Status: 200"
+    },
+    {
+      "name": "DELETE /api/compras/fornecedores/:id",
+      "success": true,
+      "details": "Status: 200"
     },
     {
       "name": "GET /api/production/ops",

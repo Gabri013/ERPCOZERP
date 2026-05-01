@@ -33,12 +33,15 @@ async def run_test():
         # -> Navigate to http://localhost:5173
         await page.goto("http://localhost:5173")
         
-        # -> Navigate explicitly to /login so the app routes to the login page (per test step).
+        # -> Navigate to the login page (/login) to attempt authentication and load the SPA.
         await page.goto("http://localhost:5173/login")
+        
+        # -> Attempt to reload the app by navigating to the root URL again to force the SPA to load. If the page remains blank, report the feature as blocked and finish the test.
+        await page.goto("http://localhost:5173/")
         
         # --> Assertions to verify final state
         frame = context.pages[-1]
-        assert await frame.locator("xpath=//*[contains(., 'Sales Orders')]").nth(0).is_visible(), "The sales orders list should be visible after navigating to the sales orders module"
+        assert await frame.locator("xpath=//*[contains(., 'Showing results for all dates')]").nth(0).is_visible(), "The report should show results for all dates after clearing the date range filter"
         await asyncio.sleep(5)
 
     finally:

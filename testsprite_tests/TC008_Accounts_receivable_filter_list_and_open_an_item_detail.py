@@ -33,12 +33,12 @@ async def run_test():
         # -> Navigate to http://localhost:5173
         await page.goto("http://localhost:5173")
         
-        # -> Navigate directly to /login to reach the login screen since the homepage did not render.
+        # -> Wait 3 seconds for the SPA to finish loading and render interactive elements.
         await page.goto("http://localhost:5173/login")
         
         # --> Assertions to verify final state
         frame = context.pages[-1]
-        assert await frame.locator("xpath=//*[contains(., 'Detalhes do pagamento')]").nth(0).is_visible(), "The receivable's payment details should be visible after opening the receivable item"
+        assert await frame.locator("xpath=//*[contains(., 'Detalhes do pagamento')]").nth(0).is_visible(), "The receivable's payment details should be visible after opening the item"
         await asyncio.sleep(5)
 
     finally:

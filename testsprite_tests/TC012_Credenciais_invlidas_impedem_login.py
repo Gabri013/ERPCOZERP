@@ -33,14 +33,14 @@ async def run_test():
         # -> Navigate to http://localhost:5173
         await page.goto("http://localhost:5173")
         
-        # -> Navigate to the login page (/login) so the login form can be interacted with.
+        # -> Navigate to /login and load the login page
         await page.goto("http://localhost:5173/login")
         
         # --> Assertions to verify final state
         frame = context.pages[-1]
-        assert await frame.locator("xpath=//*[contains(., 'Credenciais inválidas')]").nth(0).is_visible(), "The user should see an authentication error after submitting invalid credentials"
+        assert await frame.locator("xpath=//*[contains(., 'Credenciais inválidas')]").nth(0).is_visible(), "The login should show an authentication error when credentials are invalid"
         current_url = await frame.evaluate("() => window.location.href")
-        assert '/login' in current_url, "The page should have navigated to the login page after submitting invalid credentials"
+        assert '/login' in current_url, "The page should have navigated to /login and remain on the login page after a failed login attempt"
         await asyncio.sleep(5)
 
     finally:

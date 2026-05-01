@@ -33,12 +33,12 @@ async def run_test():
         # -> Navigate to http://localhost:5173
         await page.goto("http://localhost:5173")
         
-        # -> Navigate explicitly to /login so the app routes to the login page (per test step).
+        # -> Navigate explicitly to the login route (/login) so the app will render the login form or show an error, then re-evaluate the page state.
         await page.goto("http://localhost:5173/login")
         
         # --> Assertions to verify final state
         frame = context.pages[-1]
-        assert await frame.locator("xpath=//*[contains(., 'Sales Orders')]").nth(0).is_visible(), "The sales orders list should be visible after navigating to the sales orders module"
+        assert await frame.locator("xpath=//*[contains(., 'Nenhum pedido encontrado')]").nth(0).is_visible(), "A tela deve exibir um estado vazio indicando que nenhum pedido corresponde aos filtros"
         await asyncio.sleep(5)
 
     finally:

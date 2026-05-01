@@ -33,9 +33,12 @@ async def run_test():
         # -> Navigate to http://localhost:5173
         await page.goto("http://localhost:5173")
         
+        # -> Navigate to http://localhost:5173/login and check whether the login form or any interactive UI appears (if not, evaluate alternative blocking reasons).
+        await page.goto("http://localhost:5173/login")
+        
         # --> Assertions to verify final state
         frame = context.pages[-1]
-        assert await frame.locator("xpath=//*[contains(., 'Editar')]").nth(0).is_visible(), "The dynamic record detail form should be displayed after opening the record"
+        assert await frame.locator("xpath=//*[contains(., 'Detalhes do registro')]").nth(0).is_visible(), "The dynamic record detail form should be visible after opening a record"
         await asyncio.sleep(5)
 
     finally:

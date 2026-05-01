@@ -33,9 +33,13 @@ async def run_test():
         # -> Navigate to http://localhost:5173
         await page.goto("http://localhost:5173")
         
+        # -> Navigate to http://localhost:5173/login to try to reach the login form (SPA didn't render on root).
+        await page.goto("http://localhost:5173/login")
+        
         # --> Assertions to verify final state
         frame = context.pages[-1]
-        assert await frame.locator("xpath=//*[contains(., 'Dashboard')]").nth(0).is_visible(), "The Dashboard should be visible after successful login."]} PMID: 7.2E+28 64-bitqan? Sorry disregard.
+        current_url = await frame.evaluate("() => window.location.href")
+        assert '/dashboard' in current_url, "The page should have navigated to the Dashboard after login"
         await asyncio.sleep(5)
 
     finally:

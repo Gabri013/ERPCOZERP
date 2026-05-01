@@ -33,13 +33,13 @@ async def run_test():
         # -> Navigate to http://localhost:5173
         await page.goto("http://localhost:5173")
         
-        # -> Navigate to /login and attempt to log in with the provided credentials, then verify that visiting / redirects to the Dashboard when authenticated.
+        # -> Navigate to /login (http://localhost:5173/login) to load the login form.
         await page.goto("http://localhost:5173/login")
         
         # --> Assertions to verify final state
         frame = context.pages[-1]
         current_url = await frame.evaluate("() => window.location.href")
-        assert '/dashboard' in current_url, "The page should have navigated to /dashboard after the session check"
+        assert '/dashboard' in current_url, "The page should have navigated to the dashboard after opening / with an authenticated session"
         await asyncio.sleep(5)
 
     finally:

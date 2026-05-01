@@ -33,12 +33,12 @@ async def run_test():
         # -> Navigate to http://localhost:5173
         await page.goto("http://localhost:5173")
         
-        # -> Navigate to /login (http://localhost:5173/login), wait for the page to render, and inspect the login form fields (email and password)
+        # -> Navigate directly to /login to load the login page and reveal interactive fields.
         await page.goto("http://localhost:5173/login")
         
         # --> Assertions to verify final state
         frame = context.pages[-1]
-        assert await frame.locator("xpath=//*[contains(., 'Reports')]" ).nth(0).is_visible(), "The Reports Hub should show a list of available reports after login and navigation"
+        assert await frame.locator("xpath=//*[contains(., 'Reports Hub')]").nth(0).is_visible(), "The Reports Hub should be visible after successful login and navigation."
         await asyncio.sleep(5)
 
     finally:
