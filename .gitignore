@@ -50,3 +50,9 @@ backup_*.sql
 *.bak
 *.old
 *~
+*.swp
+Thumbs.db
+.DS_Store
+
+# Artefatos locais de smoke
+smoke-test-results.json

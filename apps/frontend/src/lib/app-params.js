@@ -37,6 +37,7 @@ const getAppParamValue = (paramName, { defaultValue = undefined, removeFromUrl =
 const getAppParams = () => {
 	if (getAppParamValue("clear_access_token") === 'true') {
 		storage.removeItem('erpcoz_access_token');
+		storage.removeItem('base44_access_token');
 		storage.removeItem('token');
 	}
 	return {

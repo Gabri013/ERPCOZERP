@@ -6,6 +6,7 @@ import { UserPlus, Edit2, Eye, Trash2, Shield } from 'lucide-react';
 import { PERFIS_LABELS, TODAS_PERMISSOES, getPermissoesPorPerfil } from '@/lib/perfis';
 import { usePermissao } from '@/lib/PermissaoContext';
 import { api } from '@/services/api';
+import { devWarn } from '@/lib/devLog';
 
 const statusCor = { true: 'bg-green-100 text-green-700', false: 'bg-gray-100 text-gray-600' };
 const ROLE_TO_PERFIL = {
@@ -86,10 +87,7 @@ export default function Usuarios() {
       const rows = Array.isArray(body) ? body : (Array.isArray(body?.data) ? body.data : []);
       setDados(rows.map(mapBackendUserToGrid));
     } catch (err) {
-      if (import.meta.env?.DEV) {
-        // eslint-disable-next-line no-console
-        console.warn('[Usuarios] Falha ao carregar da API:', err?.message);
-      }
+      devWarn('[Usuarios] Falha ao carregar da API:', err?.message);
       setDados([]);
     }
   };

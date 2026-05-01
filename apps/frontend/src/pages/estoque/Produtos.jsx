@@ -39,13 +39,13 @@ export default function Produtos() {
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   useEffect(() => {
     const t = setTimeout(() => load(), 250);
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [search, filters.tipo]);
 
   const handleSave = async (form) => {

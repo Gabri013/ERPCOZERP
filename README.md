@@ -112,8 +112,11 @@ npm run test:e2e          # Playwright
 - **`docs/api/endpoints.md`** — referência dos endpoints principais.
 - **`docs/architecture/overview.md`** — visão do monorepo e decisões.
 - **`docs/user-guide/`** — guias operacionais e metadata.
+- **`docs/tests/integration.md`** — orientação para testes de integração.
+- **`docs/development/scripts-dev.md`** — scripts legados em `scripts/dev/`.
 - **`docs/reports/`** — relatórios de validação.
 - **`docs/archive/root-md/`** — documentação histórica consolidada da raiz (não usar como fonte primária).
+- **`CLEANUP_FINAL_REPORT.md`** — última auditoria de limpeza profunda (raiz).
 
 ## Estrutura (resumo)
 
