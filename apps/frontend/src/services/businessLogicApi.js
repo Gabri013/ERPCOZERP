@@ -1,0 +1,118 @@
+import { recordsServiceApi } from '@/services/recordsServiceApi';
+
+export const CONFIG = {
+  LIMITE_APROVACAO: 20000,
+};
+
+function normStatus(v) {
+  return String(v || '').toLowerCase();
+}
+
+/** Pedidos que exigem ação gerencial (mesmo texto de status dos registros seeded). */
+export async function fetchPedidosAguardandoAp() {
+  const rows = await recordsServiceApi.list('pedido_venda');
+  return rows.filter((p) => String(p.status || '') === 'Aguardando Aprovação');
+}
+
+export async function aprovarPedidoGerencialApi(id) {
+  const rows = await recordsServiceApi.list('pedido_venda');
+  const cur = rows.find((r) => String(r.id) === String(id));
+  if (!cur) throw new Error('Pedido não encontrado');
+
+  await recordsServiceApi.update(id, {
+    ...cur,
+    status: 'Aprovado',
+    data_aprovacao_gerencial: new Date().toISOString(),
+  });
+  return { status: 'Aprovado' };
+}
+
+export async function rejeitarPedidoApi(id, motivo = '') {
+  const rows = await recordsServiceApi.list('pedido_venda');
+  const cur = rows.find((r) => String(r.id) === String(id));
+  if (!cur) throw new Error('Pedido não encontrado');
+
+  await recordsServiceApi.update(id, {
+    ...cur,
+    status: 'Cancelado',
+    motivo_rejeicao: motivo,
+    data_rejeicao: new Date().toISOString(),
+  });
+  return { status: 'Cancelado' };
+}
+
+export async function fetchEstoqueCriticoApi() {
+  const produtos = await recordsServiceApi.list('produto');
+  return produtos
+    .filter(
+      (p) =>
+        Number(p.estoque_atual) < Number(p.estoque_minimo) &&
+        String(p.tipo || '') !== 'Serviço',
+    )
+    .sort(
+      (a, b) =>
+        Number(a.estoque_atual) -
+        Number(a.estoque_minimo) -
+        (Number(b.estoque_atual) - Number(b.estoque_minimo)),
+    );
+}
+
+/** Status em minúsculas (seed). */
+export async function fetchSaldoFinanceiroApi() {
+  const [receber, pagar] = await Promise.all([
+    recordsServiceApi.list('conta_receber'),
+    recordsServiceApi.list('conta_pagar'),
+  ]);
+
+  const receberAberto = (receber || []).filter((c) =>
+    ['aberto', 'parcial', 'vencido'].includes(normStatus(c.status)),
+  );
+  const pagarAberto = (pagar || []).filter((c) =>
+    ['aberto', 'parcial', 'vencido'].includes(normStatus(c.status)),
+  );
+
+  return {
+    totalReceber: receberAberto.reduce((s, c) => s + Number(c.valor || 0), 0),
+    totalPagar: pagarAberto.reduce((s, c) => s + Number(c.valor || 0), 0),
+    totalVencidoReceber: receber
+      .filter((c) => normStatus(c.status) === 'vencido')
+      .reduce((s, c) => s + Number(c.valor || 0), 0),
+    totalVencidoPagar: pagar
+      .filter((c) => normStatus(c.status) === 'vencido')
+      .reduce((s, c) => s + Number(c.valor || 0), 0),
+  };
+}
+
+/** Projeção de fluxo usando datas `data_vencimento` (yyyy-mm-dd) dos lançamentos. */
+export async function fetchFluxoCaixaProjetadoApi(dias = 30) {
+  const [receber, pagar] = await Promise.all([
+    recordsServiceApi.list('conta_receber'),
+    recordsServiceApi.list('conta_pagar'),
+  ]);
+
+  const rec = receber.filter((c) =>
+    ['aberto', 'parcial', 'vencido'].includes(normStatus(c.status)),
+  );
+  const pay = pagar.filter((c) =>
+    ['aberto', 'parcial', 'vencido'].includes(normStatus(c.status)),
+  );
+
+  const hoje = new Date();
+  const resultado = [];
+  let saldoAcumulado = 0;
+
+  for (let i = 0; i < dias; i++) {
+    const data = new Date(hoje);
+    data.setDate(hoje.getDate() + i);
+    const dataStr = data.toISOString().slice(0, 10);
+    const label = data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+
+    const entradas = rec.filter((c) => c.data_vencimento === dataStr).reduce((s, c) => s + Number(c.valor || 0), 0);
+    const saidas = pay.filter((c) => c.data_vencimento === dataStr).reduce((s, c) => s + Number(c.valor || 0), 0);
+    saldoAcumulado += entradas - saidas;
+
+    resultado.push({ data: dataStr, label, entradas, saidas, saldo: saldoAcumulado });
+  }
+
+  return resultado;
+}

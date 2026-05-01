@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../../infra/prisma.js';
+import { requirePermission } from '../../middleware/auth.js';
+import { getIO } from '../../realtime/io.js';
 
 export const notificationsRouter = Router();
 
@@ -32,6 +34,50 @@ notificationsRouter.get('/me', async (req, res) => {
       read: Boolean(n.readAt),
     })),
   });
+});
+
+notificationsRouter.post('/', requirePermission('entity.manage'), async (req, res) => {
+  const userIdCaller = req.user?.userId;
+  if (!userIdCaller) return res.status(401).json({ error: 'Authentication required' });
+
+  const sector = typeof req.body?.sector === 'string' && req.body.sector.trim() ? req.body.sector.trim() : 'Sistema';
+  const typeRaw = typeof req.body?.type === 'string' && req.body.type.trim() ? req.body.type.trim() : 'info';
+  const text =
+    typeof req.body?.text === 'string'
+      ? req.body.text.trim()
+      : typeof req.body?.title === 'string'
+        ? req.body.title.trim()
+        : '';
+
+  if (!text) return res.status(400).json({ error: 'text ou title é obrigatório' });
+
+  let targets: string[] = [];
+  if (Array.isArray(req.body?.user_ids) && req.body.user_ids.length > 0) {
+    targets = req.body.user_ids.map((x: unknown) => String(x)).filter(Boolean);
+  } else if (typeof req.body?.user_id === 'string' && req.body.user_id.trim()) {
+    targets = [req.body.user_id.trim()];
+  } else {
+    targets = [userIdCaller];
+  }
+
+  await prisma.userNotification.createMany({
+    data: targets.map((uid) => ({
+      userId: uid,
+      sector,
+      type: typeRaw,
+      text,
+    })),
+  });
+
+  const io = getIO();
+  if (io) {
+    io.emit('notification_broadcast', { sector, type: typeRaw, text });
+    for (const uid of targets) {
+      io.to(`user:${uid}`).emit('notification', { sector, type: typeRaw, text });
+    }
+  }
+
+  res.status(201).json({ success: true, count: targets.length });
 });
 
 notificationsRouter.post('/:id/read', async (req, res) => {

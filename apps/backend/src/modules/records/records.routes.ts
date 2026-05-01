@@ -2,45 +2,40 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../../infra/prisma.js';
 import { Prisma } from '@prisma/client';
+import { checkEntityRecordsAccess } from '../../infra/entity-permissions.js';
+import { emitAfterRecordSaved } from '../../realtime/record-hooks.js';
 
 export const recordsRouter = Router();
 
-async function hasPermission(userId: string, permissionCode: string) {
-  const roles = await prisma.userRole.findMany({
-    where: { userId },
-    select: { roleId: true, role: { select: { code: true } } },
-  });
-
-  if (roles.some((r) => r.role.code === 'master')) return true;
-  const roleIds = roles.map((r) => r.roleId);
-  if (!roleIds.length) return false;
-
-  const allowed = await prisma.rolePermission.findFirst({
-    where: {
-      roleId: { in: roleIds },
-      granted: true,
-      permission: { code: permissionCode, active: true },
-    },
-    select: { id: true },
-  });
-
-  return Boolean(allowed);
+function coerceEmpty(v: unknown): unknown {
+  if (typeof v === 'string' && v.trim() === '') return undefined;
+  return v;
 }
 
-async function ensureRecordsAccess(req: any, entityCode: string, action: 'read' | 'write' | 'delete') {
-  // Master sempre passa (tratado via roles no DB)
-  const userId = req.user?.userId;
-  if (!userId) return false;
+async function assertRequiredFields(entityCode: string, data: Record<string, unknown>) {
+  const entity = await prisma.entity.findUnique({ where: { code: entityCode } });
+  const cfg = (entity?.config as { fields?: any[] }) || {};
+  const fields = Array.isArray(cfg.fields) ? cfg.fields : [];
+  const missing: string[] = [];
 
-  // Produção: leitura de OPs e escrita/leitura de apontamentos sem CRUD genérico
-  if (action === 'read' && entityCode === 'ordem_producao') return hasPermission(userId, 'ver_op');
-  if (action === 'read' && entityCode === 'apontamento_producao') return hasPermission(userId, 'apontar');
-  if (action === 'write' && entityCode === 'apontamento_producao') return hasPermission(userId, 'apontar');
-  if (action === 'read' && entityCode === 'historico_op') return hasPermission(userId, 'ver_kanban');
-  if (action === 'write' && entityCode === 'historico_op') return hasPermission(userId, 'ver_kanban');
+  for (const f of fields) {
+    if (!f?.required || f?.hidden || f?.readonly) continue;
+    const code = String(f.code || '');
+    if (!code) continue;
+    const v = coerceEmpty(data[code]);
+    if (
+      v === undefined ||
+      v === null ||
+      (typeof v === 'number' && !Number.isFinite(v)) ||
+      (typeof v === 'string' && v.trim() === '')
+    ) {
+      missing.push(String(f.label || code));
+    }
+  }
 
-  // Default: exige permissão de CRUD genérico
-  return hasPermission(userId, 'record.manage');
+  if (missing.length > 0) {
+    throw new Error(`Campos obrigatórios: ${missing.join(', ')}`);
+  }
 }
 
 const createSchema = z.object({
@@ -56,7 +51,8 @@ recordsRouter.get('/', async (req, res) => {
   const entityCode = String(req.query.entity || '');
   if (!entityCode) return res.status(400).json({ error: 'entity é obrigatório' });
 
-  const can = await ensureRecordsAccess(req, entityCode, 'read');
+  const userId = req.user?.userId;
+  const can = await checkEntityRecordsAccess(userId, req.user?.roles, entityCode, 'view');
   if (!can) return res.status(403).json({ error: 'Forbidden' });
 
   const entity = await prisma.entity.findUnique({ where: { code: entityCode } });
@@ -78,11 +74,18 @@ recordsRouter.post('/', async (req, res) => {
   const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Dados inválidos', details: parsed.error.flatten() });
 
-  const can = await ensureRecordsAccess(req, parsed.data.entity, 'write');
+  const userId = req.user?.userId;
+  const can = await checkEntityRecordsAccess(userId, req.user?.roles, parsed.data.entity, 'create');
   if (!can) return res.status(403).json({ error: 'Forbidden' });
 
   const entity = await prisma.entity.findUnique({ where: { code: parsed.data.entity } });
   if (!entity) return res.status(404).json({ error: 'Entidade não encontrada' });
+
+  try {
+    await assertRequiredFields(parsed.data.entity, parsed.data.data as Record<string, unknown>);
+  } catch (e: any) {
+    return res.status(400).json({ error: e?.message || 'Validação falhou' });
+  }
 
   const created = await prisma.entityRecord.create({
     data: {
@@ -91,6 +94,12 @@ recordsRouter.post('/', async (req, res) => {
       createdBy: req.user?.userId,
       updatedBy: req.user?.userId,
     },
+  });
+
+  void emitAfterRecordSaved({
+    entityCode: parsed.data.entity,
+    verb: 'create',
+    record: { id: created.id, data: created.data },
   });
 
   res.status(201).json({ success: true, data: { id: created.id, data: created.data } });
@@ -103,7 +112,8 @@ recordsRouter.get('/:id', async (req, res) => {
 
   const entity = await prisma.entity.findUnique({ where: { id: row.entityId } });
   const entityCode = entity?.code || '';
-  const can = await ensureRecordsAccess(req, entityCode, 'read');
+  const userId = req.user?.userId;
+  const can = await checkEntityRecordsAccess(userId, req.user?.roles, entityCode, 'view');
   if (!can) return res.status(403).json({ error: 'Forbidden' });
 
   res.json({ success: true, data: { id: row.id, entity_id: row.entityId, data: row.data } });
@@ -119,15 +129,33 @@ recordsRouter.put('/:id', async (req, res) => {
 
   const entity = await prisma.entity.findUnique({ where: { id: existing.entityId } });
   const entityCode = entity?.code || '';
-  const can = await ensureRecordsAccess(req, entityCode, 'write');
+  const userId = req.user?.userId;
+  const can = await checkEntityRecordsAccess(userId, req.user?.roles, entityCode, 'edit');
   if (!can) return res.status(403).json({ error: 'Forbidden' });
+
+  const mergedData = {
+    ...(typeof existing.data === 'object' && existing.data !== null ? (existing.data as object) : {}),
+    ...(parsed.data.data as object),
+  } as Record<string, unknown>;
+
+  try {
+    await assertRequiredFields(entityCode, mergedData);
+  } catch (e: any) {
+    return res.status(400).json({ error: e?.message || 'Validação falhou' });
+  }
 
   const updated = await prisma.entityRecord.update({
     where: { id },
     data: {
-      data: parsed.data.data as Prisma.InputJsonValue,
+      data: mergedData as Prisma.InputJsonValue,
       updatedBy: req.user?.userId,
     },
+  });
+
+  void emitAfterRecordSaved({
+    entityCode,
+    verb: 'update',
+    record: { id: updated.id, data: updated.data },
   });
 
   res.json({ success: true, data: { id: updated.id, data: updated.data } });
@@ -140,7 +168,8 @@ recordsRouter.delete('/:id', async (req, res) => {
 
   const entity = await prisma.entity.findUnique({ where: { id: existing.entityId } });
   const entityCode = entity?.code || '';
-  const can = await ensureRecordsAccess(req, entityCode, 'delete');
+  const userId = req.user?.userId;
+  const can = await checkEntityRecordsAccess(userId, req.user?.roles, entityCode, 'delete');
   if (!can) return res.status(403).json({ error: 'Forbidden' });
 
   await prisma.entityRecord.update({
@@ -148,6 +177,11 @@ recordsRouter.delete('/:id', async (req, res) => {
     data: { deletedAt: new Date(), updatedBy: req.user?.userId },
   });
 
+  void emitAfterRecordSaved({
+    entityCode,
+    verb: 'delete',
+    record: { id },
+  });
+
   res.json({ success: true });
 });
-

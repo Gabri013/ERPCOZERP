@@ -1,51 +1,62 @@
+# Stack único: Postgres + Redis + API Prisma + SPA (nginx)
 services:
-  mysql:
-    image: mysql:8.0
+  postgres:
+    image: postgres:16
+    container_name: erp_postgres
     restart: unless-stopped
     ports:
-      - "3307:3306"
+      - "${POSTGRES_PUBLISH_PORT:-5432}:5432"
     environment:
-      MYSQL_ROOT_PASSWORD: rootpass
-      MYSQL_DATABASE: erpcoz
-      MYSQL_USER: erpcoz
-      MYSQL_PASSWORD: erpcozpass
-    command: --default-authentication-plugin=mysql_native_password
+      POSTGRES_DB: erpcoz
+      POSTGRES_USER: erpcoz
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-erpcozpass}
     volumes:
-      - mysql_data:/var/lib/mysql
+      - pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-prootpass"]
+      test: ["CMD-SHELL", "pg_isready -U erpcoz -d erpcoz"]
       interval: 10s
       timeout: 5s
       retries: 10
 
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+  redis:
+    image: redis:7-alpine
+    container_name: erp_redis
     restart: unless-stopped
     ports:
-      - "3001:3001"
+      - "${REDIS_PUBLISH_PORT:-6379}:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+    container_name: erp_backend
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_PUBLISH_PORT:-3001}:3001"
     environment:
-      DB_TYPE: mysql
-      MYSQL_HOST: mysql
-      MYSQL_PORT: "3306"
-      MYSQL_USER: erpcoz
-      MYSQL_PASSWORD: erpcozpass
-      MYSQL_DATABASE: erpcoz
-      MYSQL_SSL: "false"
-      PORT: "3001"
       NODE_ENV: production
+      PORT: "3001"
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
-      JWT_SECRET: ${JWT_SECRET:-dev_jwt_secret_change_me_please_12345}
+      DATABASE_URL: postgres://erpcoz:${POSTGRES_PASSWORD:-erpcozpass}@postgres:5432/erpcoz
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required (set in .env)}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
-      REFRESH_TOKEN_EXPIRES_IN: ${REFRESH_TOKEN_EXPIRES_IN:-30d}
-      SEED_ENABLED: ${SEED_ENABLED:-true}
       DEFAULT_MASTER_PASSWORD: ${DEFAULT_MASTER_PASSWORD:-master123_dev}
-      DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD:-admin123_dev}
+      SEED_ENABLED: ${SEED_ENABLED:-true}
     depends_on:
-      mysql:
+      postgres:
         condition: service_healthy
-    command: sh -c "npm run migrate && npm run seed && npm start"
+      redis:
+        condition: service_healthy
+    command: sh -c "npx prisma migrate deploy && npm run prisma:seed && npm start"
     healthcheck:
       test:
         [
@@ -56,16 +67,17 @@ services:
         ]
       interval: 15s
       timeout: 5s
-      retries: 8
-      start_period: 120s
+      retries: 10
+      start_period: 45s
 
   frontend:
     build:
-      context: .
+      context: ./apps/frontend
       dockerfile: Dockerfile
+    container_name: erp_frontend
     restart: unless-stopped
     ports:
-      - "5173:80"
+      - "${FRONTEND_PUBLISH_PORT:-5173}:80"
     depends_on:
       backend:
         condition: service_healthy
@@ -74,8 +86,10 @@ services:
       interval: 30s
       timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 20s
 
 volumes:
-  mysql_data:
+  pg_data:
+    driver: local
+  redis_data:
     driver: local

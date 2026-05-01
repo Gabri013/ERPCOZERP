@@ -98,7 +98,7 @@ dashboardRouter.get('/', async (req, res) => {
   const [totalClientes, totalProdutos, totalOPs, totalOCs] = await Promise.all([
     countClientesAtivos(),
     countEntity('produto'),
-    countEntity('op'),
+    countEntity('ordem_producao'),
     countEntity('ordem_compra'),
   ]);
 
@@ -110,7 +110,7 @@ dashboardRouter.get('/', async (req, res) => {
   const [produtoId, clienteId, opId] = await Promise.all([
     getEntityId('produto'),
     getEntityId('cliente'),
-    getEntityId('op'),
+    getEntityId('ordem_producao'),
   ]);
 
   const [produtosPorMes, clientesPorMes, opsPorMes] = await Promise.all([

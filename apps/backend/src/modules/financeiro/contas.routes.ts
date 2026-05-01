@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../../infra/prisma.js';
 import { Prisma } from '@prisma/client';
+import { entityRouteGuard } from '../../infra/entity-permissions.js';
 
 export const contasRouter = Router();
 
@@ -125,14 +126,14 @@ function buildDeleteHandler(entityCode: 'conta_receber' | 'conta_pagar') {
 }
 
 // Receber
-contasRouter.get('/contas-receber', buildListHandler('conta_receber'));
-contasRouter.post('/contas-receber', buildCreateHandler('conta_receber'));
-contasRouter.put('/contas-receber/:id', buildUpdateHandler('conta_receber'));
-contasRouter.delete('/contas-receber/:id', buildDeleteHandler('conta_receber'));
+contasRouter.get('/contas-receber', entityRouteGuard('conta_receber'), buildListHandler('conta_receber'));
+contasRouter.post('/contas-receber', entityRouteGuard('conta_receber'), buildCreateHandler('conta_receber'));
+contasRouter.put('/contas-receber/:id', entityRouteGuard('conta_receber'), buildUpdateHandler('conta_receber'));
+contasRouter.delete('/contas-receber/:id', entityRouteGuard('conta_receber'), buildDeleteHandler('conta_receber'));
 
 // Pagar
-contasRouter.get('/contas-pagar', buildListHandler('conta_pagar'));
-contasRouter.post('/contas-pagar', buildCreateHandler('conta_pagar'));
-contasRouter.put('/contas-pagar/:id', buildUpdateHandler('conta_pagar'));
-contasRouter.delete('/contas-pagar/:id', buildDeleteHandler('conta_pagar'));
+contasRouter.get('/contas-pagar', entityRouteGuard('conta_pagar'), buildListHandler('conta_pagar'));
+contasRouter.post('/contas-pagar', entityRouteGuard('conta_pagar'), buildCreateHandler('conta_pagar'));
+contasRouter.put('/contas-pagar/:id', entityRouteGuard('conta_pagar'), buildUpdateHandler('conta_pagar'));
+contasRouter.delete('/contas-pagar/:id', entityRouteGuard('conta_pagar'), buildDeleteHandler('conta_pagar'));
 

@@ -1,41 +1,131 @@
-const db = globalThis.__B44_DB__ || { auth:{ isAuthenticated: async()=>false, me: async()=>null }, entities:new Proxy({}, { get:()=>({ filter:async()=>[], get:async()=>null, create:async()=>({}), update:async()=>({}), delete:async()=>({}) }) }), integrations:{ Core:{ UploadFile:async()=>({ file_url:'' }) } } };
+# ERP Cozinha
 
-**Welcome to your Base44 project** 
+ERP configurável (**React + Vite**, **Node + Express + Prisma**, **PostgreSQL**, **Redis**), organizado como **monorepo** enterprise.
 
-**About**
+## Visão geral
 
-View and Edit  your app on [db.com](http://db.com) 
+- **`apps/frontend`** — SPA, formulários dinâmicos (Metadata Studio), dashboards e integração Socket.IO.
+- **`apps/backend`** — API REST, RBAC, registros dinâmicos (`/api/records`), módulos vendas/compras/financeiro, tempo real.
+- **`docker-compose.yml`** — um único arquivo para subir Postgres, Redis, API e frontend (nginx).
 
-This project contains everything you need to run your app locally.
+## Tecnologias
 
-**Edit the code in your local development environment**
+| Camada | Stack |
+|--------|--------|
+| Frontend | React 18, Vite 6, Tailwind, shadcn/ui, Zustand, React Router, Socket.IO client |
+| Backend | Node 18+, Express, Prisma, PostgreSQL, Redis, Socket.IO, JWT |
+| Infra | Docker Compose, nginx (assets estáticos + proxy `/api` e `/socket.io`) |
 
-Any change pushed to the repo will also be reflected in the Base44 Builder.
+## Pré-requisitos
 
-**Prerequisites:** 
+- **Docker** + Docker Compose v2 (recomendado para produção e demo).
+- **Node.js 18+** e npm (desenvolvimento local sem Docker).
 
-1. Clone the repository using the project's Git URL 
-2. Navigate to the project directory
-3. Install dependencies: `npm install`
-4. Create an `.env.local` file and set the right environment variables
+## Configuração rápida
+
+```bash
+cp .env.example .env
+# Defina JWT_SECRET com string longa e aleatória
+```
+
+## Docker (recomendado)
+
+```bash
+docker compose up -d --build
+```
+
+| Serviço | Container | URL / porta no host (padrão) |
+|---------|-----------|-------------------------------|
+| Frontend | `erp_frontend` | http://localhost:5173 |
+| API | `erp_backend` | http://localhost:3001 |
+| Postgres | `erp_postgres` | localhost:5432 (usuário/base `erpcoz`) |
+| Redis | `erp_redis` | localhost:6379 |
+
+Variáveis opcionais no `.env`: `POSTGRES_PUBLISH_PORT`, `REDIS_PUBLISH_PORT`, `BACKEND_PUBLISH_PORT`, `FRONTEND_PUBLISH_PORT`, `POSTGRES_PASSWORD`, etc.
+
+Parar:
+
+```bash
+docker compose down
+```
+
+### Seed via container
+
+```bash
+npm run docker:seed
+```
+
+## Desenvolvimento local (sem Docker da API)
+
+Dois terminais ou um comando:
+
+```bash
+npm install
+npm install --prefix apps/frontend
+npm install --prefix apps/backend
+
+npm run dev
+```
+
+- Frontend Vite: porta **5173**, proxy `/api` → `VITE_BACKEND_URL` ou `http://127.0.0.1:3001`.
+- Backend: `apps/backend` (`tsx watch`), porta **3001**.
+
+Scripts úteis na raiz:
+
+| Script | Descrição |
+|--------|-----------|
+| `npm run dev` | Frontend + backend em paralelo (`concurrently`) |
+| `npm run build` | Build frontend + backend |
+| `npm run lint` | ESLint (frontend) + `tsc --noEmit` (backend) |
+| `npm run test` | Smoke HTTP (`tests/smoke/test-all-endpoints.cjs`) |
+| `npm run test:e2e` | Playwright (`tests/e2e`) |
+| `npm run docker:up` / `docker:down` / `docker:logs` | Compose |
+
+## Credenciais de demonstração
+
+| Papel | E-mail | Senha típica (dev) |
+|-------|--------|---------------------|
+| Master | master@Cozinha.com | `master123_dev` (override: `DEFAULT_MASTER_PASSWORD`) |
+
+Perfis demo documentados no seed (`demo123_dev`, etc.) — ver `apps/backend/prisma/seed.ts`.
+
+## Backup e restore
+
+Scripts bash (`scripts/backup.sh`, `scripts/restore.sh`): usam `docker compose` e `pg_dump` / `psql`. Cron exemplo:
+
+```cron
+0 2 * * * cd /caminho/ERPCOZERP && ./scripts/backup.sh >> /var/log/erp-backup.log 2>&1
+```
+
+Seed local sem Docker: `./scripts/seed-dev.sh` (requer DB configurado em `apps/backend`).
+
+## Testes
+
+```bash
+npm run test              # smoke principal (API em http://localhost:3001)
+BACKEND_URL=http://host:port npm run test
+npm run test:e2e          # Playwright
+```
+
+## Documentação adicional
+
+- **`docs/api/endpoints.md`** — referência dos endpoints principais.
+- **`docs/architecture/overview.md`** — visão do monorepo e decisões.
+- **`docs/user-guide/`** — guias operacionais e metadata.
+- **`docs/reports/`** — relatórios de validação.
+- **`docs/archive/root-md/`** — documentação histórica consolidada da raiz (não usar como fonte primária).
+
+## Estrutura (resumo)
 
 ```
-VITE_BASE44_APP_ID=your_app_id
-VITE_BASE44_APP_BASE_URL=your_backend_url
-
-e.g.
-VITE_BASE44_APP_ID=cbef744a8545c389ef439ea6
-VITE_BASE44_APP_BASE_URL=https://my-to-do-list-81bfaad7.db.app
+apps/backend     → API Prisma
+apps/frontend    → SPA Vite
+scripts/         → backup, restore, seed-dev
+tests/e2e        → Playwright
+tests/smoke      → scripts Node contra a API
+docs/            → documentação única (fora do README)
 ```
 
-Run the app: `npm run dev`
+## Licença / uso
 
-**Publish your changes**
-
-Open [db.com](http://db.com) and click on Publish.
-
-**Docs & Support**
-
-Documentation: [https://docs.db.com/Integrations/Using-GitHub](https://docs.db.com/Integrations/Using-GitHub)
-
-Support: [https://app.db.com/support](https://app.db.com/support)
+Projeto privado interno; ajuste políticas da sua organização.

@@ -44,33 +44,38 @@ export function requireRole(role: string) {
   };
 }
 
-export function requirePermission(permissionCode: string) {
+export function requirePermission(permissionCodeOrList: string | string[]) {
+  const codes = Array.isArray(permissionCodeOrList) ? permissionCodeOrList : [permissionCodeOrList];
   return async (req: Request, res: Response, next: NextFunction) => {
-    if (!req.user) return res.status(401).json({ error: 'Authentication required' });
-    if (req.user.roles.includes('master')) return next();
+    try {
+      if (!req.user) return res.status(401).json({ error: 'Authentication required' });
+      if (req.user.roles.includes('master')) return next();
 
-    const roles = await prisma.userRole.findMany({
-      where: { userId: req.user.userId },
-      select: { roleId: true, role: { select: { code: true } } },
-    });
+      const roles = await prisma.userRole.findMany({
+        where: { userId: req.user.userId },
+        select: { roleId: true, role: { select: { code: true } } },
+      });
 
-    // Shortcut in case token already contains role codes but DB got out of sync
-    if (roles.some((r) => r.role.code === 'master')) return next();
+      // Shortcut in case token already contains role codes but DB got out of sync
+      if (roles.some((r) => r.role.code === 'master')) return next();
 
-    const roleIds = roles.map((r) => r.roleId);
-    if (!roleIds.length) return res.status(403).json({ error: 'Forbidden' });
+      const roleIds = roles.map((r) => r.roleId);
+      if (!roleIds.length) return res.status(403).json({ error: 'Forbidden' });
 
-    const allowed = await prisma.rolePermission.findFirst({
-      where: {
-        roleId: { in: roleIds },
-        granted: true,
-        permission: { code: permissionCode, active: true },
-      },
-      select: { id: true },
-    });
+      const allowed = await prisma.rolePermission.findFirst({
+        where: {
+          roleId: { in: roleIds },
+          granted: true,
+          permission: { code: { in: codes }, active: true },
+        },
+        select: { id: true },
+      });
 
-    if (!allowed) return res.status(403).json({ error: 'Forbidden' });
-    return next();
+      if (!allowed) return res.status(403).json({ error: 'Forbidden' });
+      return next();
+    } catch (e) {
+      return next(e as Error);
+    }
   };
 }
 

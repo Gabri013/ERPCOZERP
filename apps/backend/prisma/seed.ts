@@ -1,6 +1,29 @@
 import bcrypt from 'bcryptjs';
 import { PrismaClient } from '@prisma/client';
 
+/** Lista de entidades com permissões `entidade.view|create|edit|delete` — manter em sync com `src/infra/entity-permissions.ts`. */
+const GRANULAR_ENTITY_CODES = [
+  'cliente',
+  'fornecedor',
+  'produto',
+  'movimentacao_estoque',
+  'pedido_venda',
+  'orcamento',
+  'ordem_compra',
+  'tabela_preco',
+  'conta_receber',
+  'conta_pagar',
+  'ordem_producao',
+  'apontamento_producao',
+  'rh_funcionario',
+  'fiscal_nfe',
+  'crm_lead',
+  'crm_oportunidade',
+  'cotacao_compra',
+  'historico_op',
+  'workflow',
+] as const;
+
 const prisma = new PrismaClient();
 
 async function main() {
@@ -103,6 +126,43 @@ async function main() {
     });
   }
 
+  for (const ent of GRANULAR_ENTITY_CODES) {
+    const labels = {
+      view: `Ver registros (${ent})`,
+      create: `Incluir registro (${ent})`,
+      edit: `Editar registro (${ent})`,
+      delete: `Excluir registro (${ent})`,
+    } as const;
+    for (const suf of ['view', 'create', 'edit', 'delete'] as const) {
+      const code = `${ent}.${suf}`;
+      await prisma.permission.upsert({
+        where: { code },
+        update: { name: labels[suf], category: `entity.${ent}`, active: true },
+        create: { code, name: labels[suf], category: `entity.${ent}`, active: true, type: 'action' },
+      });
+    }
+  }
+
+  const allGranularCodes = [...GRANULAR_ENTITY_CODES].flatMap((e) => [
+    `${e}.view`,
+    `${e}.create`,
+    `${e}.edit`,
+    `${e}.delete`,
+  ]);
+
+  const vendasGranularCodes = [
+    'cliente',
+    'pedido_venda',
+    'orcamento',
+    'tabela_preco',
+    'crm_lead',
+    'crm_oportunidade',
+  ].flatMap((e) => [`${e}.view`, `${e}.create`, `${e}.edit`, `${e}.delete`]);
+
+  const producaoGranularCodes = ['ordem_producao', 'apontamento_producao', 'historico_op', 'produto', 'movimentacao_estoque'].flatMap((e) =>
+    [`${e}.view`, `${e}.create`, `${e}.edit`, `${e}.delete`],
+  );
+
   // master recebe todas permissões
   const allPerms = await prisma.permission.findMany({ where: { active: true } });
   for (const perm of allPerms) {
@@ -126,9 +186,16 @@ async function main() {
       'ver_rh','editar_funcionarios','ver_folha',
       'ver_relatorios','relatorios:view','editar_config',
       'ver_crm','ver_fiscal',
+      ...allGranularCodes,
     ],
-    gerente_producao: ['record.manage','entity.manage','ver_op','criar_op','editar_op','apontar','ver_kanban','ver_pcp','ver_roteiros','ver_maquinas','ver_chao_fabrica','ver_estoque','ver_relatorios','relatorios:view'],
-    orcamentista_vendas: ['record.manage','entity.manage','ver_pedidos','criar_pedidos','editar_pedidos','ver_clientes','editar_clientes','ver_orcamentos','criar_orcamentos','ver_relatorios','relatorios:view','ver_crm'],
+    gerente_producao: [
+      'record.manage','entity.manage','ver_op','criar_op','editar_op','apontar','ver_kanban','ver_pcp','ver_roteiros','ver_maquinas','ver_chao_fabrica','ver_estoque','ver_relatorios','relatorios:view',
+      ...producaoGranularCodes,
+    ],
+    orcamentista_vendas: [
+      'record.manage','entity.manage','ver_pedidos','criar_pedidos','editar_pedidos','ver_clientes','editar_clientes','ver_orcamentos','criar_orcamentos','ver_relatorios','relatorios:view','ver_crm',
+      ...vendasGranularCodes,
+    ],
     projetista: ['record.manage','entity.manage','ver_op','ver_pcp','ver_roteiros','ver_relatorios','relatorios:view'],
     // Operadores (chão): sem acesso ao "no-code" (record.manage/entity.manage)
     corte_laser: ['ver_op', 'apontar', 'ver_chao_fabrica'],
@@ -227,7 +294,17 @@ async function main() {
     id: string;
     code: string;
     label: string;
-    data_type: 'text' | 'number' | 'boolean' | 'date' | 'select' | 'multiselect' | 'reference' | 'textarea' | 'currency';
+    data_type:
+      | 'text'
+      | 'number'
+      | 'boolean'
+      | 'date'
+      | 'select'
+      | 'multiselect'
+      | 'reference'
+      | 'textarea'
+      | 'currency'
+      | 'json';
     required?: boolean;
     unique?: boolean;
     hidden?: boolean;
@@ -237,10 +314,17 @@ async function main() {
   };
 
   async function ensureEntity(code: string, name: string, config?: { fields?: SeedField[]; [k: string]: any }) {
+    if (config) {
+      return prisma.entity.upsert({
+        where: { code },
+        update: { name, config },
+        create: { code, name, config },
+      });
+    }
     return prisma.entity.upsert({
       where: { code },
-      update: { name, config: config ?? undefined },
-      create: { code, name, config: config ?? undefined },
+      update: { name },
+      create: { code, name },
     });
   }
 
@@ -350,6 +434,340 @@ async function main() {
         { id: 'oc.valor_total', code: 'valor_total', label: 'Valor Total', data_type: 'currency' },
         { id: 'oc.status', code: 'status', label: 'Status', data_type: 'select', data_type_params: { options: ['Rascunho', 'Enviado', 'Recebido', 'Cancelado'] } },
         { id: 'oc.observacoes', code: 'observacoes', label: 'Observações', data_type: 'textarea' },
+      ],
+    },
+    tabela_preco: {
+      fields: [
+        { id: 'tp.codigo', code: 'codigo', label: 'Código', data_type: 'text', required: true, unique: true },
+        { id: 'tp.descricao', code: 'descricao', label: 'Descrição', data_type: 'text', required: true },
+        { id: 'tp.grupo', code: 'grupo', label: 'Grupo', data_type: 'text' },
+        { id: 'tp.unidade', code: 'unidade', label: 'Unidade', data_type: 'select', data_type_params: { options: ['UN', 'PC', 'CX', 'KG', 'M', 'H'] } },
+        { id: 'tp.preco_custo', code: 'preco_custo', label: 'Preço de Custo', data_type: 'currency' },
+        { id: 'tp.preco_venda', code: 'preco_venda', label: 'Preço de Venda', data_type: 'currency' },
+      ],
+    },
+    ordem_producao: {
+      fields: [
+        { id: 'op.numero', code: 'numero', label: 'Número', data_type: 'text', required: true, unique: true },
+        { id: 'op.pedidoId', code: 'pedidoId', label: 'Pedido (ID)', data_type: 'number' },
+        { id: 'op.clienteId', code: 'clienteId', label: 'Cliente (ID)', data_type: 'number' },
+        { id: 'op.clienteNome', code: 'clienteNome', label: 'Cliente', data_type: 'text', required: true },
+        { id: 'op.codigoProduto', code: 'codigoProduto', label: 'Código produto', data_type: 'text' },
+        { id: 'op.produtoDescricao', code: 'produtoDescricao', label: 'Produto', data_type: 'text', required: true },
+        { id: 'op.quantidade', code: 'quantidade', label: 'Quantidade', data_type: 'number', required: true },
+        { id: 'op.unidade', code: 'unidade', label: 'Unidade', data_type: 'select', required: true, data_type_params: { options: ['UN', 'PC', 'CX', 'KG', 'M', 'H'] } },
+        { id: 'op.dataEmissao', code: 'dataEmissao', label: 'Data emissão', data_type: 'date' },
+        { id: 'op.prazo', code: 'prazo', label: 'Prazo', data_type: 'date' },
+        {
+          id: 'op.status',
+          code: 'status',
+          label: 'Status',
+          data_type: 'select',
+          required: true,
+          data_type_params: { options: ['aberta', 'em_andamento', 'pausada', 'concluida', 'cancelada'] },
+        },
+        {
+          id: 'op.prioridade',
+          code: 'prioridade',
+          label: 'Prioridade',
+          data_type: 'select',
+          data_type_params: { options: ['Baixa', 'Normal', 'Alta', 'Urgente'] },
+        },
+        { id: 'op.responsavel', code: 'responsavel', label: 'Responsável', data_type: 'text' },
+        { id: 'op.observacao', code: 'observacao', label: 'Observação', data_type: 'textarea' },
+        { id: 'op.informacaoComplementar', code: 'informacaoComplementar', label: 'Informação complementar', data_type: 'textarea' },
+      ],
+    },
+    conta_receber: {
+      fields: [
+        { id: 'cr.descricao', code: 'descricao', label: 'Descrição', data_type: 'text', required: true },
+        { id: 'cr.cliente_fornecedor', code: 'cliente_fornecedor', label: 'Cliente', data_type: 'text', required: true },
+        { id: 'cr.categoria', code: 'categoria', label: 'Categoria', data_type: 'select', data_type_params: { options: ['Venda', 'Serviço', 'Outros'] } },
+        { id: 'cr.valor', code: 'valor', label: 'Valor', data_type: 'currency', required: true },
+        { id: 'cr.data_emissao', code: 'data_emissao', label: 'Data emissão', data_type: 'date' },
+        { id: 'cr.data_vencimento', code: 'data_vencimento', label: 'Data vencimento', data_type: 'date' },
+        {
+          id: 'cr.status',
+          code: 'status',
+          label: 'Status',
+          data_type: 'select',
+          required: true,
+          data_type_params: { options: ['aberto', 'parcial', 'pago', 'vencido', 'cancelado'] },
+        },
+        { id: 'cr.documento', code: 'documento', label: 'Documento', data_type: 'text' },
+        { id: 'cr.observacoes', code: 'observacoes', label: 'Observações', data_type: 'textarea' },
+      ],
+    },
+    conta_pagar: {
+      fields: [
+        { id: 'cp.descricao', code: 'descricao', label: 'Descrição', data_type: 'text', required: true },
+        { id: 'cp.cliente_fornecedor', code: 'cliente_fornecedor', label: 'Fornecedor', data_type: 'text', required: true },
+        { id: 'cp.categoria', code: 'categoria', label: 'Categoria', data_type: 'select', data_type_params: { options: ['Compra', 'Serviço', 'Imposto', 'Outros'] } },
+        { id: 'cp.valor', code: 'valor', label: 'Valor', data_type: 'currency', required: true },
+        { id: 'cp.data_emissao', code: 'data_emissao', label: 'Data emissão', data_type: 'date' },
+        { id: 'cp.data_vencimento', code: 'data_vencimento', label: 'Data vencimento', data_type: 'date' },
+        {
+          id: 'cp.status',
+          code: 'status',
+          label: 'Status',
+          data_type: 'select',
+          required: true,
+          data_type_params: { options: ['aberto', 'parcial', 'pago', 'vencido', 'cancelado'] },
+        },
+        { id: 'cp.documento', code: 'documento', label: 'Documento', data_type: 'text' },
+        { id: 'cp.observacoes', code: 'observacoes', label: 'Observações', data_type: 'textarea' },
+      ],
+    },
+    workflow: {
+      fields: [
+        { id: 'wf.entity_id', code: 'entity_id', label: 'Entidade alvo', data_type: 'text' },
+        { id: 'wf.code', code: 'code', label: 'Código', data_type: 'text', required: true, unique: true },
+        { id: 'wf.name', code: 'name', label: 'Nome', data_type: 'text', required: true },
+        { id: 'wf.description', code: 'description', label: 'Descrição', data_type: 'textarea' },
+        { id: 'wf.is_active', code: 'is_active', label: 'Ativo', data_type: 'boolean' },
+        {
+          id: 'wf.trigger_type',
+          code: 'trigger_type',
+          label: 'Gatilho',
+          data_type: 'select',
+          required: true,
+          data_type_params: { options: ['manual', 'on_create', 'on_update', 'schedule'] },
+        },
+        { id: 'wf.config', code: 'config', label: 'Config (JSON)', data_type: 'json' },
+        { id: 'wf.steps', code: 'steps', label: 'Etapas (JSON array)', data_type: 'json' },
+      ],
+    },
+    crm_lead: {
+      fields: [
+        { id: 'ld.nome', code: 'nome', label: 'Nome', data_type: 'text', required: true },
+        { id: 'ld.empresa', code: 'empresa', label: 'Empresa', data_type: 'text' },
+        { id: 'ld.cargo', code: 'cargo', label: 'Cargo', data_type: 'text' },
+        { id: 'ld.email', code: 'email', label: 'E-mail', data_type: 'text' },
+        { id: 'ld.telefone', code: 'telefone', label: 'Telefone', data_type: 'text' },
+        { id: 'ld.origem', code: 'origem', label: 'Origem', data_type: 'select', data_type_params: { options: ['Site', 'Telefone', 'Indicação', 'Evento', 'Outros'] } },
+        {
+          id: 'ld.qualificacao',
+          code: 'qualificacao',
+          label: 'Qualificação',
+          data_type: 'select',
+          data_type_params: { options: ['Frio', 'Morno', 'Quente'] },
+        },
+        { id: 'ld.responsavel', code: 'responsavel', label: 'Responsável', data_type: 'text' },
+      ],
+    },
+    crm_oportunidade: {
+      fields: [
+        { id: 'op2.titulo', code: 'titulo', label: 'Título', data_type: 'text', required: true },
+        { id: 'op2.empresa', code: 'empresa', label: 'Empresa', data_type: 'text', required: true },
+        { id: 'op2.contato', code: 'contato', label: 'Contato', data_type: 'text' },
+        { id: 'op2.valor', code: 'valor', label: 'Valor', data_type: 'currency' },
+        {
+          id: 'op2.estagio',
+          code: 'estagio',
+          label: 'Estágio',
+          data_type: 'select',
+          data_type_params: { options: ['Prospecção', 'Qualificação', 'Proposta', 'Negociação', 'Fechamento', 'Ganho', 'Perdido'] },
+        },
+        { id: 'op2.probabilidade', code: 'probabilidade', label: 'Probabilidade (%)', data_type: 'number' },
+        { id: 'op2.fechamento', code: 'fechamento', label: 'Data prev. fechamento', data_type: 'date' },
+        { id: 'op2.responsavel', code: 'responsavel', label: 'Responsável', data_type: 'text' },
+      ],
+    },
+    cotacao_compra: {
+      fields: [
+        { id: 'cc.numero', code: 'numero', label: 'Número', data_type: 'text', required: true, unique: true },
+        { id: 'cc.descricao', code: 'descricao', label: 'Descrição', data_type: 'text', required: true },
+        { id: 'cc.fornecedor', code: 'fornecedor', label: 'Fornecedor', data_type: 'text', required: true },
+        { id: 'cc.data_envio', code: 'data_envio', label: 'Data envio', data_type: 'date' },
+        { id: 'cc.validade', code: 'validade', label: 'Validade', data_type: 'date' },
+        { id: 'cc.valor', code: 'valor', label: 'Valor', data_type: 'currency' },
+        {
+          id: 'cc.status',
+          code: 'status',
+          label: 'Status',
+          data_type: 'select',
+          data_type_params: { options: ['Enviada', 'Recebida', 'Aceita', 'Recusada', 'Cancelada'] },
+        },
+      ],
+    },
+    rh_funcionario: {
+      fields: [
+        { id: 'rh.matricula', code: 'matricula', label: 'Matrícula', data_type: 'text', required: true, unique: true },
+        { id: 'rh.nome', code: 'nome', label: 'Nome', data_type: 'text', required: true },
+        { id: 'rh.cargo', code: 'cargo', label: 'Cargo', data_type: 'text' },
+        { id: 'rh.departamento', code: 'departamento', label: 'Departamento', data_type: 'text' },
+        {
+          id: 'rh.tipo_contrato',
+          code: 'tipo_contrato',
+          label: 'Contrato',
+          data_type: 'select',
+          data_type_params: { options: ['CLT', 'PJ', 'Estágio', 'Temporário'] },
+        },
+        { id: 'rh.salario', code: 'salario', label: 'Salário', data_type: 'currency' },
+        { id: 'rh.data_admissao', code: 'data_admissao', label: 'Data admissão', data_type: 'date' },
+        {
+          id: 'rh.status',
+          code: 'status',
+          label: 'Status',
+          data_type: 'select',
+          data_type_params: { options: ['Ativo', 'Afastado', 'Férias', 'Desligado'] },
+        },
+        { id: 'rh.email', code: 'email', label: 'E-mail', data_type: 'text' },
+        { id: 'rh.telefone', code: 'telefone', label: 'Telefone', data_type: 'text' },
+      ],
+    },
+    rh_ferias: {
+      fields: [
+        { id: 'rf.nome', code: 'nome', label: 'Colaborador', data_type: 'text', required: true },
+        { id: 'rf.matricula', code: 'matricula', label: 'Matrícula', data_type: 'text', required: true },
+        { id: 'rf.cargo', code: 'cargo', label: 'Cargo', data_type: 'text' },
+        { id: 'rf.data_inicio', code: 'data_inicio', label: 'Início', data_type: 'date', required: true },
+        { id: 'rf.data_fim', code: 'data_fim', label: 'Fim', data_type: 'date', required: true },
+        { id: 'rf.dias', code: 'dias', label: 'Dias', data_type: 'number', required: true },
+        {
+          id: 'rf.status',
+          code: 'status',
+          label: 'Status',
+          data_type: 'select',
+          data_type_params: { options: ['Solicitada', 'Pendente', 'Aprovadas', 'Em Gozo', 'Concluídas', 'Canceladas'] },
+        },
+        { id: 'rf.observacoes', code: 'observacoes', label: 'Observações', data_type: 'textarea' },
+      ],
+    },
+    rh_ponto: {
+      fields: [
+        { id: 'rp.nome', code: 'nome', label: 'Colaborador', data_type: 'text', required: true },
+        { id: 'rp.matricula', code: 'matricula', label: 'Matrícula', data_type: 'text', required: true },
+        { id: 'rp.data', code: 'data', label: 'Data', data_type: 'date', required: true },
+        { id: 'rp.entrada', code: 'entrada', label: 'Entrada', data_type: 'text' },
+        { id: 'rp.saida_almoco', code: 'saida_almoco', label: 'Saída almoço', data_type: 'text' },
+        { id: 'rp.retorno', code: 'retorno', label: 'Retorno', data_type: 'text' },
+        { id: 'rp.saida', code: 'saida', label: 'Saída', data_type: 'text' },
+        { id: 'rp.horas', code: 'horas', label: 'Horas', data_type: 'text' },
+        {
+          id: 'rp.status',
+          code: 'status',
+          label: 'Status',
+          data_type: 'select',
+          data_type_params: { options: ['Normal', 'Falta', 'Atraso', 'Hora Extra', 'Férias', 'Licença'] },
+        },
+      ],
+    },
+    rh_folha_pagamento: {
+      fields: [
+        { id: 'fl.nome', code: 'nome', label: 'Colaborador', data_type: 'text', required: true },
+        { id: 'fl.matricula', code: 'matricula', label: 'Matrícula', data_type: 'text', required: true },
+        { id: 'fl.cargo', code: 'cargo', label: 'Cargo', data_type: 'text' },
+        { id: 'fl.salario_base', code: 'salario_base', label: 'Salário base', data_type: 'currency' },
+        { id: 'fl.horas_extras', code: 'horas_extras', label: 'Horas extras (R$)', data_type: 'currency' },
+        { id: 'fl.descontos', code: 'descontos', label: 'Descontos', data_type: 'currency' },
+        { id: 'fl.liquido', code: 'liquido', label: 'Líquido', data_type: 'currency' },
+        { id: 'fl.competencia', code: 'competencia', label: 'Competência (AAAA-MM)', data_type: 'text', required: true },
+      ],
+    },
+    fiscal_nfe: {
+      fields: [
+        { id: 'fn.numero', code: 'numero', label: 'Número', data_type: 'text', required: true },
+        { id: 'fn.serie', code: 'serie', label: 'Série', data_type: 'text' },
+        { id: 'fn.destinatario', code: 'destinatario', label: 'Destinatário', data_type: 'text', required: true },
+        { id: 'fn.cnpj', code: 'cnpj', label: 'CNPJ', data_type: 'text' },
+        { id: 'fn.data_emissao', code: 'data_emissao', label: 'Data emissão', data_type: 'date' },
+        { id: 'fn.valor', code: 'valor', label: 'Valor', data_type: 'currency' },
+        { id: 'fn.chave', code: 'chave', label: 'Chave NF-e', data_type: 'textarea' },
+        {
+          id: 'fn.status',
+          code: 'status',
+          label: 'Status',
+          data_type: 'select',
+          data_type_params: { options: ['Em Digitação', 'Autorizada', 'Denegada', 'Cancelada', 'Contingência'] },
+        },
+      ],
+    },
+    producao_maquina: {
+      fields: [
+        { id: 'pm.codigo', code: 'codigo', label: 'Código', data_type: 'text', required: true, unique: true },
+        { id: 'pm.descricao', code: 'descricao', label: 'Descrição', data_type: 'text', required: true },
+        { id: 'pm.tipo', code: 'tipo', label: 'Tipo', data_type: 'text' },
+        { id: 'pm.fabricante', code: 'fabricante', label: 'Fabricante', data_type: 'text' },
+        { id: 'pm.modelo', code: 'modelo', label: 'Modelo', data_type: 'text' },
+        { id: 'pm.ano', code: 'ano', label: 'Ano', data_type: 'number' },
+        { id: 'pm.setor', code: 'setor', label: 'Setor', data_type: 'text' },
+        {
+          id: 'pm.status',
+          code: 'status',
+          label: 'Status',
+          data_type: 'select',
+          data_type_params: { options: ['Ativo', 'Inativo', 'Manutenção', 'Desativada'] },
+        },
+        { id: 'pm.ultima_manutencao', code: 'ultima_manutencao', label: 'Última manutenção', data_type: 'date' },
+        { id: 'pm.proxima_manutencao', code: 'proxima_manutencao', label: 'Próxima manutenção', data_type: 'date' },
+      ],
+    },
+    compras_recebimento: {
+      fields: [
+        { id: 'rc.numero', code: 'numero', label: 'Número', data_type: 'text', required: true, unique: true },
+        { id: 'rc.ordem_compra', code: 'ordem_compra', label: 'Ordem de compra', data_type: 'text' },
+        { id: 'rc.fornecedor', code: 'fornecedor', label: 'Fornecedor', data_type: 'text', required: true },
+        { id: 'rc.data_recebimento', code: 'data_recebimento', label: 'Data recebimento', data_type: 'date' },
+        { id: 'rc.nf', code: 'nf', label: 'NF', data_type: 'text' },
+        { id: 'rc.valor', code: 'valor', label: 'Valor', data_type: 'currency' },
+        { id: 'rc.conferente', code: 'conferente', label: 'Conferente', data_type: 'text' },
+        {
+          id: 'rc.status',
+          code: 'status',
+          label: 'Status',
+          data_type: 'select',
+          data_type_params: { options: ['Aguardando NF', 'Conferido', 'Divergência', 'Cancelado'] },
+        },
+      ],
+    },
+    estoque_inventario: {
+      fields: [
+        { id: 'ei.codigo', code: 'codigo', label: 'Código item', data_type: 'text', required: true },
+        { id: 'ei.descricao', code: 'descricao', label: 'Descrição', data_type: 'text', required: true },
+        { id: 'ei.localizacao', code: 'localizacao', label: 'Localização', data_type: 'text' },
+        { id: 'ei.estoque_sistema', code: 'estoque_sistema', label: 'Qtd sistema', data_type: 'number' },
+        { id: 'ei.estoque_contado', code: 'estoque_contado', label: 'Qtd contada', data_type: 'number' },
+        { id: 'ei.diferenca', code: 'diferenca', label: 'Diferença', data_type: 'number' },
+        {
+          id: 'ei.status',
+          code: 'status',
+          label: 'Status',
+          data_type: 'select',
+          data_type_params: { options: ['Pendente', 'Conferido', 'Divergente', 'Ajustado'] },
+        },
+      ],
+    },
+    apontamento_producao: {
+      fields: [
+        { id: 'ap.opId', code: 'opId', label: 'OP (ref.)', data_type: 'text', required: true },
+        { id: 'ap.etapa', code: 'etapa', label: 'Etapa', data_type: 'text', required: true },
+        { id: 'ap.operador', code: 'operador', label: 'Operador', data_type: 'text' },
+        { id: 'ap.setor', code: 'setor', label: 'Setor', data_type: 'text' },
+        { id: 'ap.horaInicio', code: 'horaInicio', label: 'Início', data_type: 'text' },
+        { id: 'ap.horaFim', code: 'horaFim', label: 'Fim', data_type: 'text' },
+        { id: 'ap.quantidade', code: 'quantidade', label: 'Quantidade', data_type: 'number' },
+        { id: 'ap.refugo', code: 'refugo', label: 'Refugo', data_type: 'number' },
+        {
+          id: 'ap.status',
+          code: 'status',
+          label: 'Status',
+          data_type: 'select',
+          required: true,
+          data_type_params: { options: ['Em Andamento', 'Finalizado', 'Cancelado'] },
+        },
+        { id: 'ap.observacao', code: 'observacao', label: 'Observação', data_type: 'textarea' },
+      ],
+    },
+    historico_op: {
+      fields: [
+        { id: 'ho.opId', code: 'opId', label: 'OP (id interno)', data_type: 'text', required: true },
+        { id: 'ho.opNumero', code: 'opNumero', label: 'Nº OP', data_type: 'text' },
+        { id: 'ho.statusAnterior', code: 'statusAnterior', label: 'Status anterior', data_type: 'text' },
+        { id: 'ho.statusNovo', code: 'statusNovo', label: 'Status novo', data_type: 'text', required: true },
+        { id: 'ho.usuario', code: 'usuario', label: 'Usuário', data_type: 'text' },
+        { id: 'ho.obs', code: 'obs', label: 'Observações', data_type: 'textarea' },
+        { id: 'ho.data', code: 'data', label: 'Data/hora', data_type: 'text' },
       ],
     },
   };
