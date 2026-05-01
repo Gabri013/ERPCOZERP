@@ -8,13 +8,33 @@ const SETORES = ['Laser','Rebarbação','Dobra','Solda','Montagem','Acabamento',
 const inp = 'w-full border border-border rounded px-2.5 py-1.5 text-xs bg-white outline-none focus:border-primary';
 const lbl = 'block text-[11px] text-muted-foreground mb-0.5';
 
-export default function ApontamentoModal({ op, onClose, onSave }) {
+export default function ApontamentoModal({ op, onClose, onSave, defaultSetor = '', setores = null }) {
+  const setoresLista = Array.isArray(setores) && setores.length ? setores : SETORES;
+  const setorInicial = defaultSetor && setoresLista.includes(defaultSetor) ? defaultSetor : setoresLista[0];
+  const etapaInicialPorSetor = {
+    Laser: 'Corte a Laser',
+    Rebarbação: 'Rebarbação',
+    Dobra: 'Dobra',
+    Solda: 'Solda',
+    Montagem: 'Montagem',
+    Acabamento: 'Acabamento',
+    Qualidade: 'Qualidade',
+    Embalagem: 'Embalagem',
+    Expedição: 'Expedição',
+  };
+  const etapaInicial = etapaInicialPorSetor[setorInicial] && ETAPAS.includes(etapaInicialPorSetor[setorInicial])
+    ? etapaInicialPorSetor[setorInicial]
+    : ETAPAS[0];
   const [form, setForm] = useState({
-    etapa: ETAPAS[0], operador: OPERADORES[0], setor: SETORES[0],
-    quantidade: '', refugo: 0, observacao: '',
+    etapa: etapaInicial,
+    operador: OPERADORES[0],
+    setor: setorInicial,
+    quantidade: '',
+    refugo: 0,
+    observacao: '',
   });
   const [saving, setSaving] = useState(false);
-  const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const upd = (k, v) => setForm(f => ({ ...f, [k]: v ?? '' }));
 
   const handleIniciar = async () => {
     setSaving(true);
@@ -44,7 +64,7 @@ export default function ApontamentoModal({ op, onClose, onSave }) {
             <div>
               <label className={lbl}>Setor</label>
               <select className={inp} value={form.setor} onChange={e=>upd('setor',e.target.value)}>
-                {SETORES.map(s=><option key={s}>{s}</option>)}
+                {setoresLista.map(s=><option key={s}>{s}</option>)}
               </select>
             </div>
             <div>
@@ -59,16 +79,16 @@ export default function ApontamentoModal({ op, onClose, onSave }) {
             </div>
             <div>
               <label className={lbl}>Quantidade Produzida</label>
-              <input type="number" min="0" className={inp} value={form.quantidade} onChange={e=>upd('quantidade',e.target.value)} placeholder="0"/>
+              <input type="number" min="0" className={inp} value={form.quantidade ?? ''} onChange={e=>upd('quantidade',e.target.value)} placeholder="0"/>
             </div>
             <div>
               <label className={lbl}>Refugo</label>
-              <input type="number" min="0" className={inp} value={form.refugo} onChange={e=>upd('refugo',e.target.value)} placeholder="0"/>
+              <input type="number" min="0" className={inp} value={form.refugo ?? 0} onChange={e=>upd('refugo',e.target.value)} placeholder="0"/>
             </div>
           </div>
           <div>
             <label className={lbl}>Observação</label>
-            <textarea rows={2} className={inp} value={form.observacao} onChange={e=>upd('observacao',e.target.value)} placeholder="Observações..."/>
+            <textarea rows={2} className={inp} value={form.observacao ?? ''} onChange={e=>upd('observacao',e.target.value)} placeholder="Observações..."/>
           </div>
         </div>
         <div className="flex items-center justify-between px-5 py-3 border-t border-border bg-muted/30">

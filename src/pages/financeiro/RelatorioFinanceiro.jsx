@@ -1,9 +1,9 @@
-﻿import { useState, useMemo } from 'react';
+﻿import { useEffect, useState, useMemo } from 'react';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { TrendingUp, DollarSign, ArrowUpCircle, ArrowDownCircle, Calendar } from 'lucide-react';
 import PageHeader from '@/components/common/PageHeader';
 import { getFluxoCaixaProjetado, getSaldoFinanceiro } from '@/services/businessLogic';
-import { storage } from '@/services/storage';
+import { recordsServiceApi } from '@/services/recordsServiceApi';
 
 const fmtR = v => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 
@@ -42,6 +42,8 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 export default function RelatorioFinanceiro() {
   const [horizonte, setHorizonte] = useState(30);
+  const [contasReceber, setContasReceber] = useState([]);
+  const [contasPagar, setContasPagar] = useState([]);
 
   const fluxo = useMemo(() => getFluxoCaixaProjetado(horizonte), [horizonte]);
   const saldo = useMemo(() => getSaldoFinanceiro(), []);
@@ -58,14 +60,34 @@ export default function RelatorioFinanceiro() {
   const saldoFinal = fluxo[fluxo.length - 1]?.saldo || 0;
 
   // Contas vencendo nos próximos 7 dias
-  const receber = storage.get('contas_receber', []);
-  const pagar = storage.get('contas_pagar', []);
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const [r, p] = await Promise.all([
+          recordsServiceApi.list('conta_receber'),
+          recordsServiceApi.list('conta_pagar'),
+        ]);
+        if (!mounted) return;
+        setContasReceber(r);
+        setContasPagar(p);
+      } catch {
+        // mantém vazio se falhar
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  const receber = contasReceber;
+  const pagar = contasPagar;
   const hoje = new Date().toISOString().slice(0, 10);
   const em7dias = new Date(); em7dias.setDate(em7dias.getDate() + 7);
   const em7str = em7dias.toISOString().slice(0, 10);
 
-  const vencendoReceber = receber.filter(c => c.status === 'Aberto' && c.data_vencimento >= hoje && c.data_vencimento <= em7str);
-  const vencendoPagar = pagar.filter(c => c.status === 'Aberto' && c.data_vencimento >= hoje && c.data_vencimento <= em7str);
+  // compat: alguns registros vêm em minúsculo (seed do core usa 'aberto')
+  const isAberto = (v) => String(v || '').toLowerCase() === 'aberto';
+  const vencendoReceber = receber.filter(c => isAberto(c.status) && c.data_vencimento >= hoje && c.data_vencimento <= em7str);
+  const vencendoPagar = pagar.filter(c => isAberto(c.status) && c.data_vencimento >= hoje && c.data_vencimento <= em7str);
 
   return (
     <div>

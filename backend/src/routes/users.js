@@ -16,7 +16,7 @@ router.get('/', requirePermission('user.manage'), async (req, res) => {
       SELECT 
         u.id, u.email, u.full_name, u.active, u.email_verified, 
         u.last_login_at, u.created_at,
-        (SELECT JSON_ARRAYAGG(r.code) 
+        (SELECT GROUP_CONCAT(r.code)
          FROM user_roles ur 
          JOIN roles r ON ur.role_id = r.id 
          WHERE ur.user_id = u.id) as roles
@@ -37,7 +37,9 @@ router.get('/', requirePermission('user.manage'), async (req, res) => {
     // Parse roles JSON
     const parsedUsers = users.map(u => ({
       ...u,
-      roles: u.roles ? JSON.parse(u.roles) : []
+      roles: u.roles
+        ? String(u.roles).split(',').map(role => role.trim()).filter(Boolean)
+        : []
     }));
 
     res.json({ 
@@ -59,7 +61,7 @@ router.get('/:id', requirePermission('user.manage'), async (req, res) => {
     const users = await query(`
       SELECT 
         u.*,
-        (SELECT JSON_ARRAYAGG(r.code) 
+        (SELECT GROUP_CONCAT(r.code)
          FROM user_roles ur 
          JOIN roles r ON ur.role_id = r.id 
          WHERE ur.user_id = u.id) as roles
@@ -79,7 +81,9 @@ router.get('/:id', requirePermission('user.manage'), async (req, res) => {
       email_verified: user.email_verified,
       last_login_at: user.last_login_at,
       created_at: user.created_at,
-      roles: user.roles ? JSON.parse(user.roles) : []
+      roles: user.roles
+        ? String(user.roles).split(',').map(role => role.trim()).filter(Boolean)
+        : []
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -191,7 +195,7 @@ router.get('/me/profile', authenticateToken, async (req, res) => {
       SELECT 
         u.id, u.email, u.full_name, u.active, u.email_verified, 
         u.last_login_at, u.created_at,
-        (SELECT JSON_ARRAYAGG(r.code) 
+        (SELECT GROUP_CONCAT(r.code)
          FROM user_roles ur 
          JOIN roles r ON ur.role_id = r.id 
          WHERE ur.user_id = u.id) as roles
@@ -205,7 +209,9 @@ router.get('/me/profile', authenticateToken, async (req, res) => {
     const user = users[0];
     res.json({
       ...user,
-      roles: user.roles ? JSON.parse(user.roles) : []
+      roles: user.roles
+        ? String(user.roles).split(',').map(role => role.trim()).filter(Boolean)
+        : []
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -233,7 +239,7 @@ router.get('/roles/list', authenticateToken, async (req, res) => {
   try {
     const roles = await query(`
       SELECT r.*, 
-        (SELECT JSON_ARRAYAGG(DISTINCT p.code) 
+        (SELECT GROUP_CONCAT(DISTINCT p.code)
          FROM role_permissions rp 
          JOIN permissions p ON rp.permission_id = p.id 
          WHERE rp.role_id = r.id AND rp.granted = 1) as permissions
@@ -242,7 +248,9 @@ router.get('/roles/list', authenticateToken, async (req, res) => {
 
     const parsed = roles.map(r => ({
       ...r,
-      permissions: r.permissions ? JSON.parse(r.permissions) : []
+      permissions: r.permissions
+        ? String(r.permissions).split(',').map(permission => permission.trim()).filter(Boolean)
+        : []
     }));
 
     res.json({ success: true, data: parsed });

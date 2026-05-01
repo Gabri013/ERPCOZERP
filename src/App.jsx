@@ -58,6 +58,7 @@ import ConciliacaoBancaria from '@/pages/financeiro/ConciliacaoBancaria'
 import RelatorioFinanceiro from '@/pages/financeiro/RelatorioFinanceiro'
 import AprovacaoPedidos from '@/pages/financeiro/AprovacaoPedidos'
 import Relatorios from '@/pages/Relatorios'
+import Ajuda from '@/pages/Ajuda'
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -88,6 +89,7 @@ const AuthenticatedApp = () => {
     <Routes>
       <Route element={<ERPLayout />}>
         <Route path="/" element={<Dashboard />} />
+        <Route path="/ajuda" element={<Ajuda />} />
 
         {/* === ROTAS DINÂMICAS (substituem páginas estáticas) === */}
         <Route path="/entidades/:codigo" element={<EntityDynamicPage />} />

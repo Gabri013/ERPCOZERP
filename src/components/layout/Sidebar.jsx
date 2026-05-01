@@ -101,13 +101,20 @@ export default function Sidebar({ collapsed, onToggle, onNavigate }) {
   // Carrega entidades (apenas customizadas)
   useEffect(() => {
     const load = async () => {
+      // Só faz fetch de /api/entities se o usuário puder ver/gerenciar no-code.
+      // Isso evita 403 no network/console para perfis operacionais.
+      if (!pode('record.manage') && !pode('entity.manage')) {
+        setDynamicEntities([]);
+        return;
+      }
+
       await loadEntities();
       // Filtra apenas entidades customizadas (não sistema)
-      const custom = entities.filter(e => !e.is_system);
+      const custom = (entities || []).filter((e) => !e.is_system);
       setDynamicEntities(custom);
     };
     load();
-  }, []);
+  }, [pode]);
 
   const canSee = (item) => {
     if (item.alwaysShow) return true;
@@ -178,7 +185,9 @@ export default function Sidebar({ collapsed, onToggle, onNavigate }) {
 
   // Seção de entidades dinâmicas
   const renderDynamicSection = () => {
+    // Entidades dinâmicas são "no-code" e exigem permissão de CRUD genérica
     if (collapsed || dynamicEntities.length === 0) return null;
+    if (!pode('record.manage')) return null;
 
     return (
       <div className="mt-4 border-t border-white/10 pt-2">

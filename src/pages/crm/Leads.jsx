@@ -1,13 +1,9 @@
-﻿import PageHeader from '@/components/common/PageHeader';
+﻿import { useEffect, useState } from 'react';
+import PageHeader from '@/components/common/PageHeader';
 import DataTable from '@/components/common/DataTable';
+import FormModal, { inp, lbl, req } from '@/components/common/FormModal';
 import { Plus } from 'lucide-react';
-
-const MOCK = [
-  { id:'1', nome:'Fabricio Nunes', empresa:'Mec. Nunes Ltda', cargo:'Diretor', email:'fabricio@nunes.com', telefone:'(11) 9 8765-4321', origem:'Site', qualificacao:'Quente', responsavel:'Carlos Silva' },
-  { id:'2', nome:'Lúcia Barros', empresa:'Ind. Barros', cargo:'Gerente Compras', email:'lucia@barros.com', telefone:'(13) 9 7654-3210', origem:'Indicação', qualificacao:'Morno', responsavel:'Ana Paula' },
-  { id:'3', nome:'Henrique Dias', empresa:'Dias Usinagem', cargo:'Sócio', email:'henrique@dias.com', telefone:'(11) 9 6543-2109', origem:'Feira', qualificacao:'Frio', responsavel:'Rafael Costa' },
-  { id:'4', nome:'Patrícia Souza', empresa:'Souza Metalúrgica', cargo:'Compradora', email:'patricia@souza.com', telefone:'(19) 9 5432-1098', origem:'LinkedIn', qualificacao:'Quente', responsavel:'Carlos Silva' },
-];
+import { recordsServiceApi } from '@/services/recordsServiceApi';
 
 const qualificacaoCor = { 'Quente':'bg-red-100 text-red-700', 'Morno':'bg-yellow-100 text-yellow-700', 'Frio':'bg-blue-100 text-blue-700' };
 
@@ -23,14 +19,68 @@ const columns = [
 ];
 
 export default function Leads() {
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ nome:'', empresa:'', cargo:'', email:'', telefone:'', origem:'', qualificacao:'Morno', responsavel:'' });
+  const upd = (k,v) => setForm(f=>({ ...f, [k]: v }));
+
+  async function load() {
+    setLoading(true);
+    try {
+      setData(await recordsServiceApi.list('crm_lead'));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const handleSave = async () => {
+    if (!form.nome) return alert('Informe o nome');
+    setSaving(true);
+    try {
+      await recordsServiceApi.create('crm_lead', form);
+      await load();
+      setShowModal(false);
+      setForm({ nome:'', empresa:'', cargo:'', email:'', telefone:'', origem:'', qualificacao:'Morno', responsavel:'' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div>
       <PageHeader title="Leads" breadcrumbs={['Início','CRM','Leads']}
-        actions={<button className="flex items-center gap-1.5 px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90"><Plus size={13}/> Novo Lead</button>}
+        actions={<button onClick={()=>setShowModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90"><Plus size={13}/> Novo Lead</button>}
       />
       <div className="bg-white border border-border rounded-lg overflow-hidden">
-        <DataTable columns={columns} data={MOCK} />
+        <DataTable columns={columns} data={data} loading={loading} />
       </div>
+
+      {showModal && (
+        <FormModal title="Novo Lead" onClose={()=>setShowModal(false)} onSave={handleSave} saving={saving} size="md">
+          <div className="space-y-3">
+            <div><label className={lbl}>Nome {req}</label><input className={inp} value={form.nome} onChange={e=>upd('nome',e.target.value)} /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><label className={lbl}>Empresa</label><input className={inp} value={form.empresa} onChange={e=>upd('empresa',e.target.value)} /></div>
+              <div><label className={lbl}>Cargo</label><input className={inp} value={form.cargo} onChange={e=>upd('cargo',e.target.value)} /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><label className={lbl}>E-mail</label><input className={inp} value={form.email} onChange={e=>upd('email',e.target.value)} /></div>
+              <div><label className={lbl}>Telefone</label><input className={inp} value={form.telefone} onChange={e=>upd('telefone',e.target.value)} /></div>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div><label className={lbl}>Origem</label><input className={inp} value={form.origem} onChange={e=>upd('origem',e.target.value)} /></div>
+              <div><label className={lbl}>Temperatura</label><select className={inp} value={form.qualificacao} onChange={e=>upd('qualificacao',e.target.value)}><option>Quente</option><option>Morno</option><option>Frio</option></select></div>
+              <div><label className={lbl}>Responsável</label><input className={inp} value={form.responsavel} onChange={e=>upd('responsavel',e.target.value)} /></div>
+            </div>
+          </div>
+        </FormModal>
+      )}
     </div>
   );
 }

@@ -1,14 +1,8 @@
-﻿import PageHeader from '@/components/common/PageHeader';
+﻿import { useEffect, useMemo, useState } from 'react';
+import PageHeader from '@/components/common/PageHeader';
 import DataTable from '@/components/common/DataTable';
 import { Plus } from 'lucide-react';
-
-const MOCK = [
-  { id:'1', codigo:'TNC-01', descricao:'Torno CNC 1', tipo:'Torno CNC', fabricante:'Romi', modelo:'Sprint 32', ano:2019, setor:'Usinagem', status:'Ativo', ultima_manutencao:'2026-03-10', proxima_manutencao:'2026-06-10' },
-  { id:'2', codigo:'TNC-02', descricao:'Torno CNC 2', tipo:'Torno CNC', fabricante:'Romi', modelo:'Sprint 32', ano:2020, setor:'Usinagem', status:'Ativo', ultima_manutencao:'2026-03-12', proxima_manutencao:'2026-06-12' },
-  { id:'3', codigo:'CUS-01', descricao:'Centro de Usinagem', tipo:'Fresadora CNC', fabricante:'Mazak', modelo:'Variaxis 500', ano:2021, setor:'Usinagem', status:'Manutenção', ultima_manutencao:'2026-04-18', proxima_manutencao:'2026-04-25' },
-  { id:'4', codigo:'RET-01', descricao:'Retífica CIL-01', tipo:'Retífica', fabricante:'Jones', modelo:'J-412', ano:2015, setor:'Acabamento', status:'Ativo', ultima_manutencao:'2026-02-20', proxima_manutencao:'2026-05-20' },
-  { id:'5', codigo:'FRE-01', descricao:'Fresadora Conv.', tipo:'Fresadora', fabricante:'Dmáquinas', modelo:'FV-1', ano:2010, setor:'Usinagem', status:'Ativo', ultima_manutencao:'2026-01-15', proxima_manutencao:'2026-04-15' },
-];
+import { recordsServiceApi } from '@/services/recordsServiceApi';
 
 const statusMaq = {'Ativo':'bg-green-100 text-green-700','Inativo':'bg-gray-100 text-gray-600','Manutenção':'bg-orange-100 text-orange-700'};
 
@@ -24,6 +18,30 @@ const columns = [
 ];
 
 export default function Maquinas() {
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      setLoading(true);
+      try {
+        const rows = await recordsServiceApi.list('producao_maquina');
+        if (mounted) setData(rows);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  const stats = useMemo(() => {
+    const total = data.length;
+    const ativos = data.filter(m=>m.status==='Ativo').length;
+    const manut = data.filter(m=>m.status==='Manutenção').length;
+    return { total, ativos, manut };
+  }, [data]);
+
   return (
     <div>
       <PageHeader title="Máquinas e Equipamentos" breadcrumbs={['Início','Produção','Máquinas']}
@@ -31,9 +49,9 @@ export default function Maquinas() {
       />
       <div className="grid grid-cols-3 gap-3 mb-3">
         {[
-          {label:'Total',val:MOCK.length,color:'text-foreground'},
-          {label:'Em Operação',val:MOCK.filter(m=>m.status==='Ativo').length,color:'text-success'},
-          {label:'Em Manutenção',val:MOCK.filter(m=>m.status==='Manutenção').length,color:'text-orange-600'},
+          {label:'Total',val:stats.total,color:'text-foreground'},
+          {label:'Em Operação',val:stats.ativos,color:'text-success'},
+          {label:'Em Manutenção',val:stats.manut,color:'text-orange-600'},
         ].map(s=>(
           <div key={s.label} className="bg-white border border-border rounded px-4 py-3 text-center">
             <div className={`text-xl font-bold ${s.color}`}>{s.val}</div>
@@ -42,7 +60,7 @@ export default function Maquinas() {
         ))}
       </div>
       <div className="bg-white border border-border rounded-lg overflow-hidden">
-        <DataTable columns={columns} data={MOCK} />
+        <DataTable columns={columns} data={data} loading={loading} />
       </div>
     </div>
   );

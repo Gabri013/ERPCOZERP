@@ -1,13 +1,8 @@
-﻿import PageHeader from '@/components/common/PageHeader';
+﻿import { useEffect, useState } from 'react';
+import PageHeader from '@/components/common/PageHeader';
 import DataTable from '@/components/common/DataTable';
 import { Plus, FileText } from 'lucide-react';
-
-const MOCK = [
-  { id:'1', numero:'000.001.245', serie:'1', destinatario:'Metalúrgica ABC Ltda', cnpj:'11.222.333/0001-44', data_emissao:'2026-04-18', valor:45200, chave:'35260412345678901234550010002450011', status:'Autorizada' },
-  { id:'2', numero:'000.001.244', serie:'1', destinatario:'Ind. XYZ S/A', cnpj:'22.333.444/0001-55', data_emissao:'2026-04-16', valor:12800, chave:'35260412345678901234550010002440012', status:'Autorizada' },
-  { id:'3', numero:'000.001.243', serie:'1', destinatario:'Comércio Beta', cnpj:'33.444.555/0001-66', data_emissao:'2026-04-14', valor:8900, chave:'35260412345678901234550010002430013', status:'Cancelada' },
-  { id:'4', numero:'000.001.246', serie:'1', destinatario:'SiderTech S/A', cnpj:'44.555.666/0001-77', data_emissao:'2026-04-20', valor:18700, chave:null, status:'Em Digitação' },
-];
+import { recordsServiceApi } from '@/services/recordsServiceApi';
 
 const statusCor = {'Autorizada':'bg-green-100 text-green-700','Cancelada':'bg-red-100 text-red-700','Em Digitação':'bg-yellow-100 text-yellow-700','Rejeitada':'bg-orange-100 text-orange-700'};
 
@@ -22,6 +17,23 @@ const columns = [
 ];
 
 export default function NFe() {
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      setLoading(true);
+      try {
+        const rows = await recordsServiceApi.list('fiscal_nfe');
+        if (mounted) setData(rows);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
   return (
     <div>
       <PageHeader title="Emissão de NF-e" breadcrumbs={['Início','Fiscal','NF-e Emissão']}
@@ -31,7 +43,7 @@ export default function NFe() {
         </div>}
       />
       <div className="bg-white border border-border rounded-lg overflow-hidden">
-        <DataTable columns={columns} data={MOCK} />
+        <DataTable columns={columns} data={data} loading={loading} />
       </div>
     </div>
   );

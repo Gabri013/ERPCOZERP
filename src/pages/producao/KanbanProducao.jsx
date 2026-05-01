@@ -1,9 +1,9 @@
-﻿import { useState, useCallback } from 'react';
+﻿import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import PageHeader from '@/components/common/PageHeader';
 import { opService } from '@/services/opService';
-import { historicoOP } from '@/services/historicoOP';
+import { historicoOPServiceApi } from '@/services/historicoOPServiceApi';
 import { usePermissao } from '@/lib/PermissaoContext';
 import { Clock, AlertTriangle, User, Package, History, X } from 'lucide-react';
 import FluxoProducao from '@/components/producao/FluxoProducao';
@@ -124,31 +124,47 @@ function HistoricoPanel({ historico, onClose }) {
 }
 
 export default function KanbanProducao() {
-  const [ops, setOps] = useState(() => opService.getData());
+  const [ops, setOps] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showHistorico, setShowHistorico] = useState(false);
   const { usuarioAtual } = usePermissao();
 
-  const historico = historicoOP.getAll();
+  const [historico, setHistorico] = useState([]);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const [opsRes, hist] = await Promise.all([opService.getAll(), historicoOPServiceApi.getAll()]);
+      setOps(opsRes.data || []);
+      setHistorico(hist || []);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
 
   const onDragEnd = useCallback((result) => {
     const { source, destination, draggableId } = result;
     if (!destination || source.droppableId === destination.droppableId) return;
 
-    const opId = Number(draggableId);
-    const op = ops.find(o => o.id === opId);
+    const opId = String(draggableId);
+    const op = ops.find(o => String(o.id) === opId);
     if (!op) return;
 
     const statusAnterior = op.status;
     const statusNovo = destination.droppableId;
 
     // Atualiza estado local imediatamente
-    setOps(prev => prev.map(o => o.id === opId ? { ...o, status: statusNovo } : o));
+    setOps(prev => prev.map(o => String(o.id) === opId ? { ...o, status: statusNovo } : o));
 
     // Persiste no serviço
     opService.update(opId, { status: statusNovo });
 
     // Registra histórico
-    historicoOP.registrar({
+    historicoOPServiceApi.registrar({
       opId,
       opNumero: op.numero,
       statusAnterior,
@@ -156,12 +172,17 @@ export default function KanbanProducao() {
       usuario: usuarioAtual?.nome || 'Sistema',
       obs: `Movido via Kanban: ${STATUS_LABEL[statusAnterior]} → ${STATUS_LABEL[statusNovo]}`,
     });
+
+    // Atualiza painel de histórico em background
+    historicoOPServiceApi.getAll().then(setHistorico).catch(() => {});
   }, [ops, usuarioAtual]);
 
-  const counts = COLUNAS.reduce((acc, col) => {
-    acc[col.key] = ops.filter(o => o.status === col.key).length;
-    return acc;
-  }, {});
+  const counts = useMemo(() => {
+    return COLUNAS.reduce((acc, col) => {
+      acc[col.key] = ops.filter(o => o.status === col.key).length;
+      return acc;
+    }, {});
+  }, [ops]);
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -210,7 +231,7 @@ export default function KanbanProducao() {
                     >
                       {items.length === 0 && !snapshot.isDraggingOver && (
                         <div className="text-center py-8 text-[11px] text-muted-foreground">
-                          Nenhuma OP
+                          {loading ? 'Carregando...' : 'Nenhuma OP'}
                         </div>
                       )}
                       {items.map((op, index) => (

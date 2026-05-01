@@ -1,31 +1,20 @@
-﻿import { useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import PageHeader from '@/components/common/PageHeader';
 import FilterBar from '@/components/common/FilterBar';
 import DataTable from '@/components/common/DataTable';
 import FormModal, { inp, lbl, req } from '@/components/common/FormModal';
 import { Plus, Tag } from 'lucide-react';
-import { storage } from '@/services/storage';
-
-const MOCK_INICIAL = [
-  { id:'1', codigo:'A-001', descricao:'Eixo Transmissão 25mm', grupo:'Eixos', unidade:'UN', preco_custo:185.00, preco_venda:310.00 },
-  { id:'2', codigo:'A-002', descricao:'Rolamento 6205 2RS', grupo:'Rolamentos', unidade:'UN', preco_custo:42.00, preco_venda:89.00 },
-  { id:'3', codigo:'B-001', descricao:'Flange Aço Inox 3"', grupo:'Flanges', unidade:'UN', preco_custo:320.00, preco_venda:520.00 },
-  { id:'4', codigo:'B-002', descricao:'Parafuso Especial M12', grupo:'Fixadores', unidade:'CX', preco_custo:28.00, preco_venda:55.00 },
-  { id:'5', codigo:'C-001', descricao:'Caixa Redutora Mod.5', grupo:'Redutores', unidade:'UN', preco_custo:1800.00, preco_venda:3200.00 },
-  { id:'6', codigo:'C-002', descricao:'Correia Dentada 5M', grupo:'Transmissão', unidade:'UN', preco_custo:65.00, preco_venda:120.00 },
-];
+import { tabelaPrecosServiceApi } from '@/services/tabelaPrecosServiceApi';
 
 const UNIDADES = ['UN','KG','MT','PC','CX','L'];
 const GRUPOS = ['Eixos','Rolamentos','Flanges','Fixadores','Redutores','Transmissão','Serviços'];
 
-if (!localStorage.getItem('nomus_erp_tabela_precos')) storage.set('tabela_precos', MOCK_INICIAL);
-const getData = () => storage.get('tabela_precos', MOCK_INICIAL);
-const saveData = d => storage.set('tabela_precos', d);
 const fmtR = v => `R$ ${Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
 const calcMargem = (custo, venda) => custo > 0 ? (((venda - custo) / custo) * 100).toFixed(1) : '0.0';
 
 export default function TabelaPrecos() {
-  const [data, setData] = useState(getData());
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState({});
   const [showModal, setShowModal] = useState(false);
@@ -36,7 +25,19 @@ export default function TabelaPrecos() {
   const [form, setForm] = useState({ codigo:'', descricao:'', grupo:'', unidade:'UN', preco_custo:0, preco_venda:0 });
   const upd = (k,v) => setForm(f=>({...f,[k]:v}));
 
-  const reload = () => setData([...getData()]);
+  async function load() {
+    setLoading(true);
+    try {
+      const rows = await tabelaPrecosServiceApi.getAll({ search: '', grupo: '' });
+      setData(rows);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
 
   const openEdit = (row) => {
     setEditando(row);
@@ -47,31 +48,49 @@ export default function TabelaPrecos() {
   const handleSave = async () => {
     if(!form.descricao) return alert('Informe a descrição');
     setSaving(true);
-    const all = getData();
-    if(editando) {
-      saveData(all.map(p => p.id===editando.id ? {...form, id:editando.id} : p));
-    } else {
-      saveData([...all, {...form, id:Date.now().toString()}]);
+    try {
+      if (editando?.id) {
+        await tabelaPrecosServiceApi.update(editando.id, { ...form, id: editando.id });
+      } else {
+        await tabelaPrecosServiceApi.create(form);
+      }
+      await load();
+    } finally {
+      setSaving(false);
     }
     setSaving(false);
     setShowModal(false); setEditando(null);
     setForm({ codigo:'', descricao:'', grupo:'', unidade:'UN', preco_custo:0, preco_venda:0 });
-    reload();
   };
 
-  const aplicarReajuste = () => {
+  const aplicarReajuste = async () => {
     const pct = Number(pctReajuste);
     if(!pct) return alert('Informe o percentual');
-    saveData(getData().map(p => ({...p, preco_venda: +(p.preco_venda * (1 + pct/100)).toFixed(2)})));
-    setPctReajuste(''); setShowReajuste(false); reload();
+    setSaving(true);
+    try {
+      await Promise.all(
+        data.map((p) =>
+          tabelaPrecosServiceApi.update(p.id, {
+            ...p,
+            preco_venda: +(Number(p.preco_venda || 0) * (1 + pct / 100)).toFixed(2),
+          })
+        )
+      );
+      await load();
+    } finally {
+      setSaving(false);
+    }
+    setPctReajuste(''); setShowReajuste(false);
   };
 
-  const grupos = [...new Set(data.map(m=>m.grupo))];
-  const filtered = data.filter(p=>{
-    const s=search.toLowerCase();
-    return (!s||p.codigo?.toLowerCase().includes(s)||p.descricao?.toLowerCase().includes(s))
-      &&(!filters.grupo||p.grupo===filters.grupo);
-  });
+  const grupos = useMemo(() => [...new Set(data.map(m=>m.grupo).filter(Boolean))], [data]);
+  const filtered = useMemo(() => {
+    return data.filter(p=>{
+      const s=search.toLowerCase();
+      return (!s||p.codigo?.toLowerCase().includes(s)||p.descricao?.toLowerCase().includes(s))
+        &&(!filters.grupo||p.grupo===filters.grupo);
+    });
+  }, [data, search, filters.grupo]);
 
   const columns = [
     { key:'codigo', label:'Código', width:80 },
@@ -99,7 +118,7 @@ export default function TabelaPrecos() {
           filters={[{key:'grupo',label:'Grupo',options:grupos.map(g=>({value:g,label:g}))}]}
           activeFilters={filters} onFilterChange={(k,v)=>setFilters(f=>({...f,[k]:v}))} onClear={()=>{setSearch('');setFilters({});}}
         />
-        <DataTable columns={columns} data={filtered} onRowClick={row=>openEdit(row)}/>
+        <DataTable columns={columns} data={filtered} onRowClick={row=>openEdit(row)} loading={loading}/>
       </div>
 
       {showModal && (

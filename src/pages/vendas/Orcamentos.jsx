@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import PageHeader from '@/components/common/PageHeader';
 import FilterBar from '@/components/common/FilterBar';
 import DataTable from '@/components/common/DataTable';
@@ -6,56 +6,59 @@ import StatusBadge from '@/components/common/StatusBadge';
 import ModalPedidoVenda from '@/components/vendas/ModalPedidoVenda';
 import DetalheModal from '@/components/common/DetalheModal';
 import { Plus, Download } from 'lucide-react';
-import { storage } from '@/services/storage';
 import { exportPdfReport } from '@/services/pdfExport';
+import { orcamentosServiceApi } from '@/services/orcamentosServiceApi';
 
-const MOCK_INICIAL = [
-  { id:'1', numero:'ORC-00120', cliente_nome:'Metalúrgica ABC Ltda', data_emissao:'2026-04-18', validade:'2026-05-18', vendedor:'Carlos Silva', valor_total:45200, status:'Aprovado', itens:[], observacoes:'' },
-  { id:'2', numero:'ORC-00119', cliente_nome:'SiderTech S/A', data_emissao:'2026-04-16', validade:'2026-05-16', vendedor:'Ana Paula', valor_total:18700, status:'Orçamento', itens:[], observacoes:'' },
-  { id:'3', numero:'ORC-00118', cliente_nome:'Grupo Delta', data_emissao:'2026-04-14', validade:'2026-05-14', vendedor:'Rafael Costa', valor_total:7300, status:'Cancelado', itens:[], observacoes:'' },
-  { id:'4', numero:'ORC-00117', cliente_nome:'TechParts Ltda', data_emissao:'2026-04-10', validade:'2026-05-10', vendedor:'Carlos Silva', valor_total:32100, status:'Orçamento', itens:[], observacoes:'' },
-  { id:'5', numero:'ORC-00116', cliente_nome:'Comércio Beta', data_emissao:'2026-04-08', validade:'2026-05-08', vendedor:'Ana Paula', valor_total:9800, status:'Aprovado', itens:[], observacoes:'' },
-];
-
-if (!localStorage.getItem('nomus_erp_orcamentos')) storage.set('orcamentos', MOCK_INICIAL);
-const getData = () => storage.get('orcamentos', MOCK_INICIAL);
-const saveData = d => storage.set('orcamentos', d);
 const fmtR = v => `R$ ${Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
 const fmtD = v => v ? new Date(v+'T00:00').toLocaleDateString('pt-BR') : '—';
 
 export default function Orcamentos() {
-  const [data, setData] = useState(getData());
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState({});
   const [showModal, setShowModal] = useState(false);
   const [editando, setEditando] = useState(null);
   const [detalhe, setDetalhe] = useState(null);
 
-  const reload = () => setData([...getData()]);
-
-  const handleSave = (form) => {
-    const all = getData();
-    if (editando) {
-      saveData(all.map(o => o.id === editando.id ? {...editando,...form} : o));
-    } else {
-      const numero = `ORC-${String(all.length + 121).padStart(5,'0')}`;
-      saveData([{...form, id:Date.now().toString(), numero}, ...all]);
+  async function load() {
+    setLoading(true);
+    try {
+      const rows = await orcamentosServiceApi.getAll();
+      setData(rows);
+    } finally {
+      setLoading(false);
     }
-    reload();
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const handleSave = async (form) => {
+    if (editando?.id) {
+      await orcamentosServiceApi.update(editando.id, { ...editando, ...form });
+    } else {
+      await orcamentosServiceApi.create(form);
+    }
+    await load();
     setEditando(null);
   };
 
-  const aprovar = (id) => {
-    saveData(getData().map(o => o.id === id ? {...o, status:'Aprovado'} : o));
-    reload();
+  const aprovar = async (row) => {
+    if (!row?.id) return;
+    await orcamentosServiceApi.update(row.id, { ...row, status: 'Aprovado' });
+    await load();
     setDetalhe(null);
   };
 
-  const filtered = data.filter(p => {
-    const s = search.toLowerCase();
-    return (!s || p.numero?.toLowerCase().includes(s) || p.cliente_nome?.toLowerCase().includes(s))
-      && (!filters.status || p.status === filters.status);
-  });
+  const filtered = useMemo(() => {
+    return data.filter(p => {
+      const s = search.toLowerCase();
+      return (!s || p.numero?.toLowerCase().includes(s) || p.cliente_nome?.toLowerCase().includes(s))
+        && (!filters.status || p.status === filters.status);
+    });
+  }, [data, search, filters.status]);
 
   const columns = [
     { key:'numero', label:'Número', width:100, render:(v,row)=><button className="text-primary hover:underline font-medium" onClick={e=>{e.stopPropagation();setDetalhe(row)}}>{v}</button> },
@@ -78,7 +81,7 @@ export default function Orcamentos() {
               filename: 'orcamentos.pdf',
               table: {
                 headers: ['Número', 'Cliente', 'Emissão', 'Validade', 'Vendedor', 'Valor', 'Status'],
-                rows: getData().map((orcamento) => [
+                rows: data.map((orcamento) => [
                   orcamento.numero,
                   orcamento.cliente_nome,
                   fmtD(orcamento.data_emissao),
@@ -98,7 +101,7 @@ export default function Orcamentos() {
           filters={[{key:'status',label:'Status',options:['Orçamento','Aprovado','Cancelado'].map(s=>({value:s,label:s}))}]}
           activeFilters={filters} onFilterChange={(k,v)=>setFilters(f=>({...f,[k]:v}))} onClear={()=>{setSearch('');setFilters({});}}
         />
-        <DataTable columns={columns} data={filtered} onRowClick={row=>setDetalhe(row)}/>
+        <DataTable columns={columns} data={filtered} onRowClick={row=>setDetalhe(row)} loading={loading}/>
       </div>
 
       {(showModal || editando) && (
@@ -127,7 +130,7 @@ export default function Orcamentos() {
             ))}
           </div>
           <div className="mt-3 flex justify-end gap-2">
-            {detalhe.status === 'Orçamento' && <button onClick={()=>aprovar(detalhe.id)} className="px-3 py-1.5 text-xs bg-green-600 text-white rounded hover:opacity-90">✓ Aprovar</button>}
+            {detalhe.status === 'Orçamento' && <button onClick={()=>aprovar(detalhe)} className="px-3 py-1.5 text-xs bg-green-600 text-white rounded hover:opacity-90">✓ Aprovar</button>}
             <button onClick={()=>{setEditando(detalhe);setDetalhe(null);}} className="px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90">Editar</button>
           </div>
         </DetalheModal>

@@ -1,8 +1,18 @@
 import PageHeader from '@/components/common/PageHeader';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { api } from '@/services/api';
 import ApontamentoModal from '@/components/producao/ApontamentoModal';
+import { useAuth } from '@/lib/AuthContext';
+import { recordsServiceApi } from '@/services/recordsServiceApi';
+
+const ROLE_TO_SETOR = {
+  corte_laser: 'Laser',
+  dobra_montagem: 'Dobra',
+  solda: 'Solda',
+  expedicao: 'Expedição',
+  qualidade: 'Qualidade',
+  gerente_producao: 'Programação',
+};
 
 export default function Apontamento() {
   const { opId } = useParams();
@@ -11,6 +21,8 @@ export default function Apontamento() {
   const [apontamentos, setApontamentos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const [setorFiltro, setSetorFiltro] = useState('');
+  const { user } = useAuth();
 
   useEffect(() => {
     if (!opId) {
@@ -20,13 +32,23 @@ export default function Apontamento() {
     loadData();
   }, [opId]);
 
+  useEffect(() => {
+    const roles = Array.isArray(user?.roles) ? user.roles : [];
+    const roleMatch = roles.find((r) => ROLE_TO_SETOR[r]) || roles[0];
+    const defaultSetor = ROLE_TO_SETOR[roleMatch] || '';
+    setSetorFiltro((prev) => prev || defaultSetor);
+  }, [user?.roles]);
+
   async function loadData() {
     if (!opId) return;
     try {
-      const opRes = await api.get(`/api/production/ops/${opId}`);
-      setOp(opRes.data);
-      const aptRes = await api.get(`/api/production/apontamentos/${opId}`);
-      setApontamentos(aptRes.data);
+      const [ops, apts] = await Promise.all([
+        recordsServiceApi.list('ordem_producao'),
+        recordsServiceApi.list('apontamento_producao'),
+      ]);
+      const found = ops.find((o) => o.id === opId) || ops.find((o) => o.numero === opId) || null;
+      setOp(found);
+      setApontamentos(apts.filter((a) => String(a.opId) === String(found?.numero || opId) || String(a.opId) === String(opId)));
     } catch (err) {
       console.error('Erro ao carregar dados:', err);
     } finally {
@@ -36,7 +58,7 @@ export default function Apontamento() {
 
   async function handleSaveApontamento(data) {
     try {
-      await api.post(`/api/production/ops/${opId}/apontamento`, data);
+      await recordsServiceApi.create('apontamento_producao', { ...data, opId: op?.numero || String(opId) });
       setModalOpen(false);
       loadData(); // recarrega
     } catch (err) {
@@ -62,22 +84,47 @@ export default function Apontamento() {
 
   if (!op) return <div className="p-8 text-center text-red-600">OP não encontrada</div>;
 
+  const setoresUnicos = Array.from(
+    new Set((apontamentos || []).map((a) => a.setor).filter(Boolean))
+  );
+
+  const apontamentosFiltrados = (apontamentos || []).filter((a) => {
+    if (!setorFiltro) return true;
+    return String(a.setor || '').toLowerCase() === String(setorFiltro).toLowerCase();
+  });
+
   return (
     <div>
       <PageHeader 
         title={`Apontamento - OP ${op.numero}`}
         breadcrumbs={['Início','Produção','Ordens',op.numero,'Apontamento']}
         actions={
-          <button 
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90"
-            onClick={() => setModalOpen(true)}
-          >
-            + Novo Apontamento
-          </button>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
+              <label className="text-[11px] text-muted-foreground hidden sm:block">Setor</label>
+              <select
+                className="border border-border rounded px-2.5 py-1.5 text-xs bg-white outline-none focus:border-primary"
+                value={setorFiltro}
+                onChange={(e) => setSetorFiltro(e.target.value)}
+                aria-label="Filtrar por setor"
+              >
+                <option value="">Todos</option>
+                {setoresUnicos.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+            <button 
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90"
+              onClick={() => setModalOpen(true)}
+            >
+              + Novo Apontamento
+            </button>
+          </div>
         }
       />
 
-      <div className="bg-white border border-border rounded-lg overflow-hidden">
+      <div className="bg-white border border-border rounded-lg overflow-x-auto">
         <table className="w-full text-xs">
           <thead className="bg-muted">
             <tr>
@@ -92,7 +139,7 @@ export default function Apontamento() {
             </tr>
           </thead>
           <tbody>
-            {apontamentos.map(a => (
+            {apontamentosFiltrados.map(a => (
               <tr key={a.id} className="border-t border-border">
                 <td className="px-3 py-2">{a.etapa || a.descricao}</td>
                 <td className="px-3 py-2">{a.setor || '-'}</td>
@@ -116,7 +163,7 @@ export default function Apontamento() {
                 </td>
               </tr>
             ))}
-            {apontamentos.length === 0 && (
+            {apontamentosFiltrados.length === 0 && (
               <tr><td colSpan={8} className="px-3 py-4 text-center text-muted-foreground">
                 Nenhum apontamento registrado
               </td></tr>
@@ -131,6 +178,7 @@ export default function Apontamento() {
           op={op}
           onClose={() => setModalOpen(false)}
           onSave={handleSaveApontamento}
+          defaultSetor={setorFiltro}
         />
       )}
     </div>

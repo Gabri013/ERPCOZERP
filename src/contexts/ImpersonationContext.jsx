@@ -20,7 +20,7 @@ const decodeJwtPayload = (jwtToken) => {
  * Usado para que o master possa visualizar o sistema como outro usuário
  */
 export function ImpersonationProvider({ children }) {
-  const { user, token, authChecked, setUser: setAuthUser } = useAuth();
+  const { user, token, authChecked, setUser: setAuthUser, setToken: setAuthToken } = useAuth();
   const [isImpersonating, setIsImpersonating] = useState(false);
   const [originalUser, setOriginalUser] = useState(null);
   const [impersonatedUser, setImpersonatedUser] = useState(null);
@@ -37,7 +37,8 @@ export function ImpersonationProvider({ children }) {
     }
 
     const payload = decodeJwtPayload(impersonationToken);
-    if (!payload?.impersonation || !payload?.userId) {
+    const impersonatedUserId = payload?.sub || payload?.userId || null;
+    if (!payload?.impersonation || !impersonatedUserId) {
       localStorage.removeItem('impersonation_token');
       return;
     }
@@ -45,15 +46,16 @@ export function ImpersonationProvider({ children }) {
     setIsImpersonating(true);
     setOriginalUser({ id: payload.impersonatedBy || null });
     setImpersonatedUser({
-      id: payload.userId,
+      id: impersonatedUserId,
       email: payload.email,
       roles: payload.roles || [],
     });
     setAuthUser({
-      id: payload.userId,
+      id: impersonatedUserId,
       email: payload.email,
       roles: payload.roles || [],
     });
+    setAuthToken(impersonationToken);
   }, [authChecked, token, setAuthUser]);
 
   /**
@@ -64,21 +66,35 @@ export function ImpersonationProvider({ children }) {
   const startImpersonation = async (targetUserId, reason = '') => {
     try {
       const response = await api.post(`/api/admin/impersonate/${targetUserId}`, { reason });
-      const { token, user: targetUser } = response.data;
+      const { token: impersonationToken, user: targetUser } = response?.data || {};
+
+      if (!impersonationToken || !targetUser) {
+        return {
+          success: false,
+          error: 'Resposta inválida ao iniciar impersonação',
+        };
+      }
+
+      const originalToken = localStorage.getItem('access_token') || localStorage.getItem('token');
+      if (originalToken) {
+        localStorage.setItem('original_access_token', originalToken);
+      }
 
       // Salva token de impersonation
-      localStorage.setItem('impersonation_token', token);
+      localStorage.setItem('impersonation_token', impersonationToken);
+      localStorage.setItem('access_token', impersonationToken);
       
       setOriginalUser(user); // master atual
       setImpersonatedUser(targetUser);
       setIsImpersonating(true);
       setAuthUser(targetUser); // atualiza contexto de auth
+      setAuthToken(impersonationToken); // atualiza token efetivo do app
 
       return { success: true };
     } catch (err) {
       return { 
         success: false, 
-        error: err.response?.data?.error || err.message 
+        error: err?.body?.error || err.message 
       };
     }
   };
@@ -94,9 +110,17 @@ export function ImpersonationProvider({ children }) {
        }
      } finally {
       // Limpa storage
+      const originalToken = localStorage.getItem('original_access_token');
       localStorage.removeItem('impersonation_token');
+      localStorage.removeItem('original_access_token');
+
+      if (originalToken) {
+        localStorage.setItem('access_token', originalToken);
+      }
+
       setIsImpersonating(false);
       setImpersonatedUser(null);
+      setAuthToken(originalToken || null);
       
       // Recarrega dados do master (pode recarregar a página ou refazer login)
       // Opção mais simples: recarregar para pegar token original

@@ -1,14 +1,9 @@
-﻿import PageHeader from '@/components/common/PageHeader';
+﻿import { useEffect, useMemo, useState } from 'react';
+import PageHeader from '@/components/common/PageHeader';
 import DataTable from '@/components/common/DataTable';
+import FormModal, { inp, lbl, req } from '@/components/common/FormModal';
 import { Plus } from 'lucide-react';
-
-const MOCK = [
-  { id:'1', titulo:'Fornecimento anual rolamentos', empresa:'Metalúrgica ABC', contato:'Márcio Lima', valor:180000, estagio:'Proposta', probabilidade:70, fechamento:'2026-05-30', responsavel:'Carlos Silva' },
-  { id:'2', titulo:'Projeto eixos transmissão lote', empresa:'SiderTech S/A', contato:'Ana Ramos', valor:95000, estagio:'Negociação', probabilidade:85, fechamento:'2026-04-30', responsavel:'Rafael Costa' },
-  { id:'3', titulo:'Manutenção preventiva anual', empresa:'Grupo Delta', contato:'João Faria', valor:42000, estagio:'Qualificação', probabilidade:40, fechamento:'2026-06-15', responsavel:'Carlos Silva' },
-  { id:'4', titulo:'Fornecimento flanges especiais', empresa:'TechParts Ltda', contato:'Sandra P.', valor:28500, estagio:'Contato Inicial', probabilidade:20, fechamento:'2026-07-01', responsavel:'Ana Paula' },
-  { id:'5', titulo:'Contrato serviços usinagem', empresa:'Usinagem Precisa', contato:'Roberto A.', valor:65000, estagio:'Fechado Ganho', probabilidade:100, fechamento:'2026-04-15', responsavel:'Rafael Costa' },
-];
+import { recordsServiceApi } from '@/services/recordsServiceApi';
 
 const estagioColors = {'Contato Inicial':'bg-gray-100 text-gray-600','Qualificação':'bg-blue-100 text-blue-700','Proposta':'bg-yellow-100 text-yellow-700','Negociação':'bg-orange-100 text-orange-700','Fechado Ganho':'bg-green-100 text-green-700','Fechado Perdido':'bg-red-100 text-red-700'};
 
@@ -24,17 +19,54 @@ const columns = [
 ];
 
 export default function Oportunidades() {
-  const pipeline = MOCK.filter(m=>m.estagio!=='Fechado Ganho'&&m.estagio!=='Fechado Perdido').reduce((s,m)=>s+m.valor,0);
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ titulo:'', empresa:'', contato:'', valor:0, estagio:'Contato Inicial', probabilidade:20, fechamento:'', responsavel:'' });
+  const upd = (k,v) => setForm(f=>({ ...f, [k]: v }));
+
+  async function load() {
+    setLoading(true);
+    try {
+      setData(await recordsServiceApi.list('crm_oportunidade'));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const pipeline = useMemo(
+    () => data.filter(m=>m.estagio!=='Fechado Ganho'&&m.estagio!=='Fechado Perdido').reduce((s,m)=>s+Number(m.valor||0),0),
+    [data]
+  );
+
+  const handleSave = async () => {
+    if (!form.titulo) return alert('Informe o título');
+    setSaving(true);
+    try {
+      await recordsServiceApi.create('crm_oportunidade', form);
+      await load();
+      setShowModal(false);
+      setForm({ titulo:'', empresa:'', contato:'', valor:0, estagio:'Contato Inicial', probabilidade:20, fechamento:'', responsavel:'' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div>
       <PageHeader title="Oportunidades" breadcrumbs={['Início','CRM','Oportunidades']}
-        actions={<button className="flex items-center gap-1.5 px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90"><Plus size={13}/> Nova Oportunidade</button>}
+        actions={<button onClick={()=>setShowModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90"><Plus size={13}/> Nova Oportunidade</button>}
       />
       <div className="grid grid-cols-3 gap-3 mb-3">
         {[
           {label:'Pipeline Total',val:`R$ ${pipeline.toLocaleString('pt-BR',{minimumFractionDigits:2})}`,color:'text-primary'},
-          {label:'Oportunidades Ativas',val:MOCK.filter(m=>!m.estagio.startsWith('Fechado')).length,color:'text-foreground'},
-          {label:'Ganhas no Mês',val:MOCK.filter(m=>m.estagio==='Fechado Ganho').length,color:'text-success'},
+          {label:'Oportunidades Ativas',val:data.filter(m=>!String(m.estagio||'').startsWith('Fechado')).length,color:'text-foreground'},
+          {label:'Ganhas no Mês',val:data.filter(m=>m.estagio==='Fechado Ganho').length,color:'text-success'},
         ].map(k=>(
           <div key={k.label} className="bg-white border border-border rounded px-4 py-3">
             <div className={`text-lg font-bold ${k.color}`}>{k.val}</div>
@@ -43,8 +75,29 @@ export default function Oportunidades() {
         ))}
       </div>
       <div className="bg-white border border-border rounded-lg overflow-hidden">
-        <DataTable columns={columns} data={MOCK} />
+        <DataTable columns={columns} data={data} loading={loading} />
       </div>
+
+      {showModal && (
+        <FormModal title="Nova Oportunidade" onClose={()=>setShowModal(false)} onSave={handleSave} saving={saving} size="md">
+          <div className="space-y-3">
+            <div><label className={lbl}>Título {req}</label><input className={inp} value={form.titulo} onChange={e=>upd('titulo',e.target.value)} /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><label className={lbl}>Empresa</label><input className={inp} value={form.empresa} onChange={e=>upd('empresa',e.target.value)} /></div>
+              <div><label className={lbl}>Contato</label><input className={inp} value={form.contato} onChange={e=>upd('contato',e.target.value)} /></div>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div><label className={lbl}>Valor (R$)</label><input type="number" min="0" step="0.01" className={inp} value={form.valor} onChange={e=>upd('valor',Number(e.target.value))} /></div>
+              <div><label className={lbl}>Estágio</label><select className={inp} value={form.estagio} onChange={e=>upd('estagio',e.target.value)}><option>Contato Inicial</option><option>Qualificação</option><option>Proposta</option><option>Negociação</option><option>Fechado Ganho</option><option>Fechado Perdido</option></select></div>
+              <div><label className={lbl}>Prob. (%)</label><input type="number" min="0" max="100" step="1" className={inp} value={form.probabilidade} onChange={e=>upd('probabilidade',Number(e.target.value))} /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><label className={lbl}>Fechamento</label><input className={inp} placeholder="YYYY-MM-DD" value={form.fechamento} onChange={e=>upd('fechamento',e.target.value)} /></div>
+              <div><label className={lbl}>Responsável</label><input className={inp} value={form.responsavel} onChange={e=>upd('responsavel',e.target.value)} /></div>
+            </div>
+          </div>
+        </FormModal>
+      )}
     </div>
   );
 }

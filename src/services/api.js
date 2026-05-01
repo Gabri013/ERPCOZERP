@@ -47,7 +47,11 @@ async function request(method, url, { data } = {}) {
     throw err;
   }
 
-  return body;
+  return {
+    data: body,
+    status: res.status,
+    headers: res.headers,
+  };
 }
 
 export const api = {

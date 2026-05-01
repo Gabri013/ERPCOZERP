@@ -18,6 +18,16 @@ router.post('/impersonate/:userId', requireMaster, async (req, res) => {
     const { userId } = req.params;
     const { reason } = req.body;
 
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidPattern.test(userId)) {
+      return res.status(400).json({ error: 'ID de usuário inválido para impersonação' });
+    }
+
+    const targetUser = await query('SELECT id, active FROM users WHERE id = ?', [userId]);
+    if (targetUser.length === 0 || !targetUser[0].active) {
+      return res.status(404).json({ error: 'Usuário não encontrado ou inativo' });
+    }
+
     // Valida se master pode impersonar
     const can = await ImpersonationService.canImpersonate(req.user.userId, userId);
     if (!can.allowed) {

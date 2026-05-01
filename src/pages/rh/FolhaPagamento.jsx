@@ -1,16 +1,9 @@
-﻿import PageHeader from '@/components/common/PageHeader';
+﻿import { useEffect, useMemo, useState } from 'react';
+import PageHeader from '@/components/common/PageHeader';
 import DataTable from '@/components/common/DataTable';
 import { Download } from 'lucide-react';
 import { exportPdfReport } from '@/services/pdfExport';
-
-const MOCK = [
-  { id:'1', nome:'João Melo', matricula:'MAT-001', cargo:'Operador CNC', salario_base:3200, horas_extras:320, descontos:580, liquido:2940 },
-  { id:'2', nome:'Pedro Alves', matricula:'MAT-002', cargo:'Torneiro Mecânico', salario_base:3800, horas_extras:0, descontos:684, liquido:3116 },
-  { id:'3', nome:'Maria Lima', matricula:'MAT-003', cargo:'Analista de Qualidade', salario_base:4500, horas_extras:675, descontos:940, liquido:4235 },
-  { id:'4', nome:'Carlos Santos', matricula:'MAT-004', cargo:'Gerente de Vendas', salario_base:7200, horas_extras:0, descontos:1728, liquido:5472 },
-  { id:'5', nome:'Ana Paula', matricula:'MAT-005', cargo:'Analista Financeiro', salario_base:5100, horas_extras:0, descontos:1122, liquido:3978 },
-  { id:'6', nome:'Rafael Costa', matricula:'MAT-006', cargo:'Vendedor Externo', salario_base:3000, horas_extras:0, descontos:540, liquido:2460 },
-];
+import { recordsServiceApi } from '@/services/recordsServiceApi';
 
 const fmt = v=>`R$ ${Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
 const columns = [
@@ -24,7 +17,26 @@ const columns = [
 ];
 
 export default function FolhaPagamento() {
-  const total = MOCK.reduce((s,m)=>s+m.liquido,0);
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [competencia, setCompetencia] = useState('2026-04');
+
+  async function load() {
+    setLoading(true);
+    try {
+      const rows = await recordsServiceApi.list('rh_folha_pagamento');
+      setData(rows);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const filtered = useMemo(() => data.filter((r) => (r.competencia || '2026-04') === competencia), [data, competencia]);
+  const total = useMemo(() => filtered.reduce((s,m)=>s+Number(m.liquido||0),0), [filtered]);
   return (
     <div>
       <PageHeader title="Folha de Pagamento" breadcrumbs={['Início','RH','Folha de Pagamento']}
@@ -36,7 +48,7 @@ export default function FolhaPagamento() {
               filename: 'folha-pagamento.pdf',
               table: {
                 headers: ['Funcionário', 'Matrícula', 'Cargo', 'Salário Base', 'Extras', 'Descontos', 'Líquido'],
-                rows: MOCK.map((registro) => [
+                rows: filtered.map((registro) => [
                   registro.nome,
                   registro.matricula,
                   registro.cargo,
@@ -51,13 +63,16 @@ export default function FolhaPagamento() {
           >
             <Download size={13}/> Exportar PDF
           </button>
-          <select className="text-xs border border-border rounded px-2 py-1.5 bg-white outline-none"><option>Abril 2026</option></select>
+          <select value={competencia} onChange={(e)=>setCompetencia(e.target.value)} className="text-xs border border-border rounded px-2 py-1.5 bg-white outline-none">
+            {[...new Set(data.map(d=>d.competencia).filter(Boolean))].map(c=><option key={c} value={c}>{c}</option>)}
+            <option value="2026-04">2026-04</option>
+          </select>
         </div>}
       />
       <div className="grid grid-cols-3 gap-3 mb-3">
         {[
-          {label:'Total Bruto',val:fmt(MOCK.reduce((s,m)=>s+m.salario_base+m.horas_extras,0)),color:'text-foreground'},
-          {label:'Total Descontos',val:fmt(MOCK.reduce((s,m)=>s+m.descontos,0)),color:'text-destructive'},
+          {label:'Total Bruto',val:fmt(filtered.reduce((s,m)=>s+Number(m.salario_base||0)+Number(m.horas_extras||0),0)),color:'text-foreground'},
+          {label:'Total Descontos',val:fmt(filtered.reduce((s,m)=>s+Number(m.descontos||0),0)),color:'text-destructive'},
           {label:'Total Líquido',val:fmt(total),color:'text-success'},
         ].map(k=>(
           <div key={k.label} className="bg-white border border-border rounded px-4 py-3">
@@ -67,7 +82,7 @@ export default function FolhaPagamento() {
         ))}
       </div>
       <div className="bg-white border border-border rounded-lg overflow-hidden">
-        <DataTable columns={columns} data={MOCK} />
+        <DataTable columns={columns} data={filtered} loading={loading} />
       </div>
     </div>
   );

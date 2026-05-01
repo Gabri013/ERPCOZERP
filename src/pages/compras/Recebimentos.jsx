@@ -1,13 +1,8 @@
-﻿import PageHeader from '@/components/common/PageHeader';
+﻿import { useEffect, useState } from 'react';
+import PageHeader from '@/components/common/PageHeader';
 import DataTable from '@/components/common/DataTable';
 import { Plus } from 'lucide-react';
-
-const MOCK = [
-  { id:'1', numero:'REC-001', ordem_compra:'OC-00231', fornecedor:'Rolamentos Nacionais Ltda', data_recebimento:'2026-04-15', nf:'12345', valor:4100, conferente:'Pedro A.', status:'Conferido' },
-  { id:'2', numero:'REC-002', ordem_compra:'OC-00228', fornecedor:'Motores Elite S/A', data_recebimento:'2026-04-12', nf:'67890', valor:12760, conferente:'João M.', status:'Conferido' },
-  { id:'3', numero:'REC-003', ordem_compra:'OC-00230', fornecedor:'AçoFlex Distribuidora', data_recebimento:'2026-04-18', nf:'11223', valor:8200, conferente:'Maria L.', status:'Divergência' },
-  { id:'4', numero:'REC-004', ordem_compra:'OC-00232', fornecedor:'Fixadores do Brasil', data_recebimento:'2026-04-20', nf:null, valor:1540, conferente:null, status:'Aguardando NF' },
-];
+import { recordsServiceApi } from '@/services/recordsServiceApi';
 
 const statusMap = {'Conferido':'bg-green-100 text-green-700','Divergência':'bg-red-100 text-red-700','Aguardando NF':'bg-yellow-100 text-yellow-700'};
 
@@ -23,13 +18,30 @@ const columns = [
 ];
 
 export default function Recebimentos() {
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      setLoading(true);
+      try {
+        const rows = await recordsServiceApi.list('compras_recebimento');
+        if (mounted) setData(rows);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
   return (
     <div>
       <PageHeader title="Recebimentos" breadcrumbs={['Início','Compras','Recebimentos']}
         actions={<button className="flex items-center gap-1.5 px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90"><Plus size={13}/> Registrar Recebimento</button>}
       />
       <div className="bg-white border border-border rounded-lg overflow-hidden">
-        <DataTable columns={columns} data={MOCK} />
+        <DataTable columns={columns} data={data} loading={loading} />
       </div>
     </div>
   );

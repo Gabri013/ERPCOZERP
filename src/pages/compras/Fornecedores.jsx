@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import PageHeader from '@/components/common/PageHeader';
 import FilterBar from '@/components/common/FilterBar';
 import DataTable from '@/components/common/DataTable';
@@ -6,47 +6,47 @@ import StatusBadge from '@/components/common/StatusBadge';
 import ModalFornecedor from '@/components/compras/ModalFornecedor';
 import DetalheModal from '@/components/common/DetalheModal';
 import { Plus } from 'lucide-react';
-import { storage } from '@/services/storage';
-
-const MOCK_INICIAL = [
-  { id:'1', codigo:'FOR-001', razao_social:'Rolamentos Nacionais Ltda', cnpj_cpf:'11.222.333/0001-44', cidade:'São Paulo', estado:'SP', telefone:'(11) 3333-1111', contato:'Márcio Lima', email:'contato@rolamentos.com', prazo_entrega:7, status:'Ativo' },
-  { id:'2', codigo:'FOR-002', razao_social:'AçoFlex Distribuidora', cnpj_cpf:'22.333.444/0001-55', cidade:'Mogi das Cruzes', estado:'SP', telefone:'(11) 4444-2222', contato:'Fernanda Reis', email:'acoflex@dist.com', prazo_entrega:5, status:'Ativo' },
-  { id:'3', codigo:'FOR-003', razao_social:'Fixadores do Brasil S/A', cnpj_cpf:'33.444.555/0001-66', cidade:'Santo André', estado:'SP', telefone:'(11) 5555-3333', contato:'Roberto Silva', email:'roberto@fixadores.com', prazo_entrega:3, status:'Ativo' },
-  { id:'4', codigo:'FOR-004', razao_social:'Motores Elite S/A', cnpj_cpf:'44.555.666/0001-77', cidade:'Indaiatuba', estado:'SP', telefone:'(19) 6666-4444', contato:'Cláudia M.', email:'claudia@motores.com', prazo_entrega:15, status:'Ativo' },
-  { id:'5', codigo:'FOR-005', razao_social:'Correias e Polias Ltda', cnpj_cpf:'55.666.777/0001-88', cidade:'Jundiaí', estado:'SP', telefone:'(11) 7777-5555', contato:'Paulo C.', email:'paulo@correias.com', prazo_entrega:10, status:'Inativo' },
-];
-
-if (!localStorage.getItem('nomus_erp_fornecedores')) storage.set('fornecedores', MOCK_INICIAL);
-const getData = () => storage.get('fornecedores', MOCK_INICIAL);
-const saveData = d => storage.set('fornecedores', d);
+import { fornecedoresService } from '@/services/fornecedoresService';
 
 export default function Fornecedores() {
-  const [data, setData] = useState(getData());
+  const [data, setData] = useState([]);
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState({});
   const [showModal, setShowModal] = useState(false);
   const [editando, setEditando] = useState(null);
   const [detalhe, setDetalhe] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const reload = () => setData([...getData()]);
-
-  const handleSave = (form) => {
-    const all = getData();
-    if (editando) {
-      saveData(all.map(f => f.id === editando.id ? {...editando,...form} : f));
-    } else {
-      const codigo = `FOR-${String(all.length + 6).padStart(3,'0')}`;
-      saveData([{...form, id:Date.now().toString(), codigo}, ...all]);
+  const reload = async (opts = {}) => {
+    setLoading(true);
+    try {
+      const rows = await fornecedoresService.getAll({ search: opts.search ?? search });
+      setData(rows);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
     reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleSave = async (form) => {
+    if (editando?.id) {
+      await fornecedoresService.update(editando.id, { ...editando, ...form });
+    } else {
+      await fornecedoresService.create(form);
+    }
+    await reload({ search });
     setEditando(null);
   };
 
-  const filtered = data.filter(f => {
+  const filtered = useMemo(() => data.filter(f => {
     const s = search.toLowerCase();
     return (!s || f.razao_social?.toLowerCase().includes(s) || f.cnpj_cpf?.includes(s))
       && (!filters.status || f.status === filters.status);
-  });
+  }), [data, search, filters]);
 
   const columns = [
     { key:'codigo', label:'Código', width:80 },
@@ -68,9 +68,9 @@ export default function Fornecedores() {
       <div className="bg-white border border-border rounded-lg overflow-hidden">
         <FilterBar search={search} onSearch={setSearch}
           filters={[{key:'status',label:'Status',options:['Ativo','Inativo'].map(s=>({value:s,label:s}))}]}
-          activeFilters={filters} onFilterChange={(k,v)=>setFilters(f=>({...f,[k]:v}))} onClear={()=>{setSearch('');setFilters({});}}
+          activeFilters={filters} onFilterChange={(k,v)=>setFilters(f=>({...f,[k]:v}))} onClear={()=>{setSearch('');setFilters({}); reload({ search: '' });}}
         />
-        <DataTable columns={columns} data={filtered} onRowClick={row=>setDetalhe(row)}/>
+        <DataTable columns={columns} data={filtered} onRowClick={row=>setDetalhe(row)} loading={loading}/>
       </div>
 
       {(showModal || editando) && (
@@ -84,7 +84,20 @@ export default function Fornecedores() {
               <div key={k} className="flex justify-between border-b border-border pb-1"><span className="text-muted-foreground">{k}</span><span className="font-medium">{v}</span></div>
             ))}
           </div>
-          <div className="mt-3 flex justify-end"><button onClick={()=>{setEditando(detalhe);setDetalhe(null);}} className="px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90">Editar</button></div>
+          <div className="mt-3 flex justify-end gap-2">
+            <button
+              onClick={async () => {
+                if (!confirm('Excluir este fornecedor?')) return;
+                await fornecedoresService.delete(detalhe.id);
+                setDetalhe(null);
+                await reload({ search });
+              }}
+              className="px-3 py-1.5 text-xs bg-destructive text-white rounded hover:opacity-90"
+            >
+              Excluir
+            </button>
+            <button onClick={()=>{setEditando(detalhe);setDetalhe(null);}} className="px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90">Editar</button>
+          </div>
         </DetalheModal>
       )}
     </div>

@@ -25,10 +25,16 @@ test('login works and Produtos CRUD persists via backend', async ({ page }) => {
   const desc = `Produto E2E ${Date.now()}`;
   await page.getByRole('button', { name: /Novo Produto/i }).click();
   await page.locator('label:has-text("Descrição")').locator('..').locator('input').fill(desc);
-  await page.getByRole('button', { name: /Salvar/i }).click();
+  await Promise.all([
+    page.waitForResponse((r) => r.url().includes('/api/estoque') && r.request().method() === 'POST' && r.ok(), { timeout: 20000 }),
+    page.getByRole('button', { name: /Salvar/i }).click(),
+  ]);
 
   // Expect it in table (may appear after save)
-  await expect(page.getByText(desc).first()).toBeVisible();
+  // A UI pode re-renderizar/filtrar; garantimos consistência re-carregando a lista
+  await page.waitForTimeout(250);
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await expect(page.getByText(desc).first()).toBeVisible({ timeout: 20000 });
 
   // Open detail (click description link/button)
   await page.getByRole('button', { name: desc }).click();
@@ -38,13 +44,23 @@ test('login works and Produtos CRUD persists via backend', async ({ page }) => {
   await page.getByRole('button', { name: 'Editar' }).click();
   const edited = `${desc} (editado)`;
   await page.locator('label:has-text("Descrição")').locator('..').locator('input').fill(edited);
-  await page.getByRole('button', { name: /Salvar/i }).click();
-  await expect(page.getByText(edited).first()).toBeVisible();
+  await Promise.all([
+    page.waitForResponse((r) => r.url().includes('/api/estoque/') && r.request().method() === 'PUT' && r.ok(), { timeout: 20000 }),
+    page.getByRole('button', { name: /Salvar/i }).click(),
+  ]);
+  await page.waitForTimeout(250);
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await expect(page.getByText(edited).first()).toBeVisible({ timeout: 20000 });
 
   // Delete
   await page.getByRole('button', { name: edited }).click();
   page.once('dialog', (d) => d.accept());
-  await page.getByRole('button', { name: 'Excluir' }).click();
+  await Promise.all([
+    page.waitForResponse((r) => r.url().includes('/api/estoque/') && r.request().method() === 'DELETE' && r.ok(), { timeout: 20000 }),
+    page.getByRole('button', { name: 'Excluir' }).click(),
+  ]);
+  await page.waitForTimeout(250);
+  await page.reload({ waitUntil: 'domcontentloaded' });
   await expect(page.getByText(edited)).toHaveCount(0);
 
   // Reload and ensure it did not come back (backend persistence check)

@@ -1,52 +1,78 @@
-﻿import { useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import PageHeader from '@/components/common/PageHeader';
 import FormModal, { inp, lbl } from '@/components/common/FormModal';
 import { Clock, Plus, Download } from 'lucide-react';
-import { storage } from '@/services/storage';
 import { exportPdfReport } from '@/services/pdfExport';
-
-const MOCK_INICIAL = [
-  { nome:'João Melo', matricula:'MAT-001', registros:[
-    {data:'21/04',entrada:'07:58',saida_almoco:'12:01',retorno:'13:02',saida:'17:05',horas:'8:04',status:'Normal'},
-    {data:'20/04',entrada:'08:02',saida_almoco:'12:00',retorno:'13:00',saida:'17:10',horas:'8:08',status:'Normal'},
-  ]},
-  { nome:'Pedro Alves', matricula:'MAT-002', registros:[
-    {data:'21/04',entrada:'07:45',saida_almoco:'12:00',retorno:'13:00',saida:'17:00',horas:'8:15',status:'Normal'},
-    {data:'20/04',entrada:null,saida_almoco:null,retorno:null,saida:null,horas:'0:00',status:'Falta'},
-  ]},
-  { nome:'Maria Lima', matricula:'MAT-003', registros:[
-    {data:'21/04',entrada:'08:05',saida_almoco:'12:00',retorno:'13:00',saida:'18:30',horas:'9:25',status:'Hora Extra'},
-    {data:'20/04',entrada:'08:00',saida_almoco:'12:05',retorno:'13:10',saida:'17:00',horas:'7:45',status:'Normal'},
-  ]},
-];
+import { recordsServiceApi } from '@/services/recordsServiceApi';
 
 const statusCor = {'Normal':'bg-green-100 text-green-700','Hora Extra':'bg-blue-100 text-blue-700','Falta':'bg-red-100 text-red-700','Atraso':'bg-yellow-100 text-yellow-700'};
 
-if (!localStorage.getItem('nomus_erp_ponto')) storage.set('ponto', MOCK_INICIAL);
-const getData = () => storage.get('ponto', MOCK_INICIAL);
-const saveData = d => storage.set('ponto', d);
-
 export default function Ponto() {
-  const [ponto, setPonto] = useState(getData());
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [sel, setSel] = useState(0);
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ data:'', entrada:'', saida_almoco:'', retorno:'', saida:'', status:'Normal' });
   const upd = (k,v) => setForm(f=>({...f,[k]:v}));
 
-  const reload = () => setPonto([...getData()]);
+  async function load() {
+    setLoading(true);
+    try {
+      setRows(await recordsServiceApi.list('rh_ponto'));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const ponto = useMemo(() => {
+    const byMat = new Map();
+    for (const r of rows) {
+      const key = r.matricula || r.nome || '—';
+      const existing = byMat.get(key) || { nome: r.nome || '—', matricula: r.matricula || '—', registros: [] };
+      existing.registros.push({
+        id: r.id,
+        data: r.data,
+        entrada: r.entrada,
+        saida_almoco: r.saida_almoco,
+        retorno: r.retorno,
+        saida: r.saida,
+        horas: r.horas,
+        status: r.status,
+      });
+      byMat.set(key, existing);
+    }
+    // Ordena registros por data desc
+    const list = Array.from(byMat.values()).map((f) => ({
+      ...f,
+      registros: f.registros.sort((a, b) => String(b.data || '').localeCompare(String(a.data || ''))),
+    }));
+    // Ordena funcionários por nome
+    return list.sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || '')));
+  }, [rows]);
+
   const func = ponto[sel];
 
   const handleSave = async () => {
     if(!form.data) return alert('Informe a data');
     setSaving(true);
-    const all = getData();
-    const atualizado = all.map((f,i) => i===sel ? {...f, registros:[{...form, horas:'8:00'}, ...f.registros]} : f);
-    saveData(atualizado);
-    setSaving(false);
-    setShowModal(false);
-    setForm({ data:'', entrada:'', saida_almoco:'', retorno:'', saida:'', status:'Normal' });
-    reload();
+    try {
+      await recordsServiceApi.create('rh_ponto', {
+        nome: func?.nome,
+        matricula: func?.matricula,
+        ...form,
+        horas: '8:00',
+      });
+      await load();
+      setShowModal(false);
+      setForm({ data:'', entrada:'', saida_almoco:'', retorno:'', saida:'', status:'Normal' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const exportar = () => {
@@ -59,7 +85,7 @@ export default function Ponto() {
         rows: ponto.flatMap((funcionario) => funcionario.registros.map((registro) => [
           funcionario.nome,
           funcionario.matricula,
-          registro.data,
+          registro.data ? new Date(String(registro.data) + 'T00:00:00').toLocaleDateString('pt-BR') : '—',
           registro.entrada || '—',
           registro.saida_almoco || '—',
           registro.retorno || '—',
@@ -101,7 +127,7 @@ export default function Ponto() {
           <tbody>
             {func?.registros.map((r,i)=>(
               <tr key={i} className="border-b border-border last:border-0 hover:bg-nomus-blue-light">
-                <td className="px-4 py-2 font-medium">{r.data}</td>
+                <td className="px-4 py-2 font-medium">{r.data ? new Date(String(r.data) + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}</td>
                 <td className="px-4 py-2">{r.entrada||'—'}</td>
                 <td className="px-4 py-2">{r.saida_almoco||'—'}</td>
                 <td className="px-4 py-2">{r.retorno||'—'}</td>
@@ -110,6 +136,11 @@ export default function Ponto() {
                 <td className="px-4 py-2"><span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${statusCor[r.status]}`}>{r.status}</span></td>
               </tr>
             ))}
+            {(!func || !func.registros?.length) && (
+              <tr><td colSpan={7} className="px-4 py-4 text-center text-muted-foreground text-xs">
+                {loading ? 'Carregando...' : 'Sem registros'}
+              </td></tr>
+            )}
           </tbody>
         </table>
       </div>

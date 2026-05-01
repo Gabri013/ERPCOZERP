@@ -4,8 +4,8 @@ import { ArrowLeft, Play, Download, Printer } from 'lucide-react';
 import { opService } from '@/services/opService';
 import { apontamentoService } from '@/services/apontamentoService';
 import ApontamentoModal from '@/components/producao/ApontamentoModal';
-import { PodeRender } from '@/lib/PermissaoContext';
-import { exportPdfReport } from '@/services/pdfExport';
+import { PodeRender, usePermissao } from '@/lib/PermissaoContext';
+import { exportOrdemProducaoModelo, exportPdfReport } from '@/services/pdfExport';
 import FluxoProducao from '@/components/producao/FluxoProducao';
 
 const ETAPAS_FLUXO = [
@@ -53,6 +53,7 @@ function Timeline({ apontamentos }) {
 
 export default function DetalheOP() {
   const { id } = useParams();
+  const { usuarioVisivel } = usePermissao();
   const [op, setOp] = useState(null);
   const [apontamentos, setApontamentos] = useState([]);
   const [aba, setAba] = useState('dados');
@@ -62,16 +63,41 @@ export default function DetalheOP() {
   ]);
 
   useEffect(() => {
-    opService.getById(id).then(r => setOp(r.data));
-    apontamentoService.getByOpId(id).then(r => setApontamentos(r.data));
+    let mounted = true;
+    (async () => {
+      const opRes = await opService.getById(id);
+      if (!mounted) return;
+      setOp(opRes.data);
+      const opNumero = opRes.data?.numero || id;
+      try {
+        const aptsRes = await apontamentoService.getByOpId(opNumero);
+        if (!mounted) return;
+        setApontamentos(aptsRes.data || []);
+      } catch {
+        if (!mounted) return;
+        setApontamentos([]);
+      }
+    })();
+    return () => { mounted = false; };
   }, [id]);
 
+  const roles = usuarioVisivel?.roles || [];
+  const setorInfo = (() => {
+    if (roles.includes('corte_laser')) return { defaultSetor: 'Laser', setores: ['Laser'] };
+    if (roles.includes('dobra_montagem')) return { defaultSetor: 'Dobra', setores: ['Dobra', 'Montagem'] };
+    if (roles.includes('solda')) return { defaultSetor: 'Solda', setores: ['Solda'] };
+    if (roles.includes('qualidade')) return { defaultSetor: 'Qualidade', setores: ['Qualidade'] };
+    if (roles.includes('expedicao')) return { defaultSetor: 'Expedição', setores: ['Expedição'] };
+    if (roles.includes('gerente_producao')) return { defaultSetor: 'Programação', setores: null };
+    return { defaultSetor: '', setores: null };
+  })();
+
   const handleSalvarApontamento = async (dados) => {
-    await apontamentoService.iniciar(id, dados);
+    await apontamentoService.iniciar(op?.numero || id, dados);
     // Recarrega OP e apontamentos (status pode ter mudado)
     const [updatedOp, updatedApts] = await Promise.all([
       opService.getById(id),
-      apontamentoService.getByOpId(id),
+      apontamentoService.getByOpId(op?.numero || id),
     ]);
     setOp(updatedOp.data);
     setApontamentos(updatedApts.data);
@@ -117,6 +143,15 @@ export default function DetalheOP() {
           a.observacao || '—',
         ]),
       },
+      preview: true,
+    });
+  };
+
+  const handleExportarPDFModelo = () => {
+    exportOrdemProducaoModelo({
+      op,
+      apontamentos,
+      filename: `${op.numero}-modelo.pdf`,
       preview: true,
     });
   };
@@ -169,7 +204,8 @@ export default function DetalheOP() {
               <button onClick={()=>setShowApontamento(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-green-600 text-white rounded hover:opacity-90"><Play size={12}/> Apontar</button>
             </PodeRender>
             <button onClick={handleImprimir} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded hover:bg-muted"><Printer size={12}/> Imprimir</button>
-            <button onClick={handleExportarPDF} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded hover:bg-muted"><Download size={12}/> Exportar PDF</button>
+            <button onClick={handleExportarPDFModelo} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded hover:bg-muted"><Download size={12}/> PDF (Modelo)</button>
+            <button onClick={handleExportarPDF} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded hover:bg-muted"><Download size={12}/> PDF (Detalhado)</button>
           </div>
         </div>
       </div>
@@ -310,7 +346,15 @@ export default function DetalheOP() {
         </div>
       )}
 
-      {showApontamento && <ApontamentoModal op={op} onClose={()=>setShowApontamento(false)} onSave={handleSalvarApontamento}/>}
+      {showApontamento && (
+        <ApontamentoModal
+          op={op}
+          defaultSetor={setorInfo.defaultSetor}
+          setores={setorInfo.setores}
+          onClose={() => setShowApontamento(false)}
+          onSave={handleSalvarApontamento}
+        />
+      )}
     </div>
   );
 }

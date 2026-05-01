@@ -1,46 +1,147 @@
-﻿import { useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import PageHeader from '@/components/common/PageHeader';
 import DataTable from '@/components/common/DataTable';
 import FormModal, { inp, lbl, req } from '@/components/common/FormModal';
 import { UserPlus, Edit2, Eye, Trash2, Shield } from 'lucide-react';
-import { userService } from '@/services/userService';
 import { PERFIS_LABELS, TODAS_PERMISSOES, getPermissoesPorPerfil } from '@/lib/perfis';
 import { usePermissao } from '@/lib/PermissaoContext';
+import { api } from '@/services/api';
 
 const statusCor = { true: 'bg-green-100 text-green-700', false: 'bg-gray-100 text-gray-600' };
+const ROLE_TO_PERFIL = {
+  master: 'dono',
+  gerente: 'gerente_geral',
+  gerente_producao: 'gerente_producao',
+  orcamentista_vendas: 'vendas',
+  projetista: 'engenharia',
+  corte_laser: 'producao',
+  dobra_montagem: 'producao',
+  solda: 'producao',
+  expedicao: 'producao',
+  qualidade: 'qualidade',
+  user: 'visualizador',
+};
+const PERFIL_TO_ROLE = {
+  dono: 'master',
+  gerente_geral: 'gerente',
+  gerente_vendas: 'orcamentista_vendas',
+  gerente_producao: 'gerente_producao',
+  vendas: 'orcamentista_vendas',
+  compras: 'gerente',
+  financeiro: 'gerente',
+  pcp: 'gerente_producao',
+  engenharia: 'projetista',
+  producao: 'corte_laser',
+  qualidade: 'qualidade',
+  rh: 'gerente',
+  visualizador: 'user',
+};
+
+function getAvatarFromName(name) {
+  const initials = String(name || 'US')
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.replace(/[^A-Za-zÀ-ÿ]/g, ''))
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase();
+
+  return initials || 'US';
+}
+
+function getPerfilLabel(perfil) {
+  return PERFIS_LABELS[perfil] || perfil || 'Usuário';
+}
 
 export default function Usuarios() {
   const { pode, iniciarImpersonate, usuarioAtual } = usePermissao();
-  const [dados, setDados] = useState(userService.getAll());
+  const [dados, setDados] = useState([]);
   const [editando, setEditando] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [showPerms, setShowPerms] = useState(null); // usuário cujas perms custom estão sendo editadas
   const [saving, setSaving] = useState(false);
 
-  const reload = () => setDados(userService.getAll());
+  const mapBackendUserToGrid = (u) => {
+    const nome = u.full_name || u.email || 'Usuário';
+    const perfil = ROLE_TO_PERFIL[u.roles?.[0]] || u.roles?.[0] || 'user';
+    const avatar = getAvatarFromName(nome);
+
+    return {
+      id: u.id,
+      nome,
+      email: u.email,
+      perfil,
+      permissoesCustom: [],
+      ativo: Boolean(u.active),
+      avatar,
+    };
+  };
+
+  const reload = async () => {
+    try {
+      const response = await api.get('/api/users?limit=200');
+      const body = response?.data;
+      const rows = Array.isArray(body) ? body : (Array.isArray(body?.data) ? body.data : []);
+      setDados(rows.map(mapBackendUserToGrid));
+    } catch (err) {
+      console.warn('[Usuarios] Falha ao carregar da API:', err.message);
+      setDados([]);
+    }
+  };
+
+  useEffect(() => {
+    reload();
+  }, []);
 
   const handleSave = async (form) => {
     setSaving(true);
-    userService.save(form);
-    setSaving(false);
-    setEditando(null);
-    setShowModal(false);
-    reload();
+    try {
+      if (editando?.id) {
+        await api.put(`/api/users/${editando.id}`, {
+          full_name: form.nome,
+          active: Boolean(form.ativo),
+          roles: [PERFIL_TO_ROLE[form.perfil] || 'user'],
+        });
+      } else {
+        if (!form.password || form.password.length < 8) {
+          alert('Senha obrigatória com no mínimo 8 caracteres para novo usuário.');
+          return;
+        }
+
+        await api.post('/api/users', {
+          email: form.email,
+          password: form.password,
+          full_name: form.nome,
+          roles: [PERFIL_TO_ROLE[form.perfil] || 'user'],
+        });
+      }
+
+      setEditando(null);
+      setShowModal(false);
+      await reload();
+    } catch (err) {
+      alert(err?.message || 'Falha ao salvar usuário.');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (!confirm('Remover usuário?')) return;
-    userService.delete(id);
-    reload();
+
+    try {
+      await api.delete(`/api/users/${id}`);
+      await reload();
+    } catch (err) {
+      alert(err?.message || 'Falha ao remover usuário.');
+    }
   };
 
   const togglePermCustom = (usuario, perm) => {
-    const custom = usuario.permissoesCustom || [];
-    const nova = custom.includes(perm) ? custom.filter(p => p !== perm) : [...custom, perm];
-    const atualizado = { ...usuario, permissoesCustom: nova };
-    userService.save(atualizado);
-    setShowPerms(atualizado);
-    reload();
+    // Em modo API, este modal é apenas visualização até expor endpoint de permissões custom.
+    return;
   };
 
   const columns = [
@@ -49,7 +150,7 @@ export default function Usuarios() {
     )},
     { key: 'nome', label: 'Nome' },
     { key: 'email', label: 'E-mail', width: 200 },
-    { key: 'perfil', label: 'Perfil', width: 150, render: v => PERFIS_LABELS[v] || v },
+    { key: 'perfil', label: 'Perfil', width: 150, render: v => getPerfilLabel(v) },
     { key: 'ativo', label: 'Status', width: 80, render: v => (
       <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${statusCor[v]}`}>{v ? 'Ativo' : 'Inativo'}</span>
     ), sortable: false },
@@ -107,7 +208,7 @@ export default function Usuarios() {
 }
 
 function UsuarioModal({ usuario, onClose, onSave, saving }) {
-  const [form, setForm] = useState(usuario || { nome: '', email: '', perfil: 'visualizador', ativo: true, permissoesCustom: [] });
+  const [form, setForm] = useState(usuario || { nome: '', email: '', password: '', perfil: 'visualizador', ativo: true, permissoesCustom: [] });
   const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   return (
@@ -115,6 +216,9 @@ function UsuarioModal({ usuario, onClose, onSave, saving }) {
       <div className="space-y-3">
         <div><label className={lbl}>Nome {req}</label><input className={inp} value={form.nome} onChange={e => upd('nome', e.target.value)} /></div>
         <div><label className={lbl}>E-mail {req}</label><input type="email" className={inp} value={form.email} onChange={e => upd('email', e.target.value)} /></div>
+        {!usuario && (
+          <div><label className={lbl}>Senha {req}</label><input type="password" className={inp} value={form.password || ''} onChange={e => upd('password', e.target.value)} /></div>
+        )}
         <div><label className={lbl}>Perfil</label>
           <select className={inp} value={form.perfil} onChange={e => upd('perfil', e.target.value)}>
             {Object.entries(PERFIS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
@@ -132,6 +236,7 @@ function UsuarioModal({ usuario, onClose, onSave, saving }) {
 function PermissoesModal({ usuario, onClose, onToggle }) {
   const modulosUnicos = [...new Set(TODAS_PERMISSOES.map(p => p.modulo))];
   const perfsBase = getPermissoesPorPerfilHelper(usuario.perfil);
+  const readOnly = appConfig.isApi;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -156,8 +261,8 @@ function PermissoesModal({ usuario, onClose, onToggle }) {
                       <input
                         type="checkbox"
                         checked={ativa}
-                        disabled={naBase} // não pode remover permissão da base do perfil aqui
-                        onChange={() => !naBase && onToggle(usuario, perm.key)}
+                        disabled={naBase || readOnly} // não pode remover permissão da base do perfil aqui
+                        onChange={() => !naBase && !readOnly && onToggle(usuario, perm.key)}
                         className="accent-primary"
                       />
                       <span className={ativa ? 'font-medium' : 'text-muted-foreground'}>{perm.label}</span>

@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import PageHeader from '@/components/common/PageHeader';
 import FilterBar from '@/components/common/FilterBar';
 import DataTable from '@/components/common/DataTable';
@@ -6,55 +6,48 @@ import StatusBadge from '@/components/common/StatusBadge';
 import ModalPedidoVenda from '@/components/vendas/ModalPedidoVenda';
 import DetalheModal from '@/components/common/DetalheModal';
 import { Plus, Download, Printer, CheckCircle, AlertTriangle } from 'lucide-react';
-import { storage } from '@/services/storage';
-import { aprovarPedido, CONFIG } from '@/services/businessLogic';
+import { pedidosVendaServiceApi } from '@/services/pedidosVendaServiceApi';
 import { exportPdfReport } from '@/services/pdfExport';
 
-const MOCK_INICIAL = [
-  { id:'1', numero:'PV-00542', cliente_nome:'Metalúrgica ABC Ltda', data_emissao:'2026-04-18', data_entrega:'2026-04-30', vendedor:'Carlos Silva', valor_total:45200, status:'Aprovado', forma_pagamento:'Boleto 30 dias', itens:[], observacoes:'' },
-  { id:'2', numero:'PV-00541', cliente_nome:'Ind. XYZ S/A', data_emissao:'2026-04-17', data_entrega:'2026-04-28', vendedor:'Ana Paula', valor_total:12800, status:'Em Produção', forma_pagamento:'À Vista', itens:[], observacoes:'' },
-  { id:'3', numero:'PV-00540', cliente_nome:'Comércio Beta', data_emissao:'2026-04-16', data_entrega:'2026-04-25', vendedor:'Carlos Silva', valor_total:8900, status:'Faturado', forma_pagamento:'Boleto 30/60', itens:[], observacoes:'' },
-  { id:'4', numero:'PV-00539', cliente_nome:'Grupo Delta', data_emissao:'2026-04-15', data_entrega:'2026-04-22', vendedor:'Rafael Costa', valor_total:31500, status:'Entregue', forma_pagamento:'Boleto 30/60/90', itens:[], observacoes:'' },
-  { id:'5', numero:'PV-00538', cliente_nome:'TechParts Ltda', data_emissao:'2026-04-14', data_entrega:'2026-04-29', vendedor:'Ana Paula', valor_total:6700, status:'Orçamento', forma_pagamento:'À Vista', itens:[], observacoes:'' },
-  { id:'6', numero:'PV-00537', cliente_nome:'Força Metais', data_emissao:'2026-04-13', data_entrega:'2026-04-20', vendedor:'Carlos Silva', valor_total:22100, status:'Aprovado', forma_pagamento:'Boleto 30 dias', itens:[], observacoes:'' },
-];
-
-if (!localStorage.getItem('nomus_erp_pedidos')) storage.set('pedidos', MOCK_INICIAL);
-
-const getData = () => storage.get('pedidos', MOCK_INICIAL);
-const saveData = (d) => storage.set('pedidos', d);
 const fmtR = v => `R$ ${Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
 const fmtD = v => v ? new Date(v+'T00:00').toLocaleDateString('pt-BR') : '—';
 
 export default function PedidosVenda() {
-  const [data, setData] = useState(getData());
+  const [data, setData] = useState([]);
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState({});
   const [showModal, setShowModal] = useState(false);
   const [editando, setEditando] = useState(null);
   const [detalhe, setDetalhe] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const reload = () => setData([...getData()]);
-
-  const handleSave = (form) => {
-    const all = getData();
-    if (editando) {
-      saveData(all.map(p => p.id === editando.id ? { ...editando, ...form } : p));
-    } else {
-      const nextNum = `PV-${String(all.length + 543).padStart(5,'0')}`;
-      saveData([{ ...form, id: Date.now().toString(), numero: nextNum }, ...all]);
+  const reload = async (opts = {}) => {
+    setLoading(true);
+    try {
+      const rows = await pedidosVendaServiceApi.getAll({
+        search: opts.search ?? search,
+        status: opts.status ?? filters.status ?? '',
+        vendedor: opts.vendedor ?? filters.vendedor ?? '',
+      });
+      setData(rows);
+    } finally {
+      setLoading(false);
     }
-    reload();
-    setEditando(null);
   };
 
-  const handleAprovar = (pedidoId) => {
-    const resultado = aprovarPedido(pedidoId);
+  useEffect(() => {
     reload();
-    setDetalhe(null);
-    if (resultado.precisaAprovacao) {
-      alert(`Pedido acima de R$ ${CONFIG.LIMITE_APROVACAO.toLocaleString('pt-BR')} — enviado para aprovação gerencial.\nAcesse: Financeiro → Aprovação de Pedidos.`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleSave = async (form) => {
+    if (editando?.id) {
+      await pedidosVendaServiceApi.update(editando.id, { ...editando, ...form });
+    } else {
+      await pedidosVendaServiceApi.create(form);
     }
+    await reload();
+    setEditando(null);
   };
 
   const handleExportar = () => {
@@ -64,7 +57,7 @@ export default function PedidosVenda() {
       filename: 'pedidos-venda.pdf',
       table: {
         headers: ['Número', 'Cliente', 'Emissão', 'Entrega', 'Vendedor', 'Valor Total', 'Status'],
-        rows: getData().map((pedido) => [
+        rows: data.map((pedido) => [
           pedido.numero,
           pedido.cliente_nome,
           fmtD(pedido.data_emissao),
@@ -96,6 +89,15 @@ export default function PedidosVenda() {
 
   const vendedores = [...new Set(data.map(p=>p.vendedor).filter(Boolean))];
 
+  const resumo = useMemo(() => ({
+    total: data.length,
+    orcamento: data.filter(p=>p.status==='Orçamento').length,
+    aprovado: data.filter(p=>p.status==='Aprovado').length,
+    emProducao: data.filter(p=>p.status==='Em Produção').length,
+    faturado: data.filter(p=>p.status==='Faturado').length,
+    entregue: data.filter(p=>p.status==='Entregue').length,
+  }), [data]);
+
   return (
     <div>
       <PageHeader title="Pedidos de Venda" breadcrumbs={['Início','Vendas','Pedidos de Venda']}
@@ -109,12 +111,12 @@ export default function PedidosVenda() {
       />
       <div className="grid grid-cols-3 lg:grid-cols-6 gap-2 mb-3">
         {[
-          {label:'Total',val:data.length,color:'text-foreground'},
-          {label:'Orçamento',val:data.filter(p=>p.status==='Orçamento').length,color:'text-muted-foreground'},
-          {label:'Aprovado',val:data.filter(p=>p.status==='Aprovado').length,color:'text-blue-600'},
-          {label:'Em Produção',val:data.filter(p=>p.status==='Em Produção').length,color:'text-orange-600'},
-          {label:'Faturado',val:data.filter(p=>p.status==='Faturado').length,color:'text-purple-600'},
-          {label:'Entregue',val:data.filter(p=>p.status==='Entregue').length,color:'text-green-600'},
+          {label:'Total',val:resumo.total,color:'text-foreground'},
+          {label:'Orçamento',val:resumo.orcamento,color:'text-muted-foreground'},
+          {label:'Aprovado',val:resumo.aprovado,color:'text-blue-600'},
+          {label:'Em Produção',val:resumo.emProducao,color:'text-orange-600'},
+          {label:'Faturado',val:resumo.faturado,color:'text-purple-600'},
+          {label:'Entregue',val:resumo.entregue,color:'text-green-600'},
         ].map(s=>(
           <div key={s.label} className="bg-white border border-border rounded px-3 py-2 text-center">
             <div className={`text-lg font-bold ${s.color}`}>{s.val}</div>
@@ -130,7 +132,7 @@ export default function PedidosVenda() {
           ]}
           activeFilters={filters} onFilterChange={(k,v)=>setFilters(f=>({...f,[k]:v}))} onClear={()=>{setSearch('');setFilters({});}}
         />
-        <DataTable columns={columns} data={filtered} onRowClick={row=>setDetalhe(row)}/>
+        <DataTable columns={columns} data={filtered} onRowClick={row=>setDetalhe(row)} loading={loading}/>
       </div>
 
       {(showModal || editando) && (
@@ -175,9 +177,6 @@ export default function PedidosVenda() {
             </div>
           )}
           <div className="mt-3 flex justify-end gap-2">
-            {(detalhe.status === 'Orçamento') && (
-              <button onClick={()=>handleAprovar(detalhe.id)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-green-600 text-white rounded hover:opacity-90"><CheckCircle size={12}/> Aprovar Pedido</button>
-            )}
             <button onClick={()=>{setEditando(detalhe);setDetalhe(null);}} className="px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90">Editar</button>
           </div>
         </DetalheModal>

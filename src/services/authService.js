@@ -3,23 +3,40 @@ import { userService } from "@/services/userService";
 
 const TOKEN_KEY = "access_token";
 
+function getStoredAuthToken() {
+  return (
+    localStorage.getItem('access_token') ||
+    localStorage.getItem('token') ||
+    localStorage.getItem('impersonation_token')
+  );
+}
+
+function clearStoredAuthTokens() {
+  localStorage.removeItem('access_token');
+  localStorage.removeItem('token');
+  localStorage.removeItem('impersonation_token');
+}
+
 export const authService = {
   async getCurrentUser() {
     if (appConfig.isLocal) {
       return userService.getCurrentUser();
     }
 
-    const token = localStorage.getItem(TOKEN_KEY);
+    const token = getStoredAuthToken();
     if (!token) {
       return null;
     }
+
+    // Normaliza para manter o restante da aplicação usando uma única chave.
+    localStorage.setItem(TOKEN_KEY, token);
 
     const response = await fetch(resolveApiUrl("/api/auth/me"), {
       headers: { Authorization: `Bearer ${token}` },
     });
 
     if (!response.ok) {
-      localStorage.removeItem(TOKEN_KEY);
+      clearStoredAuthTokens();
       return null;
     }
 
@@ -31,7 +48,7 @@ export const authService = {
       return;
     }
 
-    const token = localStorage.getItem(TOKEN_KEY);
+    const token = getStoredAuthToken();
     if (!token) {
       return;
     }

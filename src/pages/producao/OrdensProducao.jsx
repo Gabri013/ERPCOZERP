@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import PageHeader from '@/components/common/PageHeader';
 import FilterBar from '@/components/common/FilterBar';
@@ -31,24 +31,39 @@ const columns = [
 ];
 
 export default function OrdensProducao() {
-  const [data, setData] = useState(opService.getData());
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState({});
   const [showModal, setShowModal] = useState(false);
 
-  const reload = () => setData([...opService.getData()]);
+  async function load() {
+    setLoading(true);
+    try {
+      const res = await opService.getAll();
+      setData(res.data || []);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
 
   const handleSalvar = async (form) => {
     await opService.create(form);
-    reload();
+    await load();
   };
 
-  const filtered = data.filter(o => {
-    const s = search.toLowerCase();
-    return (!s || o.numero?.toLowerCase().includes(s) || o.produtoDescricao?.toLowerCase().includes(s) || o.clienteNome?.toLowerCase().includes(s))
-      && (!filters.status || (STATUS_LABEL[o.status] || o.status) === filters.status)
-      && (!filters.prioridade || o.prioridade === filters.prioridade);
-  });
+  const filtered = useMemo(() => {
+    return data.filter(o => {
+      const s = search.toLowerCase();
+      return (!s || o.numero?.toLowerCase().includes(s) || o.produtoDescricao?.toLowerCase().includes(s) || o.clienteNome?.toLowerCase().includes(s))
+        && (!filters.status || (STATUS_LABEL[o.status] || o.status) === filters.status)
+        && (!filters.prioridade || o.prioridade === filters.prioridade);
+    });
+  }, [data, search, filters.status, filters.prioridade]);
 
   const counts = {
     total: data.length,
@@ -123,7 +138,7 @@ export default function OrdensProducao() {
           onFilterChange={(k,v) => setFilters(f => ({ ...f, [k]: v }))}
           onClear={() => { setSearch(''); setFilters({}); }}
         />
-        <DataTable columns={columns} data={filtered} onRowClick={row => window.location.href = `/producao/ordens/${row.id}`} />
+        <DataTable columns={columns} data={filtered} loading={loading} onRowClick={row => window.location.href = `/producao/ordens/${row.id}`} />
       </div>
 
       {showModal && <ModalNovaOP onClose={() => setShowModal(false)} onSave={handleSalvar} />}

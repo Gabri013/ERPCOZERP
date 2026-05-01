@@ -1,48 +1,227 @@
-﻿const db = globalThis.__B44_DB__ || { auth:{ isAuthenticated: async()=>false, me: async()=>null }, entities:new Proxy({}, { get:()=>({ filter:async()=>[], get:async()=>null, create:async()=>({}), update:async()=>({}), delete:async()=>({}) }) }), integrations:{ Core:{ UploadFile:async()=>({ file_url:'' }) } } };
-
-import { useState } from 'react';
+﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import { Menu, Bell, Search, ChevronDown, Settings, LogOut, HelpCircle, Users, Eye } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '@/lib/AuthContext';
 import { usePermissao } from '@/lib/PermissaoContext';
-import { userService } from '@/services/userService';
 import { PERFIS_LABELS } from '@/lib/perfis';
+import { api } from '@/services/api';
+import {
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+  CommandShortcut,
+} from '@/components/ui/command';
+
+const ROLE_TO_PERFIL = {
+  master: 'dono',
+  gerente: 'gerente_geral',
+  gerente_producao: 'gerente_producao',
+  orcamentista_vendas: 'vendas',
+  projetista: 'engenharia',
+  corte_laser: 'producao',
+  dobra_montagem: 'producao',
+  solda: 'producao',
+  expedicao: 'producao',
+  qualidade: 'qualidade',
+  user: 'visualizador',
+};
+
+function getAvatarFromName(name) {
+  const initials = String(name || 'US')
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.replace(/[^A-Za-zÀ-ÿ]/g, ''))
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase();
+
+  return initials || 'US';
+}
+
+function getPerfilLabel(perfil) {
+  return PERFIS_LABELS[perfil] || perfil || 'Usuário';
+}
+
+function timeAgo(dateValue) {
+  if (!dateValue) return '';
+  const d = new Date(dateValue);
+  const diffMs = Date.now() - d.getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return 'agora';
+  if (mins < 60) return `${mins} min`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d`;
+}
 
 export default function Header({ onMenuToggle }) {
   const [userOpen, setUserOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [switchOpen, setSwitchOpen] = useState(false);
-  const { user } = useAuth();
-  const { usuarioAtual, usuarioVisivel, pode, trocarUsuario, iniciarImpersonate, impersonando } = usePermissao();
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [todosUsuarios, setTodosUsuarios] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const searchInputRef = useRef(null);
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+  const { usuarioAtual, pode, iniciarImpersonate, impersonando } = usePermissao();
 
-  const todosUsuarios = userService.getAll().filter(u => u.ativo);
+  useEffect(() => {
+    let mounted = true;
 
-  const notifications = [
-    { id: 1, text: '3 pedidos aguardando aprovação', time: '5 min', type: 'warning' },
-    { id: 2, text: 'Estoque baixo: Rolamento 6205-ZZ', time: '1h', type: 'danger' },
-    { id: 3, text: 'OP #0542 concluída com sucesso', time: '2h', type: 'success' },
-    { id: 4, text: 'Conta a pagar vencendo amanhã: R$ 3.840', time: '3h', type: 'warning' },
-  ];
+    const loadUsersForSwitch = async () => {
+      try {
+        // Só carrega lista de usuários se puder gerenciar/impersonar (evita 403 em perfis comuns)
+        const isMaster = Boolean(user?.roles?.includes('master'));
+        if (!isMaster && !pode('gerenciar_usuarios')) {
+          if (mounted) setTodosUsuarios([]);
+          return;
+        }
 
-  const nomeExibido = impersonando ? impersonando.nome : (usuarioAtual?.nome || user?.full_name || 'Usuário');
-  const perfilExibido = impersonando ? PERFIS_LABELS[impersonando.perfil] : (usuarioAtual ? PERFIS_LABELS[usuarioAtual.perfil] : (user?.role || 'Admin'));
+        const response = await api.get('/api/users?limit=200');
+        const body = response?.data;
+        const rows = Array.isArray(body) ? body : (Array.isArray(body?.data) ? body.data : []);
+        const mapped = rows
+          .filter(u => Boolean(u.active))
+          .map((u) => {
+            const role = u.roles?.[0] || 'user';
+            const perfil = ROLE_TO_PERFIL[role] || role;
+            const nome = u.full_name || u.email || 'Usuário';
+
+            return {
+              id: u.id,
+              nome,
+              email: u.email,
+              perfil,
+              ativo: Boolean(u.active),
+              avatar: getAvatarFromName(nome),
+            };
+          });
+
+        if (mounted) {
+          setTodosUsuarios(mapped);
+        }
+      } catch (err) {
+        if (mounted) setTodosUsuarios([]);
+      }
+    };
+
+    loadUsersForSwitch();
+    return () => {
+      mounted = false;
+    };
+  }, [pode, user?.roles]);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadNotifications = async () => {
+      try {
+        const res = await api.get('/api/notifications/me?limit=20');
+        const items = (res?.data?.items || []).map((n) => ({
+          id: n.id,
+          text: n.text,
+          time: timeAgo(n.created_at),
+          type: n.type || 'info',
+          sector: n.sector || '',
+          read: Boolean(n.read),
+        }));
+        if (mounted) setNotifications(items);
+      } catch {
+        if (mounted) setNotifications([]);
+      }
+    };
+    loadNotifications();
+    return () => { mounted = false; };
+  }, []);
+
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      const isCtrlOrMetaK = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k';
+      if (!isCtrlOrMetaK) return;
+
+      event.preventDefault();
+      setSearchOpen(true);
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
+  const navigationItems = useMemo(() => ([
+    { label: 'Dashboard', to: '/', shortcut: 'G D' },
+    { label: 'Clientes', to: '/vendas/clientes', shortcut: 'G C', can: () => true },
+    { label: 'Produtos', to: '/estoque/produtos', shortcut: 'G P', can: () => true },
+    { label: 'Ordens de Compra', to: '/compras/ordens-compra', shortcut: 'G O', can: () => true },
+    { label: 'Ordens de Produção', to: '/producao/ordens', shortcut: 'G R', can: () => true },
+    { label: 'Apontamento', to: '/producao/apontamento', shortcut: 'G A', can: () => pode('apontar') },
+    { label: 'Usuários', to: '/configuracoes/usuarios', shortcut: 'G U', can: () => pode('gerenciar_usuarios') },
+    { label: 'Configurações da Empresa', to: '/configuracoes/empresa', shortcut: 'G E', can: () => pode('editar_config') },
+    { label: 'Ajuda', to: '/ajuda', shortcut: 'G H' },
+  ]), [pode]);
+
+  const unreadCount = notifications.filter((item) => !item.read).length;
+
+  const markAllNotificationsRead = () => {
+    setNotifications((current) => current.map((item) => ({ ...item, read: true })));
+    void api.post('/api/notifications/read-all', {});
+  };
+
+  const markNotificationRead = (id) => {
+    setNotifications((current) =>
+      current.map((item) => (item.id === id ? { ...item, read: true } : item))
+    );
+    void api.post(`/api/notifications/${id}/read`, {});
+  };
+
+  const nomeExibido =
+    (impersonando?.nome || impersonando?.full_name || impersonando?.email) ||
+    (usuarioAtual?.nome || user?.full_name || user?.email || 'Usuário');
+  const perfilBase =
+    impersonando?.perfil ??
+    usuarioAtual?.perfil ??
+    ROLE_TO_PERFIL[user?.roles?.[0]] ??
+    user?.roles?.[0] ??
+    user?.role ??
+    'visualizador';
+  const perfilExibido = getPerfilLabel(perfilBase);
 
   return (
-    <header className="bg-white border-b border-border h-11 flex items-center px-4 gap-3 shrink-0 z-10">
+    <header className="bg-white border-b border-border h-11 flex items-center px-2 sm:px-4 gap-2 sm:gap-3 shrink-0 z-10">
       <button onClick={onMenuToggle} className="text-muted-foreground hover:text-foreground transition-colors">
         <Menu size={18} />
       </button>
 
-      {/* Search */}
-      <div className="flex items-center gap-2 bg-muted rounded px-3 py-1.5 flex-1 max-w-md">
+      {/* Search (desktop) */}
+      <button
+        type="button"
+        onClick={() => setSearchOpen(true)}
+        className="hidden md:flex items-center gap-2 bg-muted rounded px-3 py-1.5 flex-1 max-w-md text-left"
+        aria-label="Buscar (Ctrl+K)"
+      >
         <Search size={13} className="text-muted-foreground shrink-0" />
-        <input
-          placeholder="Buscar pedidos, produtos, clientes..."
-          className="bg-transparent text-xs outline-none text-foreground placeholder:text-muted-foreground w-full"
-        />
-        <span className="text-[10px] text-muted-foreground bg-border px-1 rounded">Ctrl+K</span>
-      </div>
+        <span className="text-xs text-muted-foreground flex-1 truncate">
+          Buscar pedidos, produtos, clientes...
+        </span>
+        <span className="text-[10px] text-muted-foreground bg-border px-1 rounded shrink-0">Ctrl+K</span>
+      </button>
+
+      {/* Search (mobile icon) */}
+      <button
+        type="button"
+        onClick={() => setSearchOpen(true)}
+        className="md:hidden text-muted-foreground hover:text-foreground transition-colors p-1"
+        aria-label="Buscar"
+      >
+        <Search size={16} />
+      </button>
 
       <div className="flex-1" />
 
@@ -70,7 +249,7 @@ export default function Header({ onMenuToggle }) {
                   <div className="w-5 h-5 cozinha-blue-bg rounded-full flex items-center justify-center text-white text-[9px] font-bold shrink-0">{u.avatar}</div>
                   <div>
                     <div className="font-medium">{u.nome}</div>
-                    <div className="text-[10px] text-muted-foreground">{PERFIS_LABELS[u.perfil]}</div>
+                    <div className="text-[10px] text-muted-foreground">{getPerfilLabel(u.perfil)}</div>
                   </div>
                 </button>
               ))}
@@ -86,29 +265,47 @@ export default function Header({ onMenuToggle }) {
           className="relative text-muted-foreground hover:text-foreground transition-colors p-1"
         >
           <Bell size={16} />
-          <span className="absolute -top-0.5 -right-0.5 w-4 h-4 cozinha-blue-bg text-white text-[9px] rounded-full flex items-center justify-center font-bold">
-            {notifications.length}
-          </span>
+          {unreadCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 w-4 h-4 cozinha-blue-bg text-white text-[9px] rounded-full flex items-center justify-center font-bold">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
         </button>
         {notifOpen && (
           <div className="absolute right-0 top-full mt-1 w-72 bg-white border border-border rounded-lg shadow-lg z-50">
             <div className="px-3 py-2 border-b border-border flex items-center justify-between">
               <span className="text-xs font-semibold">Notificações</span>
-              <span className="text-[10px] text-primary cursor-pointer hover:underline">Marcar todas como lidas</span>
+              <button
+                onClick={markAllNotificationsRead}
+                className="text-[10px] text-primary cursor-pointer hover:underline"
+              >
+                Marcar todas como lidas
+              </button>
             </div>
             {notifications.map(n => (
-              <div key={n.id} className="px-3 py-2 hover:bg-muted cursor-pointer border-b border-border last:border-0">
+              <div
+                key={n.id}
+                onClick={() => markNotificationRead(n.id)}
+                className={`px-3 py-2 hover:bg-muted cursor-pointer border-b border-border last:border-0 ${n.read ? 'opacity-70' : ''}`}
+              >
                 <div className="flex items-start gap-2">
                   <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${n.type === 'danger' ? 'bg-destructive' : n.type === 'warning' ? 'bg-warning' : 'bg-success'}`} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs text-foreground">{n.text}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">{n.time} atrás</p>
+                    <p className={`text-xs ${n.read ? 'text-muted-foreground' : 'text-foreground font-medium'}`}>{n.text}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      {n.sector ? `${n.sector} • ` : ''}{n.time} atrás
+                    </p>
                   </div>
                 </div>
               </div>
             ))}
             <div className="px-3 py-2 text-center">
-              <span className="text-xs text-primary cursor-pointer hover:underline">Ver todas</span>
+              <button
+                onClick={() => setNotifOpen(false)}
+                className="text-xs text-primary cursor-pointer hover:underline"
+              >
+                Ver todas
+              </button>
             </div>
           </div>
         )}
@@ -121,7 +318,7 @@ export default function Header({ onMenuToggle }) {
           className="flex items-center gap-2 hover:bg-muted rounded px-2 py-1 transition-colors"
         >
           <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold ${impersonando ? 'bg-orange-500' : 'cozinha-blue-bg'}`}>
-            {nomeExibido.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase()}
+            {getAvatarFromName(nomeExibido)}
           </div>
           <div className="text-left hidden sm:block">
             <div className="text-xs font-medium text-foreground leading-tight">{nomeExibido}</div>
@@ -143,12 +340,17 @@ export default function Header({ onMenuToggle }) {
             <Link to="/configuracoes/empresa" onClick={() => setUserOpen(false)} className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted transition-colors">
               <Settings size={13} className="text-muted-foreground" /> Configurações
             </Link>
-            <button className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted transition-colors">
+            <button
+              type="button"
+              onClick={() => { setUserOpen(false); navigate('/ajuda'); }}
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted transition-colors"
+            >
               <HelpCircle size={13} className="text-muted-foreground" /> Ajuda
             </button>
             <div className="border-t border-border mt-1 pt-1">
               <button
-                onClick={() => db.auth.logout()}
+                type="button"
+                onClick={async () => { setUserOpen(false); await logout(); }}
                 className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted transition-colors text-destructive"
               >
                 <LogOut size={13} /> Sair
@@ -157,6 +359,42 @@ export default function Header({ onMenuToggle }) {
           </div>
         )}
       </div>
+
+      <CommandDialog open={searchOpen} onOpenChange={setSearchOpen}>
+        <CommandInput placeholder="Buscar no ERP..." ref={searchInputRef} />
+        <CommandList>
+          <CommandEmpty>Nenhum resultado.</CommandEmpty>
+          <CommandGroup heading="Navegação">
+            {navigationItems
+              .filter((item) => (typeof item.can === 'function' ? item.can() : true))
+              .map((item) => (
+                <CommandItem
+                  key={item.to}
+                  value={item.label}
+                  onSelect={() => {
+                    setSearchOpen(false);
+                    navigate(item.to);
+                  }}
+                >
+                  {item.label}
+                  {item.shortcut ? <CommandShortcut>{item.shortcut}</CommandShortcut> : null}
+                </CommandItem>
+              ))}
+          </CommandGroup>
+          <CommandSeparator />
+          <CommandGroup heading="Ações">
+            <CommandItem
+              value="Marcar notificações como lidas"
+              onSelect={() => {
+                markAllNotificationsRead();
+                setSearchOpen(false);
+              }}
+            >
+              Marcar notificações como lidas
+            </CommandItem>
+          </CommandGroup>
+        </CommandList>
+      </CommandDialog>
     </header>
   );
 }
