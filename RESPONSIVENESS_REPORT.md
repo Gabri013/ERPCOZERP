@@ -1,63 +1,157 @@
-# Relatório de responsividade — ERPCOZERP (frontend)
+# RESPONSIVENESS_REPORT — Responsividade Total
 
-Este documento lista os componentes e páginas envolvidos na melhoria de **layout responsivo** (mobile, tablet, desktop) com **Tailwind CSS**, alinhado às tarefas: shell (sidebar/header/main), tabelas (`overflow-x`, `min-w`, ações fixas), formulários em grid, modais (`w-[95vw]`, `max-h-[90vh]`, `max-w` progressivo), dashboard, `ResponsiveTable` com `mobileHidden`, e escala de tipografia em `PageHeader` e dashboard.
+**Data:** 2026-05-02  
+**Status:** ✅ Sistema responsivo em todos os breakpoints
 
-**Nota:** A aplicação usa o shell em `ERPLayout.jsx` (não `Layout.jsx` separado) para o conteúdo principal com `max-w-7xl mx-auto` e padding responsivo.
+---
 
-## Layout e navegação
+## 1. Estratégia de Responsividade
 
-| Arquivo | Alterações principais |
-|--------|------------------------|
-| `apps/frontend/src/components/layout/ERPLayout.jsx` | Main com `max-w-7xl mx-auto`, padding `p-4 sm:p-6 lg:p-8`; overlay e drawer mobile com z-index elevado. |
-| `apps/frontend/src/components/layout/Sidebar.jsx` | Drawer em telas &lt; `md`, fechamento (incl. botão), sobreposição ao conteúdo. |
-| `apps/frontend/src/components/layout/Header.jsx` | Menu hambúrguer, título/área de busca compactos no mobile, notificações com largura/scroll adaptáveis. |
-| `apps/frontend/src/components/common/PageHeader.jsx` | Títulos `text-xl sm:text-2xl md:text-3xl`, subtítulos `text-sm sm:text-base`, ações em coluna no estreito. |
+O ERP COZINCA INOX utiliza **Tailwind CSS** com os breakpoints padrão:
 
-## Tabelas e listagens
+| Breakpoint | Pixels | Uso |
+|------------|--------|-----|
+| (base) | 0–639px | Mobile — cards, menu hambúrguer |
+| `sm` | ≥640px | Tablet pequeno |
+| `md` | ≥768px | Tablet — sidebar parcialmente visível |
+| `lg` | ≥1024px | Desktop — layout completo |
+| `xl` | ≥1280px | Widescreen |
 
-| Arquivo | Alterações principais |
-|--------|------------------------|
-| `apps/frontend/src/components/ui/ResponsiveTable.jsx` | **Novo:** cards em &lt; `sm`, colunas com `mobileHidden`, reutilizável via `ResponsiveTableCards`. |
-| `apps/frontend/src/components/common/DataTable.jsx` | `overflow-x-auto`, tabela `min-w-[600px]`, visão desktop/cards mobile, coluna de ação **sticky** à direita (padrão), paginação responsiva. |
-| `apps/frontend/src/pages/vendas/Clientes.jsx` | `mobileHidden` em colunas secundárias; ações e detalhe em stack no mobile. |
-| `apps/frontend/src/pages/vendas/PedidosVenda.jsx` | Grids e ações responsivos; import de `CONFIG` (correção). |
-| `apps/frontend/src/pages/producao/OrdensProducao.jsx` | Resumo em `grid-cols-2 sm:grid-cols-4`; `mobileHidden` em colunas; botões de ação full-width no estreito. |
-| `apps/frontend/src/pages/estoque/Produtos.jsx` | `mobileHidden`; detalhe com grid 1/2 colunas; botões em coluna no mobile. |
-| `apps/frontend/src/pages/financeiro/ContasReceber.jsx` | Cards de resumo `grid-cols-1 sm:grid-cols-3`; `mobileHidden`; detalhe e ações responsivos. |
-| `apps/frontend/src/pages/configuracoes/Usuarios.jsx` | Formulário de usuário em grid; modal de permissões com largura/scroll; grid de checkboxes responsivo. |
-| `apps/frontend/src/pages/engenharia/Engenharia.jsx` | `max-w-5xl`, seções em cards, grids 1/3 colunas (peso e BOM), viewer 3D `w-full` + `min-h`. |
-| `apps/frontend/src/components/engenharia/EngenhariaViewer3D.jsx` | Canvas responsivo com `ResizeObserver` (largura do contêiner). |
+---
 
-## Formulários e modais
+## 2. Componentes de Layout
 
-| Arquivo | Alterações principais |
-|--------|------------------------|
-| `apps/frontend/src/components/ui/dialog.jsx` | `DialogContent` com `w-[95vw]`, `max-h-[90vh]`, `overflow-y-auto`, `sm:max-w-lg md:max-w-xl lg:max-w-2xl`, `DialogFooter` em coluna no mobile. |
-| `apps/frontend/src/components/ui/alert-dialog.jsx` | Mesmo padrão de largura/altura para confirmações. |
-| `apps/frontend/src/components/common/FormModal.jsx` | Largura e rodapé responsivos. |
-| `apps/frontend/src/components/common/DetalheModal.jsx` | Largura e rodapé responsivos. |
-| `apps/frontend/src/components/metadata/DynamicFormModal.jsx` | Grid de campos `1 / 2 / 3` colunas, inputs `w-full`, `DialogFooter` empilhado no mobile. |
-| `apps/frontend/src/components/metadata/DynamicEntityPage.jsx` | Modal de detalhe com `lg:max-w-4xl` e grid de campos `1 sm:2` colunas. |
-| `apps/frontend/src/pages/configuracoes/MetadataStudio.jsx` | Modais de entidade/campo com `sm:max-w-md` e grid tipo/ícone responsivo. |
-| `apps/frontend/src/pages/configuracoes/WorkflowBuilder.jsx` | Modal com `sm:max-w-lg`, grids e switches empilhados no mobile. |
-| `apps/frontend/src/components/ui/command.jsx` | `DialogContent` (comando/palette) — herda base de `dialog.jsx` onde aplicável. |
+### Sidebar (`ERPLayout.jsx` + `Sidebar.jsx`)
 
-## Dashboard e gráficos
+| Comportamento | Implementação |
+|--------------|---------------|
+| Mobile (<768px) | Escondida por padrão; hambúrguer no Header abre drawer overlay |
+| Desktop (≥768px) | Visível como coluna fixa; colapsável para `w-14` (apenas ícones) |
+| Estado persistido | `sidebarOpen` em `ERPLayout.jsx`; fechamento ao navegar em mobile |
+| Acessibilidade | `PanelLeftClose`/`PanelLeftOpen`, `aria-label`, `sr-only` para ícones colapsados |
 
-| Arquivo | Alterações principais |
-|--------|------------------------|
-| `apps/frontend/src/pages/Dashboard.jsx` | Grid de cards `1 / 2 / 3 / 4` colunas; tipografia; toolbar em coluna no mobile. |
-| `apps/frontend/src/components/dashboard/WidgetGraficoVendas.jsx` | Área do gráfico `h-64 md:h-80 w-full`. |
-| `apps/frontend/src/components/dashboard/WidgetGraficoFinanceiro.jsx` | Idem. |
-| `apps/frontend/src/components/dashboard/WidgetGraficoProducao.jsx` | Idem. |
+### Header (`Header.jsx`)
 
-## Padrões técnicos (referência)
+| Elemento | Mobile | Desktop |
+|---------|--------|---------|
+| Logo | Truncado/oculto | Visível completo |
+| Busca | Ícone de busca | Campo expandido |
+| Avatar | Compacto | Completo com nome |
+| Hambúrguer | Visível (sempre) | Visível (permite colapsar sidebar) |
 
-- **Sidebar mobile:** &lt; `768px` — drawer, hambúrguer no header, `z-index` sobre o conteúdo.  
-- **Tabelas:** `sm` (640px) — abaixo disso, listagem em **cards** quando usar `DataTable` + `ResponsiveTable`.  
-- **Ações na tabela:** última coluna (ou coluna com `stickyRight`) com `sticky right-0` no desktop.  
-- **Formulários:** `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`, campos `w-full`, botões `flex-col sm:flex-row` onde couber.  
+---
 
-## Data
+## 3. DataTable — Responsividade de Tabelas
 
-- Relatório alinhado ao estado do repositório após a entrega de responsividade no **frontend** (`apps/frontend`).
+**Componente:** `src/components/common/DataTable.jsx`  
+**Dependência:** `src/components/ui/ResponsiveTable.jsx`
+
+### Comportamento por breakpoint
+
+| Breakpoint | Renderização |
+|------------|-------------|
+| < 640px (`sm`) | Cards (`ResponsiveTableCards`) — `dl` com label/value por linha |
+| ≥ 640px | Tabela HTML com `overflow-x-auto`, `min-w-[600px]` |
+
+### Colunas responsivas
+
+```jsx
+// Coluna oculta em mobile
+{ key: 'created_at', label: 'Data', mobileHidden: true }
+
+// Coluna fixa à direita
+{ key: 'acoes', label: '', stickyRight: true }
+```
+
+### `sticky` actions
+
+A última coluna (ou qualquer `stickyRight: true`) fica fixada à direita em scroll horizontal, garantindo que ações (Editar/Excluir) sejam sempre acessíveis sem scrollar.
+
+---
+
+## 4. Formulários e Modais
+
+### Padrão de grid responsivo (todos os formulários)
+
+```jsx
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+  {/* campos */}
+</div>
+```
+
+### Modais
+
+```jsx
+// FormModal.jsx
+className="w-[95vw] sm:max-w-lg md:max-w-xl max-h-[90vh] overflow-y-auto"
+```
+
+---
+
+## 5. Dashboard
+
+### Cards de métricas
+
+```jsx
+<div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+```
+
+### Gráficos (Recharts)
+
+```jsx
+<div className="w-full h-64 md:h-80">
+  <ResponsiveContainer width="100%" height="100%">
+```
+
+---
+
+## 6. Páginas e Componentes Responsivos Verificados
+
+| Página | Tabela responsiva | Grid form | Modal responsivo |
+|--------|------------------|-----------|-----------------|
+| `Clientes.jsx` | ✅ DataTable | ✅ ModalCliente | ✅ |
+| `PedidosVenda.jsx` | ✅ DataTable | ✅ | ✅ |
+| `OrdensProducao.jsx` | ✅ DataTable | ✅ ModalNovaOP | ✅ |
+| `ContasReceber.jsx` | ✅ DataTable | ✅ | ✅ |
+| `ContasPagar.jsx` | ✅ DataTable | ✅ | ✅ |
+| `Funcionarios.jsx` | ✅ DataTable | ✅ | ✅ |
+| `Fornecedores.jsx` | ✅ DataTable | ✅ | ✅ |
+| `OrdensCompra.jsx` | ✅ DataTable | ✅ | ✅ |
+| `Produtos.jsx` (estoque) | ✅ DataTable | ✅ | ✅ |
+| `Movimentacoes.jsx` | ✅ overflow-x-auto | N/A | ✅ |
+| `Inventario.jsx` | ✅ overflow-x-auto | ✅ | ✅ |
+| `Enderecamento.jsx` | ✅ overflow-x-auto | ✅ | ✅ |
+| `ProdutoDetalhe.jsx` | ✅ overflow-x-auto | ✅ (grid) | N/A |
+| `Pipeline.jsx` (CRM) | N/A — Kanban | ✅ | ✅ |
+| `KanbanProducao.jsx` | N/A — Kanban | ✅ | ✅ |
+| `ProjetosEngenharia.jsx` | ✅ DataTable | N/A | N/A |
+| `PendentesBom.jsx` | N/A — cards | N/A | N/A |
+| `FluxoCaixa.jsx` | ✅ DataTable | ✅ | ✅ |
+| `DRE.jsx` | ✅ overflow-x-auto | N/A | N/A |
+| `Dashboard.jsx` | N/A — widgets | ✅ ResponsiveContainer | N/A |
+| `Usuarios.jsx` | ✅ DataTable | ✅ | ✅ |
+| `Empresa.jsx` | N/A — formulário | ✅ | N/A |
+
+---
+
+## 7. Componentes de UI Responsivos
+
+| Componente | Arquivo | Descrição |
+|-----------|---------|-----------|
+| `ResponsiveTableCards` | `src/components/ui/ResponsiveTable.jsx` | Cards em mobile, tabela em desktop |
+| `DataTable` | `src/components/common/DataTable.jsx` | Usa ResponsiveTableCards + sticky columns |
+| `FilterBar` | `src/components/common/FilterBar.jsx` | Filtros colapsam em mobile |
+| `FormModal` | `src/components/common/FormModal.jsx` | `w-[95vw] max-h-[90vh]` |
+| `PageHeader` | `src/components/common/PageHeader.jsx` | Flex-wrap, botões adaptam |
+
+---
+
+## 8. Breakpoints Testados
+
+| Viewport | Resultado |
+|----------|-----------|
+| 375px (iPhone SE) | ✅ Cards, menu hambúrguer, sidebar oculta |
+| 390px (iPhone 14) | ✅ |
+| 768px (iPad) | ✅ Sidebar colapsada, tabelas horizontais |
+| 1024px (Desktop) | ✅ Sidebar expandida, grids 3 colunas |
+| 1440px (Widescreen) | ✅ |
