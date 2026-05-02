@@ -1,0 +1,46 @@
+# Infraestrutura local de desenvolvimento: apenas Postgres + Redis
+# Backend e Frontend rodam diretamente com "npm run dev" (hot-reload)
+#
+# Uso:
+#   docker compose -f docker-compose.infra.yml up -d
+#   docker compose -f docker-compose.infra.yml down
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: erp_postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: erpcoz
+      POSTGRES_USER: erpcoz
+      POSTGRES_PASSWORD: erpcozpass
+    volumes:
+      - erpcozerp_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U erpcoz -d erpcoz"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: erp_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - erpcozerp_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  erpcozerp_pg_data:
+    external: true
+  erpcozerp_redis_data:
+    external: true
