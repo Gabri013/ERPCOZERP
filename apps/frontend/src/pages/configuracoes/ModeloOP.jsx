@@ -20,7 +20,7 @@ const ELEMENTOS_PALETTE = [
   { tipo:'barcode', icone:BarChart, label:'Código de Barras' },
 ];
 
-const MODELOS_MOCK = [
+const MODELOS_DEFAULT = [
   { id:1, nome:'Modelo Padrão', padrao:true },
   { id:2, nome:'Modelo Simplificado', padrao:false },
 ];
@@ -49,7 +49,7 @@ function ElementoCard({ el, onRemove }) {
 }
 
 export default function ModeloOP() {
-  const [modelos, setModelos] = useState(MODELOS_MOCK);
+  const [modelos, setModelos] = useState(MODELOS_DEFAULT);
   const [modeloAtivo, setModeloAtivo] = useState(1);
   const [saving, setSaving] = useState(false);
   const [elementos, setElementos] = useState([
@@ -78,6 +78,8 @@ export default function ModeloOP() {
         const data = await getPlatformSettings();
         const els = data?.modeloOpElements;
         if (ok && Array.isArray(els) && els.length) setElementos(els);
+        const mdls = data?.modeloOpTemplates;
+        if (ok && Array.isArray(mdls) && mdls.length) setModelos(mdls);
       } catch {
         /* mantém layout padrão local */
       }

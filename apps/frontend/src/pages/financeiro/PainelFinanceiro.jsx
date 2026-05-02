@@ -1,30 +1,12 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { RefreshCw, Download, ChevronDown, TrendingUp, TrendingDown } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '@/services/api';
 
 const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 const anoAtual = new Date().getFullYear();
 
-// Gera dados fictícios para DRE mensal
-const gerarDados = (ano) => {
-  const seed = ano % 100;
-  const rand = (base, var_) => Math.round((base + (Math.random() - 0.5) * var_) * 10) / 10;
-  return MESES.map((_, i) => {
-    const receitaBruta = i < new Date().getMonth() + 1 ? rand(268340 + seed * 1000, 150000) : 0;
-    const impostos = receitaBruta > 0 ? rand(receitaBruta * 0.08, 1000) : 0;
-    const comissoes = receitaBruta > 0 ? rand(receitaBruta * 0.02, 500) : 0;
-    const receitaLiq = receitaBruta - impostos - comissoes;
-    const matPrima = receitaLiq > 0 ? rand(receitaLiq * 0.35, 20000) : 0;
-    const servIndustr = receitaLiq > 0 ? rand(receitaLiq * 0.05, 5000) : 0;
-    const margContrib = receitaLiq - matPrima - servIndustr;
-    const pessoal = receitaLiq > 0 ? rand(receitaLiq * 0.15, 8000) : 0;
-    const infraestrutura = receitaLiq > 0 ? rand(receitaLiq * 0.08, 3000) : 0;
-    const marketing = receitaLiq > 0 ? rand(receitaLiq * 0.02, 1000) : 0;
-    const custosFixos = pessoal + infraestrutura + marketing;
-    const ebitda = margContrib - custosFixos;
-    return { receitaBruta, impostos, comissoes, receitaLiq, matPrima, servIndustr, margContrib, pessoal, infraestrutura, marketing, custosFixos, ebitda };
-  });
-};
+const EMPTY_MES = { receitaBruta: 0, impostos: 0, comissoes: 0, receitaLiq: 0, matPrima: 0, servIndustr: 0, margContrib: 0, pessoal: 0, infraestrutura: 0, marketing: 0, custosFixos: 0, ebitda: 0 };
 
 const fmtN = (v, zero = true) => {
   if (!zero && (!v || v === 0)) return '';
@@ -35,7 +17,24 @@ const fmtPct = (v, total) => total > 0 ? `${Math.round((v / total) * 100)} %` : 
 export default function PainelFinanceiro() {
   const [ano, setAno] = useState(anoAtual);
   const [showFuncoes, setShowFuncoes] = useState(false);
-  const dados = useMemo(() => gerarDados(ano), [ano]);
+  const [dados, setDados] = useState(MESES.map(() => ({ ...EMPTY_MES })));
+
+  const loadData = useCallback(async () => {
+    try {
+      const res = await api.get(`/api/financial/panel?ano=${ano}`);
+      const body = res?.data?.data ?? res?.data ?? {};
+      const meses = Array.isArray(body.meses) ? body.meses : [];
+      if (meses.length === 12) {
+        setDados(meses.map((m) => ({ ...EMPTY_MES, ...m })));
+      } else {
+        setDados(MESES.map((_, i) => ({ ...EMPTY_MES, ...(meses[i] ?? {}) })));
+      }
+    } catch {
+      setDados(MESES.map(() => ({ ...EMPTY_MES })));
+    }
+  }, [ano]);
+
+  useEffect(() => { loadData(); }, [loadData]);
 
   const total = (key) => dados.reduce((s, d) => s + (d[key] || 0), 0);
 

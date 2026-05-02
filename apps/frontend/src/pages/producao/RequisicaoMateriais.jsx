@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Search, Plus, CheckCircle, XCircle, ArrowRight, Package, AlertTriangle, Truck, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '@/services/api';
 
 const fmtD = (v) => v ? new Date(v + 'T00:00').toLocaleDateString('pt-BR') : '—';
 const hoje = new Date().toISOString().split('T')[0];
@@ -14,44 +15,27 @@ const STATUS_REQ = {
   'Cancelado':      'bg-red-100 text-red-700',
 };
 
-const MOCK_OPS = [
-  { id: 'OP-2025-001', produto: 'Tanque Inox 316L 500L', qtd: 1, status: 'Em Andamento', prazo: addDias(hoje, 12) },
-  { id: 'OP-2025-002', produto: 'Trocador Tubular 100m²', qtd: 2, status: 'Em Andamento', prazo: addDias(hoje, 20) },
-  { id: 'OP-2025-003', produto: 'Reator 200L', qtd: 3, status: 'Aberta', prazo: addDias(hoje, 30) },
-];
-
-const MOCK_REQUISICOES = [
-  {
-    id: 'REQ-001', op: 'OP-2025-001', data: addDias(hoje, -2), tipo: 'normal',
-    status: 'Requisitado', operador: 'João S.', almoxarife: 'Carlos M.',
-    itens: [
-      { id: 1, codigo: 'MP-CHAPA-316L-3MM', descricao: 'Chapa Inox 316L 3mm', qtd_necessaria: 45.5, qtd_requis: 48.0, qtd_separada: 48.0, unidade: 'kg', lote: 'LT-2025-0042', local: 'AL-01-A-03', ok: true },
-      { id: 2, codigo: 'MP-TUBO-1.5', descricao: 'Tubo Inox 1.5" SCH10', qtd_necessaria: 8.2, qtd_requis: 8.5, qtd_separada: 8.5, unidade: 'm', lote: 'LT-2025-0039', local: 'AL-02-B-01', ok: true },
-      { id: 3, codigo: 'CP-BOCAL-2', descricao: 'Bocal 2" Inox 316L', qtd_necessaria: 4, qtd_requis: 4, qtd_separada: 4, unidade: 'pc', lote: '', local: 'AL-01-C-02', ok: true },
-    ],
-  },
-  {
-    id: 'REQ-002', op: 'OP-2025-002', data: hoje, tipo: 'normal',
-    status: 'Pendente', operador: 'Ana P.', almoxarife: null,
-    itens: [
-      { id: 1, codigo: 'MP-TUBO-3/4', descricao: 'Tubo Inox 316L 3/4"', qtd_necessaria: 640, qtd_requis: 660, qtd_separada: 0, unidade: 'm', lote: '', local: '', ok: false },
-      { id: 2, codigo: 'CP-FLANGE-4', descricao: 'Flange 4" 150# ANSI', qtd_necessaria: 8, qtd_requis: 8, qtd_separada: 0, unidade: 'pc', lote: '', local: '', ok: false },
-      { id: 3, codigo: 'MP-CHAPA-316L-5MM', descricao: 'Chapa Inox 316L 5mm', qtd_necessaria: 56.6, qtd_requis: 61.0, qtd_separada: 0, unidade: 'kg', lote: '', local: '', ok: false, sem_estoque: true },
-    ],
-  },
-];
-
-const MOCK_TRANSFERENCIAS = [
-  { id: 'TRF-001', op: 'OP-2025-001', data: addDias(hoje, -3), origem: 'Almoxarifado Geral', destino: 'Estoque Produção', status: 'Concluída', itens: 3 },
-  { id: 'TRF-002', op: 'OP-2025-003', data: hoje, origem: 'Almoxarifado Geral', destino: 'Estoque Produção', status: 'Pendente', itens: 5 },
-];
-
 export default function RequisicaoMateriais() {
   const [aba, setAba] = useState('requisicoes');
   const [busca, setBusca] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('Todos');
-  const [requisicoes, setRequisicoes] = useState(MOCK_REQUISICOES);
-  const [transferencias, setTransferencias] = useState(MOCK_TRANSFERENCIAS);
+  const [requisicoes, setRequisicoes] = useState([]);
+  const [transferencias, setTransferencias] = useState([]);
+  const [opsDisponiveis, setOpsDisponiveis] = useState([]);
+
+  const loadData = useCallback(async () => {
+    try {
+      const res = await api.get('/api/production/requisitions');
+      const d = res.data?.data ?? res.data ?? {};
+      setRequisicoes(Array.isArray(d) ? d : (d.requisicoes ?? []));
+      setTransferencias(d.transferencias ?? []);
+      setOpsDisponiveis(d.ops ?? []);
+    } catch {
+      setRequisicoes([]); setTransferencias([]); setOpsDisponiveis([]);
+    }
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
   const [detalhe, setDetalhe] = useState(null);
   const [showNovaReq, setShowNovaReq] = useState(false);
   const [opSel, setOpSel] = useState('');
@@ -73,7 +57,7 @@ export default function RequisicaoMateriais() {
 
   const gerarRequisicao = () => {
     if (!opSel) return toast.error('Selecione uma OP');
-    const op = MOCK_OPS.find((o) => o.id === opSel);
+    const op = opsDisponiveis.find((o) => o.id === opSel);
     const nova = {
       id: `REQ-${String(requisicoes.length + 1).padStart(3, '0')}`, op: opSel, data: hoje, tipo: tipoReq,
       status: 'Pendente', operador: 'Usuário Atual', almoxarife: null,
@@ -312,7 +296,7 @@ export default function RequisicaoMateriais() {
                 <label className="erp-label">Ordem de Produção *</label>
                 <select className="erp-input w-full" value={opSel} onChange={(e) => setOpSel(e.target.value)}>
                   <option value="">Selecione a OP...</option>
-                  {MOCK_OPS.map((op) => <option key={op.id} value={op.id}>{op.id} — {op.produto}</option>)}
+                  {opsDisponiveis.map((op) => <option key={op.id} value={op.id}>{op.id} — {op.produto}</option>)}
                 </select>
               </div>
               <div>

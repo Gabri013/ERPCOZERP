@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Plus, Search, Eye, CheckCircle, XCircle, AlertTriangle, Globe, Ship, FileText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { api } from '@/services/api';
 
 const fmtBRL = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 });
 const fmtUSD = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
@@ -22,50 +23,20 @@ const STATUS_COR = {
 
 const PASSOS_FLOW = ['Pedido Realizado', 'Em Trânsito', 'Chegou ao Porto', 'DI Registrada', 'DI Desembaraçada', 'NF-e Emitida', 'Concluído'];
 
-const MOCK = [
-  {
-    id: 'IMP-2025-001', fornecedor_ext: 'Stainless Corp. LLC', pais_origem: 'EUA', moeda: 'USD',
-    pedido: 'PC-2025-0038', data_pedido: addDias(hoje, -45), data_embarque: addDias(hoje, -30),
-    data_chegada_prevista: addDias(hoje, 3), data_di_registro: null,
-    status: 'Em Trânsito', incoterm: 'FOB',
-    valor_fob_usd: 18500, valor_frete_usd: 920, valor_seguro_usd: 185,
-    taxa_cambio: 5.12,
-    num_di: null, num_nfe: null,
-    produtos: [
-      { descricao: 'Chapa Inox 316L 2mm', ncm: '7219.12.00', qtd: 500, unidade: 'kg', valor_unit_usd: 22, valor_total_usd: 11000 },
-      { descricao: 'Tubo Inox 1.5" SCH10', ncm: '7306.40.00', qtd: 300, unidade: 'm', valor_unit_usd: 25, valor_total_usd: 7500 },
-    ],
-  },
-  {
-    id: 'IMP-2025-002', fornecedor_ext: 'Outokumpu Oy', pais_origem: 'Finlândia', moeda: 'EUR',
-    pedido: 'PC-2025-0032', data_pedido: addDias(hoje, -60), data_embarque: addDias(hoje, -42),
-    data_chegada_prevista: addDias(hoje, -5), data_di_registro: addDias(hoje, -3),
-    status: 'DI Registrada', incoterm: 'CIF',
-    valor_fob_usd: 32000, valor_frete_usd: 0, valor_seguro_usd: 0,
-    taxa_cambio: 5.48,
-    num_di: 'DI/2025/00123456', num_nfe: null,
-    produtos: [
-      { descricao: 'Bobina Inox 304 1.5mm', ncm: '7219.33.00', qtd: 2000, unidade: 'kg', valor_unit_usd: 16, valor_total_usd: 32000 },
-    ],
-  },
-  {
-    id: 'IMP-2025-003', fornecedor_ext: 'ThyssenKrupp Stainless', pais_origem: 'Alemanha', moeda: 'EUR',
-    pedido: 'PC-2025-0025', data_pedido: addDias(hoje, -90), data_embarque: addDias(hoje, -72),
-    data_chegada_prevista: addDias(hoje, -35), data_di_registro: addDias(hoje, -32),
-    status: 'NF-e Emitida', incoterm: 'CIF',
-    valor_fob_usd: 45000, valor_frete_usd: 0, valor_seguro_usd: 0,
-    taxa_cambio: 5.38,
-    num_di: 'DI/2025/00098123', num_nfe: '3001',
-    produtos: [
-      { descricao: 'Chapa Inox 304 3mm', ncm: '7219.12.00', qtd: 1500, unidade: 'kg', valor_unit_usd: 20, valor_total_usd: 30000 },
-      { descricao: 'Chapa Inox 316L 3mm', ncm: '7219.12.00', qtd: 750, unidade: 'kg', valor_unit_usd: 20, valor_total_usd: 15000 },
-    ],
-  },
-];
-
 export default function ImportacaoProcessos() {
   const navigate = useNavigate();
-  const [processos, setProcessos] = useState(MOCK);
+  const [processos, setProcessos] = useState([]);
+
+  const carregar = useCallback(async () => {
+    try {
+      const res = await api.get('/api/purchases/import');
+      setProcessos(res.data ?? []);
+    } catch {
+      toast.error('Erro ao carregar processos de importação');
+    }
+  }, []);
+
+  useEffect(() => { carregar(); }, [carregar]);
   const [busca, setBusca] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('Todos');
   const [showForm, setShowForm] = useState(false);

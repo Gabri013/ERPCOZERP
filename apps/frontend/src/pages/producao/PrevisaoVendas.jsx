@@ -1,7 +1,8 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { TrendingUp, Upload, Download, Plus, Pencil, Trash2, CheckCircle, AlertCircle, FileSpreadsheet } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '@/services/api';
 
 const MESES_ABREV = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 const ANO = new Date().getFullYear();
@@ -12,34 +13,24 @@ function mediaMovel(hist, n = 3) {
   return Math.round(hist.slice(-n).reduce((s, v) => s + v, 0) / n);
 }
 
-const MOCK_PRODUTOS = [
-  {
-    id: 1, codigo: 'TANK-500L', descricao: 'Tanque Inox 316L 500L', unidade: 'pc',
-    historico: [2, 3, 1, 2, 4, 3, 2, 3, 5, 4, 3, 4],
-    previsao_manual: null,
-  },
-  {
-    id: 2, codigo: 'REATOR-200L', descricao: 'Reator Inox 316L 200L', unidade: 'pc',
-    historico: [1, 0, 2, 1, 2, 1, 3, 2, 1, 2, 2, 3],
-    previsao_manual: null,
-  },
-  {
-    id: 3, codigo: 'COND-50M2', descricao: 'Condensador Tubular 50m²', unidade: 'pc',
-    historico: [0, 1, 0, 1, 1, 2, 1, 1, 0, 2, 1, 1],
-    previsao_manual: null,
-  },
-  {
-    id: 4, codigo: 'TANKMIX-1000L', descricao: 'Tanque Misturador 1000L', unidade: 'pc',
-    historico: [1, 1, 0, 1, 2, 1, 1, 2, 1, 1, 1, 2],
-    previsao_manual: null,
-  },
-];
-
 const MESES_FUTUROS = 6;
 
 export default function PrevisaoVendas() {
-  const [produtos, setProdutos] = useState(MOCK_PRODUTOS);
-  const [produtoSel, setProdutoSel] = useState(MOCK_PRODUTOS[0]);
+  const [produtos, setProdutos] = useState([]);
+  const [produtoSel, setProdutoSel] = useState(null);
+
+  const loadProdutos = useCallback(async () => {
+    try {
+      const res = await api.get('/api/production/sales-forecast');
+      const data = res.data?.data ?? res.data ?? [];
+      setProdutos(data);
+      if (data.length > 0) setProdutoSel(data[0]);
+    } catch {
+      setProdutos([]);
+    }
+  }, []);
+
+  useEffect(() => { loadProdutos(); }, [loadProdutos]);
   const [editandoId, setEditandoId] = useState(null);
   const [editVal, setEditVal] = useState('');
   const [aba, setAba] = useState('grafico');

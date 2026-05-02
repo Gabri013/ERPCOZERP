@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Plus, Search, ChevronRight, ChevronDown, Copy, Trash2, Save, Settings, XCircle, AlertCircle, Info, Edit2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '@/services/api';
 
 const TIPO_COMP = {
   normal:       { label: 'Normal',       cor: 'bg-gray-100 text-gray-600' },
@@ -12,53 +13,6 @@ const TIPO_COMP = {
   fantasma:     { label: 'Fantasma',     cor: 'bg-pink-100 text-pink-700' },
 };
 
-const MOCK_PRODUTOS = [
-  {
-    id: 'P001', codigo: 'TANK-500L', descricao: 'Tanque Inox 316L 500L c/ agitador',
-    unidade: 'pc', bomAtiva: 1,
-    boms: [
-      {
-        id: 1, rev: 'A', descricao: 'BOM Padrão', status: 'Ativa', data: '2026-01-10',
-        componentes: [
-          { id: 1, codigo: 'MP-CHAPA-316L-3MM', descricao: 'Chapa Inox 316L 3mm', unidade: 'kg', qtd: 45.5, tipo: 'normal', perda: 5, nivel: 1 },
-          { id: 2, codigo: 'MP-TUBO-1.5', descricao: 'Tubo Inox 1.5" SCH10', unidade: 'm', qtd: 8.2, tipo: 'normal', perda: 2, nivel: 1 },
-          { id: 3, codigo: 'CP-BOCAL-2', descricao: 'Bocal 2" Inox 316L', unidade: 'pc', qtd: 4, tipo: 'normal', perda: 0, nivel: 1 },
-          { id: 4, codigo: 'CP-AGITADOR-0.5KW', descricao: 'Motor agitador 0,5kW', unidade: 'pc', qtd: 1, tipo: 'normal', perda: 0, nivel: 1 },
-          { id: 5, codigo: 'MP-ELETRODO-316L', descricao: 'Eletrodo 316L 2,5mm', unidade: 'kg', qtd: 1.2, tipo: 'normal', perda: 10, nivel: 1 },
-          { id: 6, codigo: 'MP-CHAPA-304-3MM', descricao: 'Chapa Inox 304 3mm (alternativo)', unidade: 'kg', qtd: 45.5, tipo: 'alternativo', perda: 5, nivel: 1 },
-          { id: 7, codigo: 'CP-PERNA-SUPORTE', descricao: 'Conjunto pernas de suporte', unidade: 'cj', qtd: 1, tipo: 'normal', perda: 0, nivel: 1 },
-          { id: 8, codigo: 'SP-APARAS-INOX', descricao: 'Aparas de inox (subproduto)', unidade: 'kg', qtd: 4.5, tipo: 'subproduto', perda: 0, nivel: 1 },
-        ],
-      },
-      {
-        id: 2, rev: 'B', descricao: 'BOM c/ camisa de aquecimento', status: 'Inativa', data: '2026-03-15',
-        componentes: [
-          { id: 1, codigo: 'MP-CHAPA-316L-3MM', descricao: 'Chapa Inox 316L 3mm', unidade: 'kg', qtd: 58.0, tipo: 'normal', perda: 5, nivel: 1 },
-          { id: 2, codigo: 'MP-TUBO-1.5', descricao: 'Tubo Inox 1.5" SCH10', unidade: 'm', qtd: 12.5, tipo: 'normal', perda: 2, nivel: 1 },
-          { id: 3, codigo: 'CP-BOCAL-2', descricao: 'Bocal 2" Inox 316L', unidade: 'pc', qtd: 6, tipo: 'normal', perda: 0, nivel: 1 },
-          { id: 4, codigo: 'CP-AGITADOR-0.5KW', descricao: 'Motor agitador 0,5kW', unidade: 'pc', qtd: 1, tipo: 'normal', perda: 0, nivel: 1 },
-          { id: 5, codigo: 'CP-CAMISA-AQUEC', descricao: 'Camisa de aquecimento inox', unidade: 'pc', qtd: 1, tipo: 'opcional', perda: 0, nivel: 1 },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'P002', codigo: 'TROCADOR-100', descricao: 'Trocador de calor tubular 100m²',
-    unidade: 'pc', bomAtiva: 1,
-    boms: [
-      {
-        id: 1, rev: 'A', descricao: 'BOM Padrão', status: 'Ativa', data: '2026-02-05',
-        componentes: [
-          { id: 1, codigo: 'MP-TUBO-3/4', descricao: 'Tubo Inox 316L 3/4"', unidade: 'm', qtd: 320, tipo: 'normal', perda: 3, nivel: 1 },
-          { id: 2, codigo: 'CP-FLANGE-4', descricao: 'Flange 4" 150# ANSI', unidade: 'pc', qtd: 4, tipo: 'normal', perda: 0, nivel: 1 },
-          { id: 3, codigo: 'MP-CHAPA-316L-5MM', descricao: 'Chapa Inox 316L 5mm (espelhos)', unidade: 'kg', qtd: 28.3, tipo: 'normal', perda: 8, nivel: 1 },
-          { id: 4, codigo: 'CP-GAXETA', descricao: 'Gaxeta espiral inox', unidade: 'pc', qtd: 8, tipo: 'normal', perda: 0, nivel: 1 },
-          { id: 5, codigo: 'SP-APARAS-INOX', descricao: 'Aparas de inox', unidade: 'kg', qtd: 3.2, tipo: 'subproduto', perda: 0, nivel: 1 },
-        ],
-      },
-    ],
-  },
-];
 
 function TipoBadge({ tipo }) {
   const t = TIPO_COMP[tipo] || TIPO_COMP.normal;
@@ -93,7 +47,18 @@ function ComponenteRow({ comp, onEdit, onRemove, expanded, onToggle }) {
 }
 
 export default function ListaMateriais() {
-  const [produtos, setProdutos] = useState(MOCK_PRODUTOS);
+  const [produtos, setProdutos] = useState([]);
+
+  const loadProdutos = useCallback(async () => {
+    try {
+      const res = await api.get('/api/production/bom');
+      setProdutos(res.data?.data ?? res.data ?? []);
+    } catch {
+      setProdutos([]);
+    }
+  }, []);
+
+  useEffect(() => { loadProdutos(); }, [loadProdutos]);
   const [busca, setBusca] = useState('');
   const [produtoSel, setProdutoSel] = useState(null);
   const [bomSel, setBomSel] = useState(null);

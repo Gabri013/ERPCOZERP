@@ -1,6 +1,7 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { Plus, Search, CheckCircle, XCircle, Printer, Tag, AlertTriangle, Package, BarChart2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '@/services/api';
 
 const fmtD = (v) => v ? new Date(v + 'T00:00').toLocaleDateString('pt-BR') : '—';
 const fmtDT = (v) => v ? new Date(v).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
@@ -14,40 +15,6 @@ const STATUS_REP = {
   'Com Refugo':   'bg-red-100 text-red-700',
 };
 
-const MOCK_OPS = [
-  {
-    id: 'OP-2025-001', produto: 'Tanque Inox 316L 500L', codigo_produto: 'TANK-500L',
-    qtd_planejada: 2, qtd_reportada: 1, qtd_refugo: 0, qtd_re_trabalho: 0,
-    status: 'Em Produção', operadores: ['João S.', 'Maria L.'],
-    prazo: addDias(hoje, 12),
-    subprodutos: [{ codigo: 'SP-APARAS-INOX', descricao: 'Aparas de inox', qtd_esperada: 9.0, qtd_gerada: 0, unidade: 'kg' }],
-    co_produtos: [],
-    reportes: [
-      { id: 1, data: addDias(hoje, -1) + 'T14:30:00', operador: 'João S.', qtd: 1, lote: 'LT-2025-0051', refugo: 0, obs: '' },
-    ],
-  },
-  {
-    id: 'OP-2025-002', produto: 'Trocador Tubular 100m²', codigo_produto: 'TROCADOR-100',
-    qtd_planejada: 2, qtd_reportada: 0, qtd_refugo: 0, qtd_re_trabalho: 0,
-    status: 'Pendente', operadores: ['Ana P.'],
-    prazo: addDias(hoje, 20),
-    subprodutos: [{ codigo: 'SP-APARAS-INOX', descricao: 'Aparas de inox', qtd_esperada: 6.4, qtd_gerada: 0, unidade: 'kg' }],
-    co_produtos: [],
-    reportes: [],
-  },
-  {
-    id: 'OP-2025-003', produto: 'Reator 200L', codigo_produto: 'REATOR-200L',
-    qtd_planejada: 1, qtd_reportada: 1, qtd_refugo: 0, qtd_re_trabalho: 0,
-    status: 'Concluído', operadores: ['Carlos M.'],
-    prazo: addDias(hoje, -2),
-    subprodutos: [{ codigo: 'SP-APARAS-INOX', descricao: 'Aparas de inox', qtd_esperada: 3.5, qtd_gerada: 3.5, unidade: 'kg' }],
-    co_produtos: [],
-    reportes: [
-      { id: 1, data: addDias(hoje, -3) + 'T09:15:00', operador: 'Carlos M.', qtd: 1, lote: 'LT-2025-0048', refugo: 0, obs: '' },
-    ],
-  },
-];
-
 const ETIQUETA_LAYOUT = (op, lote, qtd) => ({
   linha1: op.produto,
   linha2: `Cód: ${op.codigo_produto}`,
@@ -57,7 +24,18 @@ const ETIQUETA_LAYOUT = (op, lote, qtd) => ({
 
 export default function ReporteProducao() {
   const [aba, setAba] = useState('reportes');
-  const [ops, setOps] = useState(MOCK_OPS);
+  const [ops, setOps] = useState([]);
+
+  const loadOps = useCallback(async () => {
+    try {
+      const res = await api.get('/api/production/reports');
+      setOps(res.data?.data ?? res.data ?? []);
+    } catch {
+      setOps([]);
+    }
+  }, []);
+
+  useEffect(() => { loadOps(); }, [loadOps]);
   const [opSel, setOpSel] = useState(null);
   const [showReporte, setShowReporte] = useState(false);
   const [showEtiqueta, setShowEtiqueta] = useState(null);

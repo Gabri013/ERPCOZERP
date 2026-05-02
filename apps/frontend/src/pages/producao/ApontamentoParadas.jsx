@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Pause, Plus, CheckCircle, XCircle, Clock, Wrench, AlertTriangle, Search } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { toast } from 'sonner';
+import { api } from '@/services/api';
 
 const fmtDT = (v) => v ? new Date(v).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
 const fmtMin = (v) => v >= 60 ? `${Math.floor(v/60)}h${String(v%60).padStart(2,'0')}` : `${v}min`;
@@ -25,18 +26,21 @@ const TIPO_COR = {
 
 const MAQUINAS = ['CNC-01','CNC-02','SOLD-01','SOLD-02','DOBR-01','POLL-01','MONT-01','TORN-01'];
 
-const MOCK_PARADAS = [
-  { id: 1, maquina: 'SOLD-02', motivo: 'Espera por Matéria Prima', inicio: addH(2.5), fim: null,     duracao: null,  op: 'OP-2025-001', operador: 'Pedro R.', obs: 'Aguardando chapa 316L' },
-  { id: 2, maquina: 'MONT-01', motivo: 'Manutenção Preventiva',    inicio: addH(1.0), fim: null,     duracao: null,  op: null,          operador: 'Técnico J.', obs: 'Lubrificação geral' },
-  { id: 3, maquina: 'CNC-01',  motivo: 'Setup / Troca de Ferramenta', inicio: addH(5), fim: addH(4.5), duracao: 30, op: 'OP-2025-004', operador: 'Carlos S.', obs: '' },
-  { id: 4, maquina: 'DOBR-01', motivo: 'Manutenção Corretiva',     inicio: addH(8),   fim: addH(6),  duracao: 120,  op: null,          operador: 'Técnico J.', obs: 'Troca de cilindro hidráulico' },
-  { id: 5, maquina: 'SOLD-01', motivo: 'Espera por Documentação',  inicio: addH(12),  fim: addH(11), duracao: 60,   op: 'OP-2025-002', operador: 'Ana M.',   obs: 'Aguardando desenho técnico' },
-];
-
 const PIE_COLORS = ['#ef4444','#f97316','#f59e0b','#3b82f6','#8b5cf6','#ec4899','#6b7280'];
 
 export default function ApontamentoParadas() {
-  const [paradas, setParadas] = useState(MOCK_PARADAS);
+  const [paradas, setParadas] = useState([]);
+
+  const loadParadas = useCallback(async () => {
+    try {
+      const res = await api.get('/api/production/downtime');
+      setParadas(res.data?.data ?? res.data ?? []);
+    } catch {
+      setParadas([]);
+    }
+  }, []);
+
+  useEffect(() => { loadParadas(); }, [loadParadas]);
   const [busca, setBusca] = useState('');
   const [filtroMaq, setFiltroMaq] = useState('Todas');
   const [showForm, setShowForm] = useState(false);

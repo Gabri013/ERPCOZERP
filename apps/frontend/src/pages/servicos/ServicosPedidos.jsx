@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Plus, Search, Eye, FileText, CheckCircle, XCircle, Clock, ArrowRight, DollarSign, Printer, Send } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '@/services/api';
 
 const STATUS_FLOW = ['Orçamento', 'Aprovado', 'Em Execução', 'Concluído', 'Faturado'];
 
@@ -12,37 +13,6 @@ const STATUS_CFG = {
   Faturado:     { color: 'bg-green-100 text-green-700',  step: 4 },
   Cancelado:    { color: 'bg-red-100 text-red-700',      step: -1 },
 };
-
-const MOCK = [
-  {
-    id: 1, numero: 'PS-00001', cliente: 'Restaurante Sabor & Arte', contato: 'Carlos Mendes',
-    servico: 'Manutenção preventiva câmara fria', descricao: 'Revisão completa, lubrificação, substituição de borrachas e ajuste de temperatura',
-    status: 'Em Execução', data_pedido: '2026-04-28', data_prevista: '2026-05-08',
-    executor: 'João Técnico', valor: 1950, valor_custo: 700,
-    nfse_numero: '', nfse_status: '', obs: 'Agendar visita no período da manhã'
-  },
-  {
-    id: 2, numero: 'PS-00002', cliente: 'Hotel Beira Mar', contato: 'Fernanda Souza',
-    servico: 'Instalação balcão refrigerado 3m inox', descricao: 'Instalação completa com nivelamento, vedação e teste de funcionamento',
-    status: 'Aprovado', data_pedido: '2026-04-30', data_prevista: '2026-05-12',
-    executor: 'Pedro Instalador', valor: 4800, valor_custo: 1800,
-    nfse_numero: '', nfse_status: '', obs: ''
-  },
-  {
-    id: 3, numero: 'PS-00003', cliente: 'Cozinha Industrial LTDA', contato: 'Paulo Lima',
-    servico: 'Fabricação cuba tripla sob medida ABNT', descricao: 'Projeto e fabricação de cuba inox AISI 304 com dreno e válvula',
-    status: 'Faturado', data_pedido: '2026-04-20', data_prevista: '2026-04-30',
-    executor: 'Fábrica', valor: 7500, valor_custo: 3200,
-    nfse_numero: '123456', nfse_status: 'Autorizada', obs: ''
-  },
-  {
-    id: 4, numero: 'PS-00004', cliente: 'Padaria São João', contato: 'Lucia Torres',
-    servico: 'Retrofit coifa inox 2,5m c/ filtro centrífugo', descricao: 'Substituição de filtro de gordura, pintura interna e revisão de motor',
-    status: 'Concluído', data_pedido: '2026-04-22', data_prevista: '2026-04-28',
-    executor: 'João Técnico', valor: 3200, valor_custo: 1100,
-    nfse_numero: '', nfse_status: '', obs: 'Aguardando aprovação para faturar'
-  },
-];
 
 function ProgressBar({ status }) {
   const step = STATUS_CFG[status]?.step ?? -1;
@@ -65,10 +35,26 @@ function ProgressBar({ status }) {
 }
 
 export default function ServicosPedidos() {
-  const [dados, setDados] = useState(MOCK);
+  const [dados, setDados] = useState([]);
   const [busca, setBusca] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('Todos');
   const [detalhe, setDetalhe] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await api.get('/api/sales/service-orders');
+      const list = Array.isArray(res?.data?.data) ? res.data.data : Array.isArray(res?.data) ? res.data : [];
+      setDados(list);
+    } catch {
+      toast.error('Erro ao carregar pedidos');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
 
   const lista = useMemo(() => {
     let d = dados;
@@ -87,18 +73,32 @@ export default function ServicosPedidos() {
       ? Math.round(((dados.reduce((s, d) => s + d.valor, 0) - dados.reduce((s, d) => s + d.valor_custo, 0)) / dados.reduce((s, d) => s + d.valor, 0)) * 100) : 0,
   }), [dados]);
 
-  const avancar = (item) => {
+  const avancar = async (item) => {
     const next = { Orçamento: 'Aprovado', Aprovado: 'Em Execução', 'Em Execução': 'Concluído', Concluído: 'Faturado' };
     if (!next[item.status]) return toast.info('Pedido já finalizado');
-    setDados(dados.map((d) => d.id === item.id ? { ...d, status: next[d.status] } : d));
-    setDetalhe((p) => p?.id === item.id ? { ...p, status: next[p.status] } : p);
-    toast.success(`Status → ${next[item.status]}`);
+    const newStatus = next[item.status];
+    setDados((prev) => prev.map((d) => d.id === item.id ? { ...d, status: newStatus } : d));
+    setDetalhe((p) => p?.id === item.id ? { ...p, status: newStatus } : p);
+    toast.success(`Status → ${newStatus}`);
+    try {
+      await api.put(`/api/sales/service-orders/${item.id}`, { status: newStatus });
+    } catch {
+      toast.error('Erro ao atualizar status');
+      load();
+    }
   };
 
-  const emitirNfse = (item) => {
-    setDados(dados.map((d) => d.id === item.id ? { ...d, nfse_numero: `NFS-${Math.floor(Math.random() * 900000 + 100000)}`, nfse_status: 'Autorizada', status: 'Faturado' } : d));
-    setDetalhe((p) => p?.id === item.id ? { ...p, nfse_status: 'Autorizada', status: 'Faturado' } : p);
+  const emitirNfse = async (item) => {
     toast.success('NFS-e emitida e autorizada!');
+    try {
+      const res = await api.post(`/api/sales/nfse`, { service_order_id: item.id, valor: item.valor });
+      const nfse_numero = res?.data?.data?.numero_nfs || res?.data?.numero_nfs || `NFS-${Math.floor(Math.random() * 900000 + 100000)}`;
+      setDados((prev) => prev.map((d) => d.id === item.id ? { ...d, nfse_numero, nfse_status: 'Autorizada', status: 'Faturado' } : d));
+      setDetalhe((p) => p?.id === item.id ? { ...p, nfse_numero, nfse_status: 'Autorizada', status: 'Faturado' } : p);
+    } catch {
+      toast.error('Erro ao emitir NFS-e');
+      load();
+    }
   };
 
   const fmtBRL = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });

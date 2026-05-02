@@ -1,31 +1,15 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Plus, Search, Eye, Edit2, XCircle, CheckCircle, AlertCircle, TrendingUp, Percent, DollarSign, Save, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '@/services/api';
 
 const CATEGORIAS = ['Manutenção', 'Instalação', 'Consultoria', 'Projeto', 'Reforma', 'Treinamento', 'Inspeção', 'Suporte'];
 const UNIDADES = ['H', 'Hora', 'Diária', 'Serviço', 'Visita', 'Contrato', 'M²', 'Metro', 'Unidade'];
 
-const MOCK_TABELAS = [
-  { id: 1, nome: 'Tabela Padrão 2026', descricao: 'Preços padrão para todos os clientes', ativa: true, auto_aplicar: 'Padrão', vigencia_inicio: '2026-01-01', vigencia_fim: '2026-12-31', itens: 8 },
-  { id: 2, nome: 'Tabela Premium', descricao: 'Contratos acima de R$ 5.000/mês', ativa: true, auto_aplicar: 'Contrato Premium', vigencia_inicio: '2026-01-01', vigencia_fim: '2026-12-31', itens: 6 },
-  { id: 3, nome: 'Tabela Distribuidor', descricao: 'Revendedores e parceiros', ativa: false, auto_aplicar: 'Tipo cliente = Distribuidor', vigencia_inicio: '2026-01-01', vigencia_fim: '2026-12-31', itens: 5 },
-];
-
-const MOCK_ITENS = [
-  { id: 1, tabela_id: 1, codigo: 'SV-001', descricao: 'Mão de obra técnica — hora normal', categoria: 'Manutenção', unidade: 'H', preco_custo: 45, preco_venda: 120, margem_minima: 40, markup: 167 },
-  { id: 2, tabela_id: 1, codigo: 'SV-002', descricao: 'Mão de obra técnica — hora extra', categoria: 'Manutenção', unidade: 'H', preco_custo: 67, preco_venda: 180, margem_minima: 40, markup: 169 },
-  { id: 3, tabela_id: 1, codigo: 'SV-003', descricao: 'Diária de instalação (até 8h)', categoria: 'Instalação', unidade: 'Diária', preco_custo: 360, preco_venda: 800, margem_minima: 35, markup: 122 },
-  { id: 4, tabela_id: 1, codigo: 'SV-004', descricao: 'Consultoria técnica presencial', categoria: 'Consultoria', unidade: 'Visita', preco_custo: 200, preco_venda: 600, margem_minima: 50, markup: 200 },
-  { id: 5, tabela_id: 1, codigo: 'SV-005', descricao: 'Projeto personalizado (por hora)', categoria: 'Projeto', unidade: 'H', preco_custo: 80, preco_venda: 220, margem_minima: 45, markup: 175 },
-  { id: 6, tabela_id: 1, codigo: 'SV-006', descricao: 'Treinamento operacional (por turma)', categoria: 'Treinamento', unidade: 'Contrato', preco_custo: 500, preco_venda: 1500, margem_minima: 50, markup: 200 },
-  { id: 7, tabela_id: 1, codigo: 'SV-007', descricao: 'Inspeção técnica preventiva', categoria: 'Inspeção', unidade: 'Visita', preco_custo: 150, preco_venda: 380, margem_minima: 40, markup: 153 },
-  { id: 8, tabela_id: 1, codigo: 'SV-008', descricao: 'Suporte remoto — por hora', categoria: 'Suporte', unidade: 'H', preco_custo: 30, preco_venda: 90, margem_minima: 50, markup: 200 },
-];
-
 export default function TabelaPrecosServicos() {
-  const [tabelas, setTabelas] = useState(MOCK_TABELAS);
-  const [itens, setItens] = useState(MOCK_ITENS);
-  const [tabelaSel, setTabelaSel] = useState(MOCK_TABELAS[0]);
+  const [tabelas, setTabelas] = useState([]);
+  const [itens, setItens] = useState([]);
+  const [tabelaSel, setTabelaSel] = useState(null);
   const [aba, setAba] = useState('itens');
   const [busca, setBusca] = useState('');
   const [filtroCateg, setFiltroCateg] = useState('Todas');
@@ -33,6 +17,26 @@ export default function TabelaPrecosServicos() {
   const [showReajuste, setShowReajuste] = useState(false);
   const [pctReajuste, setPctReajuste] = useState('');
   const [reajusteCateg, setReajusteCateg] = useState('Todas');
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await api.get('/api/sales/service-prices');
+      const data = res?.data?.data ?? res?.data ?? {};
+      const tabelasList = Array.isArray(data.tabelas) ? data.tabelas : Array.isArray(data) ? data : [];
+      const itensList = Array.isArray(data.itens) ? data.itens : [];
+      setTabelas(tabelasList);
+      setItens(itensList);
+      if (tabelasList.length > 0) setTabelaSel((prev) => prev ?? tabelasList[0]);
+    } catch {
+      toast.error('Erro ao carregar tabelas de preço');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
 
   const itensDaTabela = useMemo(() => {
     let d = itens.filter((i) => i.tabela_id === tabelaSel?.id);
@@ -44,29 +48,42 @@ export default function TabelaPrecosServicos() {
   const margem = (item) => Math.round(((item.preco_venda - item.preco_custo) / item.preco_venda) * 100);
   const alertaMargem = (item) => margem(item) < item.margem_minima;
 
-  const salvarItem = (item) => {
-    if (item.id) {
-      setItens(itens.map((i) => i.id === item.id ? item : i));
-      toast.success('Item atualizado!');
-    } else {
-      const novo = { ...item, id: Date.now(), tabela_id: tabelaSel.id };
-      setItens([...itens, novo]);
-      toast.success('Item adicionado!');
+  const salvarItem = async (item) => {
+    try {
+      if (item.id) {
+        await api.put(`/api/sales/service-prices/itens/${item.id}`, item);
+        setItens((prev) => prev.map((i) => i.id === item.id ? item : i));
+        toast.success('Item atualizado!');
+      } else {
+        const res = await api.post('/api/sales/service-prices/itens', { ...item, tabela_id: tabelaSel?.id });
+        const novo = res?.data?.data ?? res?.data ?? { ...item, id: Date.now(), tabela_id: tabelaSel?.id };
+        setItens((prev) => [...prev, novo]);
+        toast.success('Item adicionado!');
+      }
+      setEditItem(null);
+    } catch {
+      toast.error('Erro ao salvar item');
     }
-    setEditItem(null);
   };
 
-  const aplicarReajuste = () => {
+  const aplicarReajuste = async () => {
     const pct = Number(pctReajuste);
     if (!pct) return toast.error('Informe o percentual');
-    setItens(itens.map((i) => {
-      if (i.tabela_id !== tabelaSel.id) return i;
+    const updated = itens.map((i) => {
+      if (i.tabela_id !== tabelaSel?.id) return i;
       if (reajusteCateg !== 'Todas' && i.categoria !== reajusteCateg) return i;
       const novoPreco = Number((i.preco_venda * (1 + pct / 100)).toFixed(2));
       return { ...i, preco_venda: novoPreco, markup: Math.round(((novoPreco - i.preco_custo) / i.preco_custo) * 100) };
-    }));
+    });
+    setItens(updated);
     setShowReajuste(false); setPctReajuste(''); setReajusteCateg('Todas');
     toast.success(`Reajuste de ${pct}% aplicado!`);
+    try {
+      await api.post('/api/sales/service-prices/reajuste', { tabela_id: tabelaSel?.id, percentual: pct, categoria: reajusteCateg });
+    } catch {
+      toast.error('Erro ao persistir reajuste');
+      load();
+    }
   };
 
   const fmtBRL = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -230,7 +247,7 @@ export default function TabelaPrecosServicos() {
                       <td>
                         <div className="flex gap-1">
                           <button type="button" onClick={() => setEditItem(item)} className="p-1 rounded hover:bg-muted text-muted-foreground"><Edit2 size={12} /></button>
-                          <button type="button" onClick={() => { setItens(itens.filter((i) => i.id !== item.id)); toast.success('Item removido'); }} className="p-1 rounded hover:bg-red-50 text-red-500"><Trash2 size={12} /></button>
+                          <button type="button" onClick={async () => { setItens((prev) => prev.filter((i) => i.id !== item.id)); toast.success('Item removido'); try { await api.delete(`/api/sales/service-prices/itens/${item.id}`); } catch { toast.error('Erro ao remover item'); load(); } }} className="p-1 rounded hover:bg-red-50 text-red-500"><Trash2 size={12} /></button>
                         </div>
                       </td>
                     </tr>

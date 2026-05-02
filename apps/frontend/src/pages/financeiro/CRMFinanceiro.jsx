@@ -1,37 +1,53 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Search, RefreshCw, Send, Eye, Phone, Mail, AlertCircle, XCircle, TrendingDown, DollarSign } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '@/services/api';
 
 const fmtBRL = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 });
 const fmtD = (v) => v ? new Date(v + 'T00:00').toLocaleDateString('pt-BR') : '—';
-const hoje = new Date().toISOString().split('T')[0];
-const addDias = (d, n) => { const dt = new Date(d); dt.setDate(dt.getDate() + n); return dt.toISOString().split('T')[0]; };
-
-const MOCK_INADIMPLENTES = [
-  { id: 1, cliente: 'Cozinha Industrial LTDA', codigo: '000003', total_receber: 745.78, em_atraso: 745.78, em_dia: 0, receb_30: 0, receb_90: 0, receb_ano: 0, total_hist: 10322.88, limite_credito: 15000, dias_atraso: 32 },
-  { id: 2, cliente: 'Restaurante Sol', codigo: '000007', total_receber: 1200, em_atraso: 800, em_dia: 400, receb_30: 0, receb_90: 1500, receb_ano: 3200, total_hist: 8500, limite_credito: 8000, dias_atraso: 15 },
-  { id: 3, cliente: 'Buffet Elegance', codigo: '000012', total_receber: 3500, em_atraso: 3500, em_dia: 0, receb_30: 0, receb_90: 0, receb_ano: 7000, total_hist: 22000, limite_credito: 20000, dias_atraso: 65 },
-];
-
-const MOCK_CONTAS_ATRASO = [
-  { id: 8858, vencimento: addDias(hoje, -365), agendamento: addDias(hoje, -365), classificacao: '10.01 - Receita com produto', empresa: 'COZINCA INOX LTDA', banco: 'Banco do Brasil', forma_pag: 'Boleto Bancário', pessoa: 'Cozinha Industrial LTDA', descricao: 'Documento 1617 - Parcela 1 de 1', valor: 100, nfe: '—' },
-  { id: 12865, vencimento: addDias(hoje, -75), agendamento: addDias(hoje, -75), classificacao: '10.02 - Receita com serviço', empresa: 'COZINCA INOX LTDA', banco: 'SICOOB', forma_pag: 'Boleto Bancário', pessoa: 'Cozinha Industrial LTDA', descricao: 'Documento 2221 - Parcela 1 de 3', valor: 322.89, nfe: '(-)' },
-  { id: 12866, vencimento: addDias(hoje, -45), agendamento: addDias(hoje, -45), classificacao: '10.02 - Receita com serviço', empresa: 'COZINCA INOX LTDA', banco: 'SICOOB', forma_pag: 'Boleto Bancário', pessoa: 'Cozinha Industrial LTDA', descricao: 'Documento 2221 - Parcela 2 de 3', valor: 322.89, nfe: '(-)' },
-];
-
 export default function CRMFinanceiro() {
   const [pessoaBusca, setPessoaBusca] = useState('');
   const [pessoaSel, setPessoaSel] = useState(null);
-  const [inadimplentes] = useState(MOCK_INADIMPLENTES);
-  const [contasAtraso] = useState(MOCK_CONTAS_ATRASO);
+  const [inadimplentes, setInadimplentes] = useState([]);
+  const [contasAtraso, setContasAtraso] = useState([]);
+
+  const loadData = useCallback(async () => {
+    try {
+      const res = await api.get('/api/financial/crm');
+      const body = res?.data?.data ?? res?.data ?? {};
+      setInadimplentes(Array.isArray(body.inadimplentes) ? body.inadimplentes : []);
+      setContasAtraso(Array.isArray(body.contas_atraso) ? body.contas_atraso : []);
+    } catch {
+      toast.error('Erro ao carregar CRM Financeiro');
+    }
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
   const [aba, setAba] = useState('receber');
 
-  const totalInadimplencia = inadimplentes.reduce((s, i) => s + i.em_atraso, 0);
+  const totalInadimplencia = inadimplentes.reduce((s, i) => s + (i.em_atraso || 0), 0);
 
-  const gerarRelatorio = () => {
-    const encontrado = inadimplentes.find((i) => i.cliente.toLowerCase().includes(pessoaBusca.toLowerCase()));
-    if (encontrado) { setPessoaSel(encontrado); toast.success('Relatório gerado!'); }
-    else toast.error('Pessoa não encontrada');
+  const gerarRelatorio = async () => {
+    if (!pessoaBusca.trim()) return;
+    const encontrado = inadimplentes.find((i) => i.cliente?.toLowerCase().includes(pessoaBusca.toLowerCase()));
+    if (encontrado) {
+      setPessoaSel(encontrado);
+      toast.success('Relatório gerado!');
+    } else {
+      try {
+        const res = await api.get(`/api/financial/crm?pessoa=${encodeURIComponent(pessoaBusca)}`);
+        const body = res?.data?.data ?? res?.data ?? {};
+        if (body.pessoa) {
+          setPessoaSel(body.pessoa);
+          setContasAtraso(Array.isArray(body.contas_atraso) ? body.contas_atraso : []);
+          toast.success('Relatório gerado!');
+        } else {
+          toast.error('Pessoa não encontrada');
+        }
+      } catch {
+        toast.error('Pessoa não encontrada');
+      }
+    }
   };
 
   return (
@@ -48,8 +64,8 @@ export default function CRMFinanceiro() {
         {[
           { label: 'Inadimplentes', value: inadimplentes.length, color: 'text-red-600', icon: AlertCircle },
           { label: 'Total em atraso', value: fmtBRL(totalInadimplencia), color: 'text-red-600', icon: TrendingDown },
-          { label: 'Maior devedor', value: fmtBRL(Math.max(...inadimplentes.map((i) => i.em_atraso))), color: 'text-orange-600' },
-          { label: 'Maior atraso (dias)', value: Math.max(...inadimplentes.map((i) => i.dias_atraso)), color: 'text-red-700' },
+          { label: 'Maior devedor', value: fmtBRL(inadimplentes.length ? Math.max(...inadimplentes.map((i) => i.em_atraso || 0)) : 0), color: 'text-orange-600' },
+          { label: 'Maior atraso (dias)', value: inadimplentes.length ? Math.max(...inadimplentes.map((i) => i.dias_atraso || 0)) : 0, color: 'text-red-700' },
         ].map((k) => (
           <div key={k.label} className="erp-card p-3">
             <p className="text-[10px] text-muted-foreground">{k.label}</p>

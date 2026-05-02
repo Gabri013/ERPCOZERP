@@ -1,10 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Plus, Search, CheckCircle, XCircle, AlertTriangle, Package } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '@/services/api';
 
 const fmtD = (v) => v ? new Date(v + 'T00:00').toLocaleDateString('pt-BR') : '—';
 const hoje = new Date().toISOString().split('T')[0];
-const addDias = (d, n) => { const dt = new Date(d); dt.setDate(dt.getDate() + n); return dt.toISOString().split('T')[0]; };
+
 
 const STATUS_COR = {
   'Pendente':    'bg-yellow-100 text-yellow-700',
@@ -16,34 +17,19 @@ const STATUS_COR = {
 
 const CENTROS_CUSTO = ['Administrativo', 'Comercial', 'Produção', 'Manutenção', 'P&D', 'Qualidade', 'Expedição'];
 
-const MOCK = [
-  {
-    id: 'RC-2025-001', data: addDias(hoje, -3), solicitante: 'Ana Oliveira', centro_custo: 'Administrativo',
-    status: 'Atendida', aprovador: 'Carlos Gerente', obs: 'Material de escritório mensal',
-    itens: [
-      { id: 1, codigo: 'MAT-PAPEL-A4', descricao: 'Resma de papel A4', unidade: 'cx', qtd_solicitada: 5, qtd_atendida: 5, lote: '', local: 'AL-ADM-01' },
-      { id: 2, codigo: 'MAT-CANETA', descricao: 'Caneta esferográfica azul', unidade: 'cx', qtd_solicitada: 2, qtd_atendida: 2, lote: '', local: 'AL-ADM-01' },
-    ],
-  },
-  {
-    id: 'RC-2025-002', data: hoje, solicitante: 'Pedro Manutenção', centro_custo: 'Manutenção',
-    status: 'Aprovada', aprovador: 'Carlos Gerente', obs: 'Manutenção preventiva torno CNC',
-    itens: [
-      { id: 1, codigo: 'MAT-OLEO-68', descricao: 'Óleo lubrificante ISO 68', unidade: 'L', qtd_solicitada: 20, qtd_atendida: 0, lote: '', local: '' },
-      { id: 2, codigo: 'MAT-FILTRO-3/4', descricao: 'Filtro de ar 3/4"', unidade: 'pc', qtd_solicitada: 4, qtd_atendida: 0, lote: '', local: '', sem_estoque: true },
-    ],
-  },
-  {
-    id: 'RC-2025-003', data: hoje, solicitante: 'Julia Qualidade', centro_custo: 'Qualidade',
-    status: 'Pendente', aprovador: null, obs: '',
-    itens: [
-      { id: 1, codigo: 'MAT-EPI-LUVA', descricao: 'Luva de procedimento M', unidade: 'cx', qtd_solicitada: 3, qtd_atendida: 0, lote: '', local: '' },
-    ],
-  },
-];
-
 export default function RequisicaoConsumo() {
-  const [requisicoes, setRequisicoes] = useState(MOCK);
+  const [requisicoes, setRequisicoes] = useState([]);
+
+  const carregar = useCallback(async () => {
+    try {
+      const res = await api.get('/api/stock/requisitions');
+      setRequisicoes(res.data ?? []);
+    } catch {
+      toast.error('Erro ao carregar requisições de consumo');
+    }
+  }, []);
+
+  useEffect(() => { carregar(); }, [carregar]);
   const [busca, setBusca] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('Todos');
   const [showForm, setShowForm] = useState(false);

@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Plus, Search, Eye, Send, Package, CheckCircle, XCircle, ChevronDown, FileText, Clock, AlertTriangle, Printer } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '@/services/api';
 
 const fmtBRL = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 });
 const fmtD = (v) => v ? new Date(v + 'T00:00').toLocaleDateString('pt-BR') : '—';
@@ -23,44 +24,23 @@ const STATUS_FLOW = {
   'Parcialmente Recebido': 'Recebido',
 };
 
-const MOCK = [
-  {
-    id: 'PC-2025-0042', fornecedor: 'Fornecedor Inox SP', data: addDias(hoje, -3), entrega_prevista: addDias(hoje, 4),
-    status: 'Enviado ao Fornecedor', cotacao: 'COT-2025-001', valor_total: 13500,
-    itens: [
-      { produto: 'Chapa Inox 304 2mm', quantidade: 50, unidade: 'chapa', valor_unit: 270, total: 13500, qtd_recebida: 0 },
-    ],
-    historico: [
-      { data: addDias(hoje, -3), evento: 'Pedido criado', usuario: 'João Compras' },
-      { data: addDias(hoje, -2), evento: 'Pedido confirmado', usuario: 'João Compras' },
-      { data: addDias(hoje, -1), evento: 'E-mail enviado ao fornecedor', usuario: 'Sistema' },
-    ],
-  },
-  {
-    id: 'PC-2025-0041', fornecedor: 'Distribuidora Aço Sul', data: addDias(hoje, -12), entrega_prevista: addDias(hoje, -2),
-    status: 'Parcialmente Recebido', cotacao: 'COT-2025-003', valor_total: 3200,
-    itens: [
-      { produto: 'Válvula Borboleta 2"', quantidade: 10, unidade: 'pç', valor_unit: 320, total: 3200, qtd_recebida: 6 },
-    ],
-    historico: [
-      { data: addDias(hoje, -12), evento: 'Pedido criado', usuario: 'Ana Compras' },
-      { data: addDias(hoje, -11), evento: 'Confirmado', usuario: 'Ana Compras' },
-      { data: addDias(hoje, -8), evento: 'E-mail enviado', usuario: 'Sistema' },
-      { data: addDias(hoje, -3), evento: 'Recebimento parcial: 6 de 10 peças', usuario: 'Almox' },
-    ],
-  },
-  {
-    id: 'PC-2025-0040', fornecedor: 'Metalúrgica Brasil', data: addDias(hoje, -20), entrega_prevista: addDias(hoje, -10),
-    status: 'Recebido', cotacao: null, valor_total: 8750,
-    itens: [
-      { produto: 'Tubo Inox 1" SCH10', quantidade: 200, unidade: 'm', valor_unit: 43.75, total: 8750, qtd_recebida: 200 },
-    ],
-    historico: [{ data: addDias(hoje, -20), evento: 'Criado', usuario: 'João' }, { data: addDias(hoje, -10), evento: 'Recebido total', usuario: 'Almox' }],
-  },
-];
-
 export default function PedidosCompra() {
-  const [pedidos, setPedidos] = useState(MOCK);
+  const [pedidos, setPedidos] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const carregar = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await api.get('/api/purchases/orders');
+      setPedidos(res.data ?? []);
+    } catch {
+      toast.error('Erro ao carregar pedidos de compra');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { carregar(); }, [carregar]);
   const [aba, setAba] = useState('Todos');
   const [busca, setBusca] = useState('');
   const [detalhe, setDetalhe] = useState(null);

@@ -1,7 +1,8 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Upload, FileText, CheckCircle, XCircle, AlertCircle, Globe, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { api } from '@/services/api';
 
 const fmtBRL = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 });
 const fmtUSD = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
@@ -9,23 +10,20 @@ const fmtD = (v) => v ? new Date(v + 'T00:00').toLocaleDateString('pt-BR') : 'â€
 const hoje = new Date().toISOString().split('T')[0];
 const addDias = (d, n) => { const dt = new Date(d); dt.setDate(dt.getDate() + n); return dt.toISOString().split('T')[0]; };
 
-const MOCK_DIS = [
-  {
-    id: 1, arquivo: 'DI_2025_00123456_Outokumpu.xml',
-    num_di: 'DI/2025/00123456', data_registro: addDias(hoje, -3),
-    importador: 'COZINCA INOX LTDA', cnpj: '62.137.272/0001-55',
-    num_adicoes: 1, num_itens: 1, recinto: 'Porto de Santos',
-    total_usd: 32000, taxa_cambio: 5.48, total_brl: 175360,
-    status: 'Processado', processo: 'IMP-2025-002',
-    adicoes: [
-      { num: 1, produto: 'Bobina Inox 304 1.5mm', ncm: '7219.33.00', qtd: 2000, unidade: 'kg', valor_usd: 32000, ii_aliq: 12, ipi_aliq: 0, pis_aliq: 2.10, cofins_aliq: 9.65, icms_aliq: 12 },
-    ],
-  },
-];
-
 export default function ImportacaoXMLDI() {
   const navigate = useNavigate();
-  const [xmlsDI, setXmlsDI] = useState(MOCK_DIS);
+  const [xmlsDI, setXmlsDI] = useState([]);
+
+  const carregar = useCallback(async () => {
+    try {
+      const res = await api.get('/api/purchases/import/xml-di');
+      setXmlsDI(res.data ?? []);
+    } catch {
+      toast.error('Erro ao carregar XMLs de DI importados');
+    }
+  }, []);
+
+  useEffect(() => { carregar(); }, [carregar]);
   const [dragging, setDragging] = useState(false);
   const [preview, setPreview] = useState(null);
   const [importando, setImportando] = useState(false);

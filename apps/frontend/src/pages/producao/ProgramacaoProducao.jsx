@@ -1,7 +1,8 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, ReferenceLine } from 'recharts';
 import { Calendar, AlertTriangle, CheckCircle, Clock, Zap, TrendingUp, RefreshCw, ChevronLeft, ChevronRight, Maximize2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '@/services/api';
 
 const hoje = new Date();
 const fmtD = (d) => new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
@@ -12,49 +13,13 @@ const diffDias = (a, b) => Math.round((new Date(b) - new Date(a)) / 86400000);
 const CORES_OP = ['#2563eb','#f59e0b','#10b981','#8b5cf6','#ef4444','#0ea5e9','#f97316'];
 const COR_STATUS = { 'Em Andamento': 'bg-blue-100 text-blue-700', 'Programada': 'bg-purple-100 text-purple-700', 'Atrasada': 'bg-red-100 text-red-700', 'Concluída': 'bg-green-100 text-green-700' };
 
-// ─── Dados mock da programação ───────────────────────────────────────────────
 const BASE = hoje;
-const OPS = [
-  { id: 'OP-001', produto: 'Tanque 500L',     pedido: 'PV-020', prazo_cliente: addDias(BASE, 12), valor: 42000, prioridade: 'Alta',
-    operacoes: [
-      { maquina: 'CNC-01',  op_nome: 'Corte Chapa',   inicio: addDias(BASE, 0),  fim: addDias(BASE, 2),  h: 16, status: 'Em Andamento' },
-      { maquina: 'DOBR-01', op_nome: 'Dobra Flanges',  inicio: addDias(BASE, 2),  fim: addDias(BASE, 3),  h: 8,  status: 'Programada' },
-      { maquina: 'SOLD-01', op_nome: 'Soldagem MIG',   inicio: addDias(BASE, 3),  fim: addDias(BASE, 7),  h: 32, status: 'Programada' },
-      { maquina: 'POLL-01', op_nome: 'Acabamento',     inicio: addDias(BASE, 7),  fim: addDias(BASE, 9),  h: 16, status: 'Programada' },
-      { maquina: 'MONT-01', op_nome: 'Montagem Final', inicio: addDias(BASE, 9),  fim: addDias(BASE, 11), h: 12, status: 'Programada' },
-    ]},
-  { id: 'OP-002', produto: 'Reator 200L',     pedido: 'PV-021', prazo_cliente: addDias(BASE, 7),  valor: 28000, prioridade: 'Urgente',
-    operacoes: [
-      { maquina: 'CNC-01',  op_nome: 'Corte Chapas',   inicio: addDias(BASE, 0),  fim: addDias(BASE, 1),  h: 8,  status: 'Em Andamento' },
-      { maquina: 'SOLD-02', op_nome: 'Soldagem TIG',   inicio: addDias(BASE, 1),  fim: addDias(BASE, 5),  h: 32, status: 'Programada' },
-      { maquina: 'POLL-01', op_nome: 'Acabamento',     inicio: addDias(BASE, 5),  fim: addDias(BASE, 6),  h: 8,  status: 'Programada' },
-      { maquina: 'MONT-01', op_nome: 'Montagem',       inicio: addDias(BASE, 6),  fim: addDias(BASE, 8),  h: 10, status: 'Programada' },
-    ]},
-  { id: 'OP-003', produto: 'Condensador 50m²',pedido: 'PV-019', prazo_cliente: addDias(BASE, 15), valor: 65000, prioridade: 'Normal',
-    operacoes: [
-      { maquina: 'CNC-02',  op_nome: 'Corte Tubos',    inicio: addDias(BASE, 1),  fim: addDias(BASE, 4),  h: 24, status: 'Programada' },
-      { maquina: 'SOLD-01', op_nome: 'Soldagem',       inicio: addDias(BASE, 7),  fim: addDias(BASE, 12), h: 40, status: 'Programada' },
-      { maquina: 'POLL-01', op_nome: 'Polimento',      inicio: addDias(BASE, 12), fim: addDias(BASE, 14), h: 16, status: 'Programada' },
-    ]},
-  { id: 'OP-004', produto: 'Tanque Mix 1000L',pedido: 'PV-022', prazo_cliente: addDias(BASE, 20), valor: 89000, prioridade: 'Normal',
-    operacoes: [
-      { maquina: 'CNC-02',  op_nome: 'Corte',          inicio: addDias(BASE, 4),  fim: addDias(BASE, 8),  h: 32, status: 'Programada' },
-      { maquina: 'DOBR-01', op_nome: 'Dobra',          inicio: addDias(BASE, 8),  fim: addDias(BASE, 10), h: 16, status: 'Programada' },
-      { maquina: 'SOLD-02', op_nome: 'Soldagem TIG',   inicio: addDias(BASE, 10), fim: addDias(BASE, 16), h: 48, status: 'Programada' },
-      { maquina: 'MONT-01', op_nome: 'Montagem Final', inicio: addDias(BASE, 16), fim: addDias(BASE, 19), h: 24, status: 'Programada' },
-    ]},
-  { id: 'OP-005', produto: 'Suporte Inox',    pedido: 'PV-023', prazo_cliente: addDias(BASE, 5),  valor: 8500,  prioridade: 'Alta',
-    operacoes: [
-      { maquina: 'TORN-01', op_nome: 'Torneamento',    inicio: addDias(BASE, 0),  fim: addDias(BASE, 2),  h: 12, status: 'Em Andamento' },
-      { maquina: 'SOLD-01', op_nome: 'Soldagem',       inicio: addDias(BASE, 2),  fim: addDias(BASE, 4),  h: 14, status: 'Programada' },
-    ]},
-];
 
 const MAQUINAS = ['CNC-01','CNC-02','DOBR-01','SOLD-01','SOLD-02','POLL-01','MONT-01','TORN-01'];
 const HORIZONTE = 21;
 
 // ─── GANTT helper ────────────────────────────────────────────────────────────
-function GanttChart({ dias, onHoje }) {
+function GanttChart({ dias, onHoje, ops = [] }) {
   const [opHover, setOpHover] = useState(null);
   const diasArr = Array.from({ length: dias }, (_, i) => addDias(BASE, i));
   const colW = 44;
@@ -163,6 +128,19 @@ function GanttChart({ dias, onHoje }) {
 export default function ProgramacaoProducao() {
   const [aba, setAba] = useState('gantt');
   const [horizonte, setHorizonte] = useState(21);
+  const [OPS, setOPS] = useState([]);
+
+  const loadSchedule = useCallback(async () => {
+    try {
+      const res = await api.get('/api/production/schedule');
+      const data = res.data?.data ?? res.data ?? [];
+      setOPS(Array.isArray(data) ? data : (data.ordens ?? data.ops ?? []));
+    } catch {
+      setOPS([]);
+    }
+  }, []);
+
+  useEffect(() => { loadSchedule(); }, [loadSchedule]);
 
   const pedidosAnalise = useMemo(() => OPS.map((op, i) => {
     const ultimaOp = op.operacoes[op.operacoes.length - 1];
@@ -264,7 +242,7 @@ export default function ProgramacaoProducao() {
             <span>Gráfico de Gantt — horizonte de <strong>{horizonte} dias</strong> a partir de hoje ({fmtD(hoje)})</span>
             <span className="ml-auto text-[10px] bg-muted px-2 py-0.5 rounded">Azul = linha de hoje</span>
           </div>
-          <GanttChart dias={horizonte} />
+          <GanttChart dias={horizonte} ops={OPS} />
         </div>
       )}
 

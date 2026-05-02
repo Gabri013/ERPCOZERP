@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Play, Download, Printer, Package, Tag, Plus, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import { opService } from '@/services/opService';
 import { apontamentoService } from '@/services/apontamentoService';
+import { api } from '@/services/api';
 import ApontamentoModal from '@/components/producao/ApontamentoModal';
 import { PodeRender, usePermissao } from '@/lib/PermissaoContext';
 import { exportOrdemProducaoModelo, exportPdfReport } from '@/services/pdfExport';
@@ -59,14 +60,10 @@ export default function DetalheOP() {
   const [apontamentos, setApontamentos] = useState([]);
   const [aba, setAba] = useState('dados');
   const [showApontamento, setShowApontamento] = useState(false);
-  const [revisoes, setRevisoes] = useState([
-    { id:1, data:'2026-04-15', prazoAnterior:'2026-04-20', novoPrazo:'2026-04-25', motivo:'Atraso no fornecimento de matéria-prima', responsavel:'Maria L.' }
-  ]);
+  const [revisoes, setRevisoes] = useState([]);
   const [opFiles, setOpFiles] = useState([]);
   const [bomData, setBomData] = useState(null); // { lines, bomStatus }
-  const [requisicoes] = useState([
-    { id: 'REQ-001', status: 'Requisitado', data: '2026-04-30', itens: 5, operador: 'João S.' },
-  ]);
+  const [requisicoes, setRequisicoes] = useState([]);
   const [reportes, setReportes] = useState([]);
   const [showReporte, setShowReporte] = useState(false);
   const [qtdReporte, setQtdReporte] = useState(1);
@@ -122,6 +119,21 @@ export default function DetalheOP() {
     })();
     return () => { ok = false; };
   }, [op?.codigoProduto]);
+
+  // Load requisicoes for this OP
+  useEffect(() => {
+    if (!id) return;
+    let ok = true;
+    (async () => {
+      try {
+        const res = await api.get(`/api/production/requisitions?opId=${id}`);
+        if (ok) setRequisicoes(res.data?.data ?? res.data ?? []);
+      } catch {
+        if (ok) setRequisicoes([]);
+      }
+    })();
+    return () => { ok = false; };
+  }, [id]);
 
   const roles = usuarioVisivel?.roles || [];
   const setorInfo = (() => {

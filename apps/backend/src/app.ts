@@ -31,6 +31,12 @@ import { registerFinancialModule } from './modules/financial/financial.module.js
 import { registerSearchModule } from './modules/search/search.module.js';
 import { registerPlatformModule } from './modules/platform/platform.module.js';
 import { registerRolesModule } from './modules/roles/roles.module.js';
+import { registerCrmProcessesModule } from './modules/crm-processes/crm-processes.module.js';
+import { registerProjectsModule } from './modules/projects/projects.module.js';
+import { registerKnowledgeModule } from './modules/knowledge/knowledge.module.js';
+import { registerQualityModule } from './modules/quality/quality.module.js';
+import { registerExpeditionModule } from './modules/expedition/expedition.module.js';
+import { registerAccountingModule } from './modules/accounting/accounting.module.js';
 
 export function createApp() {
   const app = express();
@@ -73,6 +79,12 @@ export function createApp() {
   registerSearchModule(app);
   registerPlatformModule(app);
   registerRolesModule(app);
+  registerCrmProcessesModule(app);
+  registerProjectsModule(app);
+  registerKnowledgeModule(app);
+  registerQualityModule(app);
+  registerExpeditionModule(app);
+  registerAccountingModule(app);
 
   app.get('/', (req, res) => {
     res.json({

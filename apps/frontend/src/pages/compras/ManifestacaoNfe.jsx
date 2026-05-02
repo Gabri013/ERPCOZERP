@@ -1,11 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Search, RefreshCw, CheckCircle, XCircle, AlertCircle, Eye, ChevronDown, Download } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '@/services/api';
 
 const fmtBRL = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 });
 const fmtD = (v) => v ? new Date(v + 'T00:00').toLocaleDateString('pt-BR') : '—';
-const hoje = new Date().toISOString().split('T')[0];
-const addDias = (d, n) => { const dt = new Date(d); dt.setDate(dt.getDate() + n); return dt.toISOString().split('T')[0]; };
 
 const STATUS_MANIFES = {
   'Pendente':                  { color: 'bg-yellow-100 text-yellow-700', dot: 'bg-yellow-400' },
@@ -15,16 +14,19 @@ const STATUS_MANIFES = {
   'Op. Não Realizada':         { color: 'bg-red-100 text-red-700',      dot: 'bg-red-500' },
 };
 
-const MOCK_NFES = [
-  { id: 1, chave: '35250462137272000155550010001234561982341234', fornecedor: 'Fornecedor Inox SP', cnpj_emit: '62.137.272/0001-55', nfe_num: '1.234', serie: '1', data_emissao: addDias(hoje, -2), valor: 13500, status: 'Pendente', doc_entrada: null },
-  { id: 2, chave: '35250412345678000195550010000897651234567890', fornecedor: 'Metalúrgica Brasil', cnpj_emit: '12.345.678/0001-95', nfe_num: '897', serie: '1', data_emissao: addDias(hoje, -5), valor: 9725, status: 'Confirmado', doc_entrada: 'DE-2025-0037' },
-  { id: 3, chave: '35250499887766000100550010004567891357924680', fornecedor: 'Distribuidora Aço Sul', cnpj_emit: '99.887.766/0001-00', nfe_num: '4.567', serie: '1', data_emissao: addDias(hoje, -1), valor: 4800, status: 'Ciência da Operação', doc_entrada: null },
-  { id: 4, chave: '35250478965412000177550010000234561111111111', fornecedor: 'Importadora Metais', cnpj_emit: '78.965.412/0001-77', nfe_num: '234', serie: '1', data_emissao: addDias(hoje, -7), valor: 22400, status: 'Pendente', doc_entrada: null },
-  { id: 5, chave: '35250411122233000144550010000099871234598765', fornecedor: 'Fornecedor Desconhecido', cnpj_emit: '11.122.233/0001-44', nfe_num: '99', serie: '1', data_emissao: addDias(hoje, -3), valor: 500, status: 'Desconhecido', doc_entrada: null },
-];
-
 export default function ManifestacaoNfe() {
-  const [nfes, setNfes] = useState(MOCK_NFES);
+  const [nfes, setNfes] = useState([]);
+
+  const carregar = useCallback(async () => {
+    try {
+      const res = await api.get('/api/purchases/manifestation');
+      setNfes(res.data ?? []);
+    } catch {
+      toast.error('Erro ao carregar manifestações NF-e');
+    }
+  }, []);
+
+  useEffect(() => { carregar(); }, [carregar]);
   const [filtroStatus, setFiltroStatus] = useState('Todos');
   const [busca, setBusca] = useState('');
   const [detalhe, setDetalhe] = useState(null);

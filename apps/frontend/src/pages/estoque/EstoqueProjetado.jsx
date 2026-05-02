@@ -1,5 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Search, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, BarChart2, List, Info } from 'lucide-react';
+import { toast } from 'sonner';
+import { api } from '@/services/api';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
 
 const fmtN = (v) => Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -7,50 +9,6 @@ const fmtD = (v) => v ? new Date(v + 'T00:00').toLocaleDateString('pt-BR') : '�
 const hoje = new Date().toISOString().split('T')[0];
 const addDias = (d, n) => { const dt = new Date(d); dt.setDate(dt.getDate() + n); return dt.toISOString().split('T')[0]; };
 
-// ---- Mock data: produtos com movimentações futuras ----
-const MOCK_PRODUTOS = [
-  {
-    id: 1, codigo: 'TANK-500L', descricao: 'Tanque Inox 316L 500L', unidade: 'pc',
-    saldo_atual: 2, estoque_minimo: 1, estoque_maximo: 5,
-    movimentacoes_futuras: [
-      { data: addDias(hoje, 3),  tipo: 'Entrada',    origem: 'OP-2025-001', descricao: 'OP Produção',         qtd: +2 },
-      { data: addDias(hoje, 7),  tipo: 'Saída',      origem: 'PV-2025-020', descricao: 'Pedido de Venda',     qtd: -1 },
-      { data: addDias(hoje, 10), tipo: 'Empenho',    origem: 'PV-2025-021', descricao: 'Empenho PV',          qtd: -1 },
-      { data: addDias(hoje, 15), tipo: 'Saída',      origem: 'PV-2025-022', descricao: 'Pedido de Venda',     qtd: -2 },
-      { data: addDias(hoje, 20), tipo: 'Entrada',    origem: 'PC-2025-008', descricao: 'Pedido de Compra',    qtd: +1 },
-    ],
-  },
-  {
-    id: 2, codigo: 'MP-CHAPA-316L-3MM', descricao: 'Chapa Inox 316L 3mm', unidade: 'kg',
-    saldo_atual: 580, estoque_minimo: 200, estoque_maximo: 1500,
-    movimentacoes_futuras: [
-      { data: addDias(hoje, 2),  tipo: 'Requisição', origem: 'OP-2025-001', descricao: 'Requisição OP',       qtd: -45.5 },
-      { data: addDias(hoje, 2),  tipo: 'Requisição', origem: 'OP-2025-002', descricao: 'Requisição OP',       qtd: -120 },
-      { data: addDias(hoje, 5),  tipo: 'Entrada',    origem: 'PC-2025-040', descricao: 'Pedido de Compra',    qtd: +500 },
-      { data: addDias(hoje, 8),  tipo: 'Requisição', origem: 'OP-2025-003', descricao: 'Requisição OP',       qtd: -85 },
-      { data: addDias(hoje, 12), tipo: 'Entrada',    origem: 'PC-2025-041', descricao: 'Pedido de Compra',    qtd: +300 },
-      { data: addDias(hoje, 18), tipo: 'Requisição', origem: 'OP-2025-004', descricao: 'Requisição OP',       qtd: -200 },
-    ],
-  },
-  {
-    id: 3, codigo: 'MP-TUBO-1.5', descricao: 'Tubo Inox 1.5" SCH10', unidade: 'm',
-    saldo_atual: 45, estoque_minimo: 80, estoque_maximo: 500,
-    movimentacoes_futuras: [
-      { data: addDias(hoje, 1),  tipo: 'Requisição', origem: 'OP-2025-001', descricao: 'Requisição OP',       qtd: -8.2 },
-      { data: addDias(hoje, 3),  tipo: 'Requisição', origem: 'OP-2025-002', descricao: 'Requisição OP',       qtd: -12.5 },
-      { data: addDias(hoje, 10), tipo: 'Sol. Compra', origem: 'SC-2025-012', descricao: 'Solicitação Compra', qtd: +200 },
-    ],
-  },
-  {
-    id: 4, codigo: 'CP-BOCAL-2', descricao: 'Bocal 2" Inox 316L', unidade: 'pc',
-    saldo_atual: 28, estoque_minimo: 10, estoque_maximo: 100,
-    movimentacoes_futuras: [
-      { data: addDias(hoje, 3),  tipo: 'Requisição', origem: 'OP-2025-001', descricao: 'Requisição OP',       qtd: -4 },
-      { data: addDias(hoje, 8),  tipo: 'Entrada',    origem: 'PC-2025-038', descricao: 'Pedido de Compra',    qtd: +50 },
-      { data: addDias(hoje, 15), tipo: 'Requisição', origem: 'OP-2025-003', descricao: 'Requisição OP',       qtd: -6 },
-    ],
-  },
-];
 
 const TIPO_COR = {
   'Entrada':    { bg: 'bg-green-100 text-green-700',  sinal: '+', classe: 'text-green-700' },
@@ -75,24 +33,36 @@ export default function EstoqueProjetado() {
   const [busca, setBusca] = useState('');
   const [produtoSel, setProdutoSel] = useState(null);
   const [modo, setModo] = useState('lista'); // 'lista' | 'grafico'
+  const [produtos, setProdutos] = useState([]);
+
+  const carregar = useCallback(async () => {
+    try {
+      const res = await api.get('/api/stock/projected');
+      setProdutos(res.data ?? []);
+    } catch {
+      toast.error('Erro ao carregar estoque projetado');
+    }
+  }, []);
+
+  useEffect(() => { carregar(); }, [carregar]);
 
   const produtosFiltrados = useMemo(() => {
     const q = busca.toLowerCase();
-    return MOCK_PRODUTOS.filter((p) => !q || p.codigo.toLowerCase().includes(q) || p.descricao.toLowerCase().includes(q));
-  }, [busca]);
+    return produtos.filter((p) => !q || p.codigo.toLowerCase().includes(q) || p.descricao.toLowerCase().includes(q));
+  }, [produtos, busca]);
 
   const projecao = useMemo(() => produtoSel ? calcularProjecao(produtoSel) : [], [produtoSel]);
 
   const saldoMinimo = projecao.length > 1 ? Math.min(...projecao.map((p) => p.saldo)) : 0;
   const alertaRuptura = produtoSel && saldoMinimo < produtoSel.estoque_minimo;
 
-  const totaisSugestao = useMemo(() => MOCK_PRODUTOS.map((p) => {
+  const totaisSugestao = useMemo(() => produtos.map((p) => {
     const proj = calcularProjecao(p);
     const minSaldo = Math.min(...proj.map((x) => x.saldo));
     const abaixoMinimo = minSaldo < p.estoque_minimo;
     const qtdSugerida = abaixoMinimo ? Math.ceil(p.estoque_maximo - minSaldo) : 0;
     return { ...p, minSaldo, abaixoMinimo, qtdSugerida };
-  }), []);
+  }), [produtos]);
 
   const precisamCompra = totaisSugestao.filter((p) => p.abaixoMinimo);
 

@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Factory, CheckCircle, AlertTriangle, Plus, Loader2, ChevronDown, ChevronRight, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '@/services/api';
 
 const MESES_ABREV = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 const ANO = new Date().getFullYear();
@@ -11,52 +12,20 @@ const PERIODOS = Array.from({ length: 6 }, (_, i) => {
   return { label: `${MESES_ABREV[m]}/${a}`, mes: m, ano: a, idx: i };
 });
 
-// Plano de produção: calcula necessidade = Previsão + Pedidos em carteira - Estoque atual - Estoque mínimo
-const MOCK_PLANO = [
-  {
-    id: 1, codigo: 'TANK-500L', descricao: 'Tanque Inox 316L 500L', tipo: 'PA', unidade: 'pc',
-    estoque_atual: 2, estoque_minimo: 1,
-    previsao:         [3, 4, 3, 4, 5, 4],
-    pedidos_carteira: [2, 1, 0, 1, 0, 0],
-    ops_abertas:      [2, 0, 0, 0, 0, 0],
-  },
-  {
-    id: 2, codigo: 'REATOR-200L', descricao: 'Reator Inox 316L 200L', tipo: 'PA', unidade: 'pc',
-    estoque_atual: 0, estoque_minimo: 1,
-    previsao:         [2, 2, 1, 2, 2, 1],
-    pedidos_carteira: [1, 1, 0, 0, 0, 0],
-    ops_abertas:      [1, 0, 0, 0, 0, 0],
-  },
-  {
-    id: 3, codigo: 'COND-50M2', descricao: 'Condensador Tubular 50m²', tipo: 'PA', unidade: 'pc',
-    estoque_atual: 0, estoque_minimo: 0,
-    previsao:         [1, 1, 2, 1, 1, 1],
-    pedidos_carteira: [0, 1, 0, 0, 0, 0],
-    ops_abertas:      [0, 0, 0, 0, 0, 0],
-  },
-  {
-    id: 4, codigo: 'TANKMIX-1000L', descricao: 'Tanque Misturador 1000L', tipo: 'PA', unidade: 'pc',
-    estoque_atual: 1, estoque_minimo: 1,
-    previsao:         [1, 2, 1, 2, 1, 2],
-    pedidos_carteira: [1, 0, 0, 0, 0, 0],
-    ops_abertas:      [0, 0, 0, 0, 0, 0],
-  },
-];
-
 function calcPlano(prod) {
-  let saldoProjetado = prod.estoque_atual;
+  let saldoProjetado = prod.estoque_atual ?? 0;
   return PERIODOS.map((p, i) => {
-    const demanda = (prod.previsao[i] || 0) + (prod.pedidos_carteira[i] || 0);
-    const recepcao = prod.ops_abertas[i] || 0;
+    const demanda = ((prod.previsao ?? [])[i] || 0) + ((prod.pedidos_carteira ?? [])[i] || 0);
+    const recepcao = (prod.ops_abertas ?? [])[i] || 0;
     const necessidade_bruta = Math.max(0, demanda - saldoProjetado - recepcao);
-    const necessidade_liq = Math.max(0, necessidade_bruta + prod.estoque_minimo - saldoProjetado - recepcao);
+    const necessidade_liq = Math.max(0, necessidade_bruta + (prod.estoque_minimo ?? 0) - saldoProjetado - recepcao);
     const a_produzir = necessidade_liq > 0 ? necessidade_liq : 0;
     saldoProjetado = saldoProjetado + recepcao + a_produzir - demanda;
     saldoProjetado = Math.max(0, saldoProjetado);
     return {
       ...p,
-      previsao: prod.previsao[i] || 0,
-      pedidos: prod.pedidos_carteira[i] || 0,
+      previsao: (prod.previsao ?? [])[i] || 0,
+      pedidos: (prod.pedidos_carteira ?? [])[i] || 0,
       demanda,
       recepcao,
       a_produzir,
@@ -70,15 +39,27 @@ export default function PlanoProducao() {
   const [expandido, setExpandido] = useState({});
   const [gerandoTudo, setGerandoTudo] = useState(false);
   const [opsGeradas, setOpsGeradas] = useState({});
+  const [planoData, setPlanoData] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const plano = useMemo(() => MOCK_PLANO.map((p) => ({ ...p, periodos: calcPlano(p) })), []);
+  const loadPlano = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await api.get('/api/production/production-plan');
+      setPlanoData(res.data?.data ?? res.data ?? []);
+    } catch {
+      setPlanoData([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadPlano(); }, [loadPlano]);
+
+  const plano = useMemo(() => planoData.map((p) => ({ ...p, periodos: calcPlano(p) })), [planoData]);
 
   const totalOpsNecessarias = useMemo(() =>
     plano.reduce((s, p) => s + p.periodos.reduce((ss, per) => ss + (per.a_produzir > 0 ? 1 : 0), 0), 0),
-    [plano]);
-
-  const totalAProduzir = useMemo(() =>
-    plano.map((p) => ({ codigo: p.codigo, total: p.periodos.reduce((s, per) => s + per.a_produzir, 0) })),
     [plano]);
 
   const gerarOPs = async (prodId, periodo) => {
@@ -110,7 +91,7 @@ export default function PlanoProducao() {
           <h1 className="text-xl font-bold flex items-center gap-2"><Factory size={20} className="text-primary" /> Plano de Produção</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Cálculo a partir da previsão de vendas, pedidos em carteira e saldo atual de estoque</p>
         </div>
-        <button type="button" onClick={gerarTodasOPs} disabled={gerandoTudo || totalOpsNecessarias === 0}
+        <button type="button" onClick={gerarTodasOPs} disabled={gerandoTudo || totalOpsNecessarias === 0 || loading}
           className="erp-btn-primary flex items-center gap-2 disabled:opacity-60">
           {gerandoTudo ? <><Loader2 size={14} className="animate-spin" /> Gerando OPs...</> : <><Plus size={14} /> Gerar Todas OPs ({totalOpsNecessarias})</>}
         </button>
@@ -118,8 +99,8 @@ export default function PlanoProducao() {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="erp-card p-3"><p className="text-[10px] text-muted-foreground">Produtos no plano</p><p className="text-lg font-bold">{plano.length}</p></div>
-        <div className="erp-card p-3"><p className="text-[10px] text-muted-foreground">OPs necessárias</p><p className="text-lg font-bold text-orange-600">{totalOpsNecessarias}</p></div>
+        <div className="erp-card p-3"><p className="text-[10px] text-muted-foreground">Produtos no plano</p><p className="text-lg font-bold">{loading ? '…' : plano.length}</p></div>
+        <div className="erp-card p-3"><p className="text-[10px] text-muted-foreground">OPs necessárias</p><p className="text-lg font-bold text-orange-600">{loading ? '…' : totalOpsNecessarias}</p></div>
         <div className="erp-card p-3"><p className="text-[10px] text-muted-foreground">OPs já geradas</p><p className="text-lg font-bold text-green-600">{Object.values(opsGeradas).filter((v) => v === 'gerada').length}</p></div>
         <div className="erp-card p-3"><p className="text-[10px] text-muted-foreground">Horizonte planejado</p><p className="text-lg font-bold text-primary">{PERIODOS.length} meses</p></div>
       </div>
@@ -131,6 +112,11 @@ export default function PlanoProducao() {
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-orange-200 inline-block" /> A Produzir (sugestão)</span>
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-purple-200 inline-block" /> Saldo Projetado</span>
       </div>
+
+      {loading && <div className="py-8 text-center text-sm text-muted-foreground">Carregando plano de produção…</div>}
+      {!loading && plano.length === 0 && (
+        <div className="py-8 text-center text-sm text-muted-foreground">Nenhum produto no plano de produção.</div>
+      )}
 
       {/* Plano por produto */}
       <div className="space-y-2">
@@ -146,11 +132,11 @@ export default function PlanoProducao() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-mono text-xs font-bold text-primary">{prod.codigo}</span>
                       <span className="font-medium text-sm">{prod.descricao}</span>
-                      <span className={`px-1.5 py-0.5 rounded text-[10px] ${prod.tipo === 'PA' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>{prod.tipo}</span>
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] ${prod.tipo === 'PA' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>{prod.tipo ?? 'PA'}</span>
                     </div>
                     <div className="flex gap-3 text-[10px] text-muted-foreground mt-0.5">
-                      <span>Estoque atual: <strong>{prod.estoque_atual} {prod.unidade}</strong></span>
-                      <span>Mínimo: <strong>{prod.estoque_minimo} {prod.unidade}</strong></span>
+                      <span>Estoque atual: <strong>{prod.estoque_atual ?? 0} {prod.unidade}</strong></span>
+                      <span>Mínimo: <strong>{prod.estoque_minimo ?? 0} {prod.unidade}</strong></span>
                       {totalProd > 0 && <span className="text-orange-600 font-semibold">A produzir (6m): {totalProd} {prod.unidade}</span>}
                     </div>
                   </div>
@@ -212,25 +198,27 @@ export default function PlanoProducao() {
       </div>
 
       {/* Sumário total */}
-      <div className="erp-card p-4">
-        <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5"><TrendingUp size={13} className="text-primary" /> Resumo do Plano — próximos 6 meses</h3>
-        <table className="w-full text-xs">
-          <thead><tr className="bg-muted"><th className="text-left p-2">Produto</th><th className="text-right p-2">Total a Produzir</th>{PERIODOS.map((p) => <th key={p.label} className="text-right p-2 whitespace-nowrap">{p.label}</th>)}</tr></thead>
-          <tbody>
-            {plano.map((prod) => (
-              <tr key={prod.id} className="border-b border-border/30">
-                <td className="p-2"><div className="font-mono font-semibold text-primary">{prod.codigo}</div></td>
-                <td className="p-2 text-right font-bold">{prod.periodos.reduce((s, p) => s + p.a_produzir, 0)} {prod.unidade}</td>
-                {prod.periodos.map((per, i) => (
-                  <td key={i} className={`p-2 text-right ${per.a_produzir > 0 ? 'text-orange-600 font-semibold' : 'text-muted-foreground/40'}`}>
-                    {per.a_produzir > 0 ? per.a_produzir : '—'}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {plano.length > 0 && (
+        <div className="erp-card p-4">
+          <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5"><TrendingUp size={13} className="text-primary" /> Resumo do Plano — próximos 6 meses</h3>
+          <table className="w-full text-xs">
+            <thead><tr className="bg-muted"><th className="text-left p-2">Produto</th><th className="text-right p-2">Total a Produzir</th>{PERIODOS.map((p) => <th key={p.label} className="text-right p-2 whitespace-nowrap">{p.label}</th>)}</tr></thead>
+            <tbody>
+              {plano.map((prod) => (
+                <tr key={prod.id} className="border-b border-border/30">
+                  <td className="p-2"><div className="font-mono font-semibold text-primary">{prod.codigo}</div></td>
+                  <td className="p-2 text-right font-bold">{prod.periodos.reduce((s, p) => s + p.a_produzir, 0)} {prod.unidade}</td>
+                  {prod.periodos.map((per, i) => (
+                    <td key={i} className={`p-2 text-right ${per.a_produzir > 0 ? 'text-orange-600 font-semibold' : 'text-muted-foreground/40'}`}>
+                      {per.a_produzir > 0 ? per.a_produzir : '—'}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

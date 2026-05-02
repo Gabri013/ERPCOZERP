@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Plus, Search, Eye, CheckCircle, XCircle, AlertTriangle, Truck, FileText, Package, BarChart2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { api } from '@/services/api';
 
 const fmtBRL = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 });
 const fmtD = (v) => v ? new Date(v + 'T00:00').toLocaleDateString('pt-BR') : '—';
@@ -20,64 +21,26 @@ const STATUS_COR = {
 
 const PASSOS = ['Aberta', 'Mat. Remetidos', 'Em Produção', 'Produção Concluída', 'NF-e Recebida', 'Encerrada'];
 
-const MOCK = [
-  {
-    id: 'OPT-2025-001', fornecedor: 'Metalúrgica Bessa Ltda', cnpj: '12.345.678/0001-99',
-    produto: 'Chapas cortadas a laser', codigo: 'SV-CORTE-LASER',
-    pedido_compra: 'PC-2025-0041', pedido_venda: 'PV-2025-0018',
-    data_abertura: addDias(hoje, -15), prazo: addDias(hoje, 5), status: 'Em Produção',
-    valor_servico: 4800, custo_materiais: 12500,
-    materiais: [
-      { codigo: 'MP-CHAPA-316L-3MM', descricao: 'Chapa Inox 316L 3mm', qtd_remetida: 120, qtd_retornada: 0, qtd_consumida: 0, qtd_sobra: 0, unidade: 'kg', valor_unit: 35.50 },
-      { codigo: 'MP-CHAPA-304-2MM',  descricao: 'Chapa Inox 304 2mm',  qtd_remetida: 80,  qtd_retornada: 0, qtd_consumida: 0, qtd_sobra: 0, unidade: 'kg', valor_unit: 28.00 },
-    ],
-    nfe_remessa: [{ num: '001234', data: addDias(hoje, -14), cfop: '5901', valor: 6260, status: 'Autorizada' }],
-    nfe_retorno: [],
-    producao: [],
-  },
-  {
-    id: 'OPT-2025-002', fornecedor: 'Usinagem Precisa S/A', cnpj: '98.765.432/0001-11',
-    produto: 'Flanges usinadas', codigo: 'SV-USINAGEM',
-    pedido_compra: 'PC-2025-0038', pedido_venda: 'PV-2025-0015',
-    data_abertura: addDias(hoje, -30), prazo: addDias(hoje, -2), status: 'Produção Concluída',
-    valor_servico: 7200, custo_materiais: 9800,
-    materiais: [
-      { codigo: 'MP-BARRA-316L-2',  descricao: 'Barra Inox 316L 2"',  qtd_remetida: 50, qtd_retornada: 0, qtd_consumida: 42, qtd_sobra: 8, unidade: 'pc', valor_unit: 196 },
-    ],
-    nfe_remessa: [{ num: '001189', data: addDias(hoje, -29), cfop: '5901', valor: 9800, status: 'Autorizada' }],
-    nfe_retorno: [{ num: 'B-00512', data: addDias(hoje, -3), cfop: '5902', tipo: 'Retorno Produção', valor: 9800, status: 'Entrada Gerada' }],
-    producao: [{ data: addDias(hoje, -3), qtd: 42, lote: 'LT-BESSA-042', obs: 'Flanges usinadas conforme desenho' }],
-  },
-  {
-    id: 'OPT-2025-003', fornecedor: 'Tratamentos Térmicos XYZ', cnpj: '55.555.555/0001-55',
-    produto: 'Peças tratadas termicamente', codigo: 'SV-TRAT-TERM',
-    pedido_compra: 'PC-2025-0029', pedido_venda: null,
-    data_abertura: addDias(hoje, -45), prazo: addDias(hoje, -20), status: 'Encerrada',
-    valor_servico: 2200, custo_materiais: 5600,
-    materiais: [
-      { codigo: 'CP-EIXO-INOX', descricao: 'Eixo Inox 316L Ø50mm', qtd_remetida: 30, qtd_retornada: 30, qtd_consumida: 30, qtd_sobra: 0, unidade: 'pc', valor_unit: 186.67 },
-    ],
-    nfe_remessa: [{ num: '001050', data: addDias(hoje, -44), cfop: '5901', valor: 5600, status: 'Autorizada' }],
-    nfe_retorno: [
-      { num: 'XYZ-0312', data: addDias(hoje, -22), cfop: '5902', tipo: 'Retorno Produção', valor: 5600, status: 'Entrada Gerada' },
-      { num: 'SV-0180', data: addDias(hoje, -21), cfop: '1124', tipo: 'NF-e Serviço', valor: 2200, status: 'Entrada Gerada' },
-    ],
-    producao: [{ data: addDias(hoje, -22), qtd: 30, lote: 'LT-XYZ-030', obs: 'Tratamento conforme especificação' }],
-  },
-];
-
-const MOCK_MAT_TERCEIROS = [
-  { fornecedor: 'Metalúrgica Bessa Ltda', codigo: 'MP-CHAPA-316L-3MM', descricao: 'Chapa Inox 316L 3mm', qtd: 120, unidade: 'kg', valor_total: 4260, opt: 'OPT-2025-001', data_remessa: addDias(hoje, -14), dias_posse: 14 },
-  { fornecedor: 'Metalúrgica Bessa Ltda', codigo: 'MP-CHAPA-304-2MM',  descricao: 'Chapa Inox 304 2mm',  qtd: 80,  unidade: 'kg', valor_total: 2240, opt: 'OPT-2025-001', data_remessa: addDias(hoje, -14), dias_posse: 14 },
-];
 
 export default function ProducaoTerceiros() {
   const navigate = useNavigate();
-  const [ordens, setOrdens] = useState(MOCK);
+  const [ordens, setOrdens] = useState([]);
+  const [matTerceiros, setMatTerceiros] = useState([]);
   const [busca, setBusca] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('Todos');
   const [aba, setAba] = useState('ordens');
   const [showForm, setShowForm] = useState(false);
+
+  const loadOrdens = useCallback(async () => {
+    try {
+      const res = await api.get('/api/production/outsourced');
+      const d = res.data?.data ?? res.data ?? {};
+      setOrdens(Array.isArray(d) ? d : (d.ordens ?? []));
+      setMatTerceiros(Array.isArray(d) ? [] : (d.materiais_terceiros ?? []));
+    } catch { setOrdens([]); setMatTerceiros([]); }
+  }, []);
+
+  useEffect(() => { loadOrdens(); }, [loadOrdens]);
 
   const lista = useMemo(() => {
     let d = ordens;
@@ -90,7 +53,7 @@ export default function ProducaoTerceiros() {
     abertas: ordens.filter((o) => !['Encerrada', 'Cancelada'].includes(o.status)).length,
     em_producao: ordens.filter((o) => o.status === 'Em Produção').length,
     atrasadas: ordens.filter((o) => o.prazo < hoje && !['Encerrada', 'Cancelada'].includes(o.status)).length,
-    valor_materiais: MOCK_MAT_TERCEIROS.reduce((s, m) => s + m.valor_total, 0),
+    valor_materiais: matTerceiros.reduce((s, m) => s + (m.valor_total || 0), 0),
   }), [ordens]);
 
   const avancarStatus = (id) => {
@@ -259,7 +222,7 @@ export default function ProducaoTerceiros() {
           <div className="erp-card overflow-x-auto">
             <div className="px-4 py-2 bg-muted/20 border-b border-border flex items-center justify-between">
               <span className="text-xs font-semibold">Estoque em Poder de Terceiros</span>
-              <span className="text-xs text-muted-foreground">Total: {fmtBRL(MOCK_MAT_TERCEIROS.reduce((s, m) => s + m.valor_total, 0))}</span>
+              <span className="text-xs text-muted-foreground">Total: {fmtBRL(matTerceiros.reduce((s, m) => s + (m.valor_total || 0), 0))}</span>
             </div>
             <table className="erp-table w-full min-w-[700px]">
               <thead>
@@ -271,7 +234,7 @@ export default function ProducaoTerceiros() {
                 </tr>
               </thead>
               <tbody>
-                {MOCK_MAT_TERCEIROS.map((m, i) => (
+                {matTerceiros.map((m, i) => (
                   <tr key={i} className={m.dias_posse > 30 ? 'bg-red-50/40' : ''}>
                     <td className="font-medium text-xs">{m.fornecedor}</td>
                     <td className="font-mono text-xs">{m.codigo}</td>
@@ -290,7 +253,7 @@ export default function ProducaoTerceiros() {
               <tfoot>
                 <tr className="bg-primary/10 font-bold">
                   <td colSpan={7} className="px-3 py-2 text-xs">Total em poder de terceiros</td>
-                  <td className="px-3 py-2 text-right text-primary">{fmtBRL(MOCK_MAT_TERCEIROS.reduce((s, m) => s + m.valor_total, 0))}</td>
+                  <td className="px-3 py-2 text-right text-primary">{fmtBRL(matTerceiros.reduce((s, m) => s + (m.valor_total || 0), 0))}</td>
                   <td />
                 </tr>
               </tfoot>

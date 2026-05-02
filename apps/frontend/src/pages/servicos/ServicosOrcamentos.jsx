@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Plus, Search, RefreshCw, Filter, Eye, FileText, CheckCircle, XCircle, Clock, ArrowRight, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '@/services/api';
 
 const STATUS_CFG = {
   Nova:              { color: 'bg-blue-100 text-blue-700',    icon: Clock },
@@ -17,24 +18,31 @@ const SERVICOS_TIPOS = [
   'Reforma / Retrofit', 'Inspeção técnica', 'Limpeza industrial',
 ];
 
-const MOCK = [
-  { id: 1, codigo: 'SC-0001', cliente: 'Restaurante Sabor & Arte', contato: 'Carlos Mendes', servico: 'Manutenção preventiva', descricao: 'Revisão completa da câmara fria inox 2 portas', status: 'Em Análise', data: '2026-04-28', prazo: '2026-05-05', valor_estimado: 1800, responsavel: 'Ana Vendas', obs: 'Cliente urgente' },
-  { id: 2, codigo: 'SC-0002', cliente: 'Hotel Beira Mar', contato: 'Fernanda Souza', servico: 'Instalação de equipamento', descricao: 'Instalação de balcão refrigerado 3m em aço inox', status: 'Nova', data: '2026-04-30', prazo: '2026-05-10', valor_estimado: 4500, responsavel: 'Roberto Vendas', obs: '' },
-  { id: 3, codigo: 'SC-0003', cliente: 'Cozinha Industrial LTDA', contato: 'Paulo Lima', servico: 'Projeto personalizado', descricao: 'Desenvolvimento de cuba tripla sob medida ABNT', status: 'Proposta Gerada', data: '2026-04-25', prazo: '2026-05-02', valor_estimado: 7200, responsavel: 'Ana Vendas', obs: 'Aguarda aprovação' },
-  { id: 4, codigo: 'SC-0004', cliente: 'Padaria São João', contato: 'Lucia Torres', servico: 'Reforma / Retrofit', descricao: 'Retrofit de coifa inox 2,5m com filtro centrífugo', status: 'Aprovada', data: '2026-04-20', prazo: '2026-04-30', valor_estimado: 3100, responsavel: 'Roberto Vendas', obs: '' },
-  { id: 5, codigo: 'SC-0005', cliente: 'Supermercado Bom Preço', contato: 'Jonas Alves', servico: 'Consultoria técnica', descricao: 'Consultoria para layout de cozinha industrial', status: 'Rejeitada', data: '2026-04-15', prazo: '2026-04-22', valor_estimado: 900, responsavel: 'Ana Vendas', obs: 'Preço acima do orçamento do cliente' },
-];
-
 const EMPTY_FORM = { cliente: '', contato: '', servico: '', descricao: '', prazo: '', valor_estimado: '', responsavel: '', obs: '' };
 
 export default function ServicosOrcamentos() {
-  const [dados, setDados] = useState(MOCK);
+  const [dados, setDados] = useState([]);
   const [busca, setBusca] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('Todos');
   const [showForm, setShowForm] = useState(false);
   const [detalhe, setDetalhe] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await api.get('/api/sales/service-quotes');
+      const list = Array.isArray(res?.data?.data) ? res.data.data : Array.isArray(res?.data) ? res.data : [];
+      setDados(list);
+    } catch {
+      toast.error('Erro ao carregar solicitações');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
 
   const lista = useMemo(() => {
     let d = dados;
@@ -55,27 +63,49 @@ export default function ServicosOrcamentos() {
     valor_pipeline: dados.filter((d) => !['Rejeitada', 'Cancelada'].includes(d.status)).reduce((s, r) => s + Number(r.valor_estimado || 0), 0),
   }), [dados]);
 
-  const salvar = () => {
+  const salvar = async () => {
     if (!form.cliente || !form.servico) return toast.error('Preencha cliente e serviço');
-    const novo = { ...form, id: Date.now(), codigo: `SC-${String(dados.length + 1).padStart(4, '0')}`, status: 'Nova', data: new Date().toISOString().split('T')[0], valor_estimado: Number(form.valor_estimado) || 0 };
-    setDados([novo, ...dados]);
-    setShowForm(false);
-    setForm(EMPTY_FORM);
-    toast.success('Solicitação registrada!');
+    try {
+      await api.post('/api/sales/service-quotes', {
+        ...form,
+        status: 'Nova',
+        data: new Date().toISOString().split('T')[0],
+        valor_estimado: Number(form.valor_estimado) || 0,
+      });
+      await load();
+      setShowForm(false);
+      setForm(EMPTY_FORM);
+      toast.success('Solicitação registrada!');
+    } catch {
+      toast.error('Erro ao registrar solicitação');
+    }
   };
 
-  const avancar = (item) => {
+  const avancar = async (item) => {
     const next = { Nova: 'Em Análise', 'Em Análise': 'Proposta Gerada', 'Proposta Gerada': 'Aprovada' };
     if (!next[item.status]) return;
-    setDados(dados.map((d) => d.id === item.id ? { ...d, status: next[d.status] } : d));
-    setDetalhe((prev) => prev?.id === item.id ? { ...prev, status: next[prev.status] } : prev);
-    toast.success(`Status → ${next[item.status]}`);
+    const newStatus = next[item.status];
+    setDados((prev) => prev.map((d) => d.id === item.id ? { ...d, status: newStatus } : d));
+    setDetalhe((prev) => prev?.id === item.id ? { ...prev, status: newStatus } : prev);
+    toast.success(`Status → ${newStatus}`);
+    try {
+      await api.put(`/api/sales/service-quotes/${item.id}`, { status: newStatus });
+    } catch {
+      toast.error('Erro ao atualizar status');
+      load();
+    }
   };
 
-  const rejeitar = (item) => {
-    setDados(dados.map((d) => d.id === item.id ? { ...d, status: 'Rejeitada' } : d));
+  const rejeitar = async (item) => {
+    setDados((prev) => prev.map((d) => d.id === item.id ? { ...d, status: 'Rejeitada' } : d));
     setDetalhe((prev) => prev?.id === item.id ? { ...prev, status: 'Rejeitada' } : prev);
     toast.info('Solicitação rejeitada');
+    try {
+      await api.put(`/api/sales/service-quotes/${item.id}`, { status: 'Rejeitada' });
+    } catch {
+      toast.error('Erro ao rejeitar solicitação');
+      load();
+    }
   };
 
   const Chip = ({ status }) => {

@@ -1,10 +1,11 @@
-﻿import { useState, useMemo } from 'react';
+﻿import { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Plus, Search, Download, Upload, Eye, ChevronDown, CheckCircle,
   XCircle, Clock, AlertCircle, Calendar, RefreshCw, DollarSign,
   FileText, Send, RotateCcw, Ban, Banknote,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { contasReceberService } from '@/services/financeiroService';
 
 const fmtBRL = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 });
 const fmtD = (v) => v ? new Date(v + 'T00:00').toLocaleDateString('pt-BR') : '—';
@@ -26,18 +27,39 @@ const CONTAS_BANC = ['Banco do Brasil', 'SICOOB', 'Itaú', 'Bradesco'];
 const EMPRESAS = ['COZINCA INOX LTDA'];
 
 const hoje = new Date().toISOString().split('T')[0];
-const addDias = (d, n) => { const dt = new Date(d); dt.setDate(dt.getDate() + n); return dt.toISOString().split('T')[0]; };
-
-const MOCK = [
-  { id: 21027, tipo: 'Confirmada', classificacao: '10.01 - Receita com produto', valor: 6000, valor_contabil: 6000, vencimento: addDias(hoje, -5), empresa: 'COZINCA INOX LTDA', banco: 'SICOOB', forma_pag: 'Boleto Bancário', valor_agendado: 6000, data_agendamento: addDias(hoje, -5), pessoa: 'Cliente Exemplo SP', competencia: addDias(hoje, -30), descricao: 'Documento 2632 - Parcela 2 de 3', status: 'Atrasada', data_baixa: '', valor_recebido: 0, nosso_numero: '0013384-C' },
-  { id: 21026, tipo: 'Confirmada', classificacao: '10.01 - Receita com produto', valor: 12000, valor_contabil: 12000, vencimento: addDias(hoje, -10), empresa: 'COZINCA INOX LTDA', banco: 'SICOOB', forma_pag: 'Boleto Bancário', valor_agendado: 12000, data_agendamento: addDias(hoje, -10), pessoa: 'Cliente Exemplo SP', competencia: addDias(hoje, -35), descricao: 'Documento 2632 - Parcela 1 de 3', status: 'Baixada', data_baixa: addDias(hoje, -9), valor_recebido: 12000, nosso_numero: '0013384-B' },
-  { id: 21025, tipo: 'Adiantamento de cliente', classificacao: '10.01 - Receita com produto', valor: 6000, valor_contabil: 6000, vencimento: addDias(hoje, 5), empresa: 'COZINCA INOX LTDA', banco: 'SICOOB', forma_pag: 'Boleto Bancário', valor_agendado: 6000, data_agendamento: addDias(hoje, 5), pessoa: 'Cliente Exemplo SP', competencia: addDias(hoje, -20), descricao: 'Documento 2631 - Parcela 2 de 2', status: 'Pendente', data_baixa: '', valor_recebido: 0, nosso_numero: '0013383-S' },
-  { id: 21024, tipo: 'Confirmada', classificacao: '10.01 - Receita com produto', valor: 6000, valor_contabil: 6000, vencimento: addDias(hoje, 8), empresa: 'COZINCA INOX LTDA', banco: 'SICOOB', forma_pag: 'Boleto Bancário', valor_agendado: 6000, data_agendamento: addDias(hoje, 8), pessoa: 'Cliente Exemplo SP', competencia: addDias(hoje, -20), descricao: 'Documento 2631 - Parcela 1 de 2', status: 'Em dia', data_baixa: '', valor_recebido: 0, nosso_numero: '0013383-D' },
-  { id: 20915, tipo: 'Confirmada', classificacao: '10.01 - Receita com produto', valor: 275.10, valor_contabil: 275.10, vencimento: addDias(hoje, 15), empresa: 'COZINCA INOX LTDA', banco: 'Banco do Brasil', forma_pag: 'Boleto Bancário', valor_agendado: 275.10, data_agendamento: addDias(hoje, 15), pessoa: 'Cliente Exemplo RJ', competencia: addDias(hoje, -10), descricao: 'Pedido 003039 - Parcela 2 de 2', status: 'Em dia', data_baixa: '', valor_recebido: 0, nosso_numero: '' },
-];
 
 export default function ContasReceber() {
-  const [dados, setDados] = useState(MOCK);
+  const [dados, setDados] = useState([]);
+
+  const loadData = useCallback(async () => {
+    try {
+      const rows = await contasReceberService.getAll();
+      const mapped = rows.map((r) => ({
+        id: r.id,
+        tipo: r.tipo || 'Confirmada',
+        classificacao: r.classificacao || r.categoria || '',
+        valor: r.valor ?? 0,
+        valor_contabil: r.valor_contabil ?? r.valor ?? 0,
+        vencimento: r.vencimento || r.data_vencimento || '',
+        empresa: r.empresa || '',
+        banco: r.banco || '',
+        forma_pag: r.forma_pag || '',
+        valor_agendado: r.valor_agendado ?? r.valor ?? 0,
+        pessoa: r.pessoa || r.cliente_fornecedor || '',
+        competencia: r.competencia || '',
+        descricao: r.descricao || '',
+        status: r.status || 'Pendente',
+        data_baixa: r.data_baixa || '',
+        valor_recebido: r.valor_recebido ?? 0,
+        nosso_numero: r.nosso_numero || '',
+      }));
+      setDados(mapped);
+    } catch {
+      toast.error('Erro ao carregar contas a receber');
+    }
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
   const [aba, setAba] = useState('Todos');
   const [busca, setBusca] = useState('');
   const [showActionsMenu, setShowActionsMenu] = useState(false);
@@ -75,7 +97,12 @@ export default function ContasReceber() {
     recebido_mes: dados.filter((d) => d.status === 'Baixada').reduce((s, r) => s + r.valor_recebido, 0),
   }), [dados]);
 
-  const baixar = (conta) => {
+  const baixar = async (conta) => {
+    try {
+      await contasReceberService.update(conta.id, { ...conta, status: 'Baixada', data_baixa: hoje, valor_recebido: conta.valor });
+    } catch {
+      // update local state even if API fails
+    }
     setDados(dados.map((d) => d.id === conta.id ? { ...d, status: 'Baixada', data_baixa: hoje, valor_recebido: d.valor } : d));
     setDetalhe(null);
     toast.success(`Conta ${conta.id} baixada com sucesso!`);

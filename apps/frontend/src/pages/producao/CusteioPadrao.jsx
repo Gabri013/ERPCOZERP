@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { listStandardCosts, upsertStandardCost } from '@/services/accountingApi.js';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { Calculator, ChevronRight, ChevronDown, TrendingUp, Target, DollarSign, Package, AlertTriangle, CheckCircle, Printer, Download } from 'lucide-react';
 import { toast } from 'sonner';
@@ -67,7 +68,8 @@ const PIE_CORES = ['#2563eb', '#f59e0b', '#10b981', '#8b5cf6'];
 
 export default function CusteioPadrao() {
   const [aba, setAba] = useState('custo');
-  const [prodSel, setProdSel] = useState(PRODUTOS[0]);
+  const [produtos, setProdutos] = useState([]);
+  const [prodSel, setProdSel] = useState(null);
   const [expandMat, setExpandMat] = useState(true);
   const [expandOp, setExpandOp] = useState(true);
   const [margem, setMargem] = useState(35);
@@ -77,7 +79,35 @@ export default function CusteioPadrao() {
   const [loteSimul, setLoteSimul] = useState(1);
   const [margemAlvo, setMargemAlvo] = useState(30);
 
-  const custo = useMemo(() => calcCusto(prodSel), [prodSel]);
+  const loadCosts = useCallback(async () => {
+    try {
+      const data = await listStandardCosts();
+      if (data && data.length > 0) {
+        const mapped = data.map((c) => {
+          const base = produtos.find((p) => p.id === c.productId) || PRODUTOS[0];
+          return {
+            ...base,
+            _costId: c.id,
+            _productId: c.productId,
+            custo_mat: Number(c.materialCost),
+            custo_mdo_total: Number(c.laborCost),
+            custo_overhead: Number(c.overheadCost),
+            preco_venda: Number(c.salePrice || 0),
+            margem_pct: Number(c.marginPct || 35),
+            produto: c.product ? { codigo: c.product.code, nome: c.product.name } : base,
+          };
+        });
+        setProdutos(mapped);
+        setProdSel(mapped[0]);
+      }
+    } catch {
+      // API unavailable — state stays empty
+    }
+  }, []);
+
+  useEffect(() => { loadCosts(); }, [loadCosts]);
+
+  const custo = useMemo(() => prodSel ? calcCusto(prodSel) : { custMat: 0, custMOD: 0, custCIF: 0, custTotal: 0 }, [prodSel]);
   const taxaMap = useMemo(() => Object.fromEntries(CENTROS_CUSTO.map((c) => [c.nome, c.taxa_h])), []);
 
   // Formação de preço
@@ -139,7 +169,7 @@ export default function CusteioPadrao() {
           {/* Lista de produtos */}
           <div className="w-full lg:w-56 shrink-0 space-y-1">
             <p className="text-[10px] text-muted-foreground px-1 font-semibold uppercase">Produtos</p>
-            {PRODUTOS.map((p) => {
+            {produtos.map((p) => {
               const c = calcCusto(p);
               return (
                 <button key={p.id} type="button" onClick={() => setProdSel(p)}
@@ -310,7 +340,7 @@ export default function CusteioPadrao() {
             <div className="erp-card p-4 space-y-3">
               <p className="text-xs font-semibold">Produto</p>
               <div className="flex flex-col gap-1">
-                {PRODUTOS.map((p) => (
+                {produtos.map((p) => (
                   <button key={p.id} type="button" onClick={() => setProdSel(p)}
                     className={`text-left text-xs px-2.5 py-1.5 rounded border transition-colors ${prodSel.id === p.id ? 'bg-primary/10 border-primary text-primary font-semibold' : 'bg-muted/20 border-border'}`}>
                     {p.codigo}
@@ -379,7 +409,7 @@ export default function CusteioPadrao() {
             {/* Config */}
             <div className="w-full lg:w-52 shrink-0 erp-card p-4 space-y-3">
               <p className="text-xs font-semibold">Parâmetros</p>
-              {PRODUTOS.map((p) => (
+              {produtos.map((p) => (
                 <button key={p.id} type="button" onClick={() => setProdSel(p)}
                   className={`w-full text-left text-xs px-2.5 py-1.5 rounded border ${prodSel.id === p.id ? 'bg-primary/10 border-primary font-semibold text-primary' : 'bg-muted/20 border-border'}`}>{p.codigo}</button>
               ))}
@@ -496,7 +526,7 @@ export default function CusteioPadrao() {
             <table className="erp-table w-full min-w-[800px]">
               <thead><tr><th>Código</th><th>Produto</th><th className="text-right">Custo MP</th><th className="text-right">Custo MOD</th><th className="text-right">Custo CIF</th><th className="text-right">Custo Total</th><th className="text-right">Preço ({margem}% mg)</th><th className="text-right">Preço Mercado</th><th className="text-right">Margem Real</th></tr></thead>
               <tbody>
-                {PRODUTOS.map((p) => {
+                {produtos.map((p) => {
                   const c = calcCusto(p);
                   const pctCusto = 100 - margem - impostos - comissao - frete;
                   const preco = pctCusto > 0 ? c.custTotal / (pctCusto / 100) : 0;

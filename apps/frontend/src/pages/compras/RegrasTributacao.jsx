@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Plus, Search, Edit2, Trash2, Save, XCircle, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '@/services/api';
 
 const CFOPS_ENTRADA = [
   { cfop: '1101', desc: 'Compra para industrialização ou produção rural' },
@@ -18,17 +19,21 @@ const TIPOS_ICMS = ['Tributado integralmente (00)', 'Tributado e com cobrança p
 const TIPOS_PIS_COFINS = ['Alíquota básica (01)', 'Alíquota zero (07)', 'Monofásico (04)', 'ST (05)', 'Não tributado (99)'];
 const TIPOS_IPI = ['Tributado por alíquota (50)', 'Saída tributada (99)', 'Isento (53)'];
 
-const MOCK_REGRAS = [
-  { id: 1, cfop: '1101', desc_cfop: 'Compra para industrialização', icms_cst: '00', icms_aliq: 12, ipi_cst: '50', ipi_aliq: 10, pis_cst: '01', pis_aliq: 1.65, cofins_cst: '01', cofins_aliq: 7.6, ativo: true },
-  { id: 2, cfop: '1102', desc_cfop: 'Compra para comercialização', icms_cst: '00', icms_aliq: 12, ipi_cst: '99', ipi_aliq: 0, pis_cst: '01', pis_aliq: 1.65, cofins_cst: '01', cofins_aliq: 7.6, ativo: true },
-  { id: 3, cfop: '2101', desc_cfop: 'Compra industrializ. interestadual', icms_cst: '10', icms_aliq: 7, ipi_cst: '50', ipi_aliq: 10, pis_cst: '01', pis_aliq: 1.65, cofins_cst: '01', cofins_aliq: 7.6, ativo: true },
-  { id: 4, cfop: '3101', desc_cfop: 'Importação para industrialização', icms_cst: '00', icms_aliq: 12, ipi_cst: '50', ipi_aliq: 15, pis_cst: '01', pis_aliq: 2.1, cofins_cst: '01', cofins_aliq: 9.65, ativo: false },
-];
-
 const EMPTY = { cfop: '', desc_cfop: '', icms_cst: '00', icms_aliq: 12, ipi_cst: '50', ipi_aliq: 0, pis_cst: '01', pis_aliq: 1.65, cofins_cst: '01', cofins_aliq: 7.6, ativo: true };
 
 export default function RegrasTributacao() {
-  const [regras, setRegras] = useState(MOCK_REGRAS);
+  const [regras, setRegras] = useState([]);
+
+  const carregar = useCallback(async () => {
+    try {
+      const res = await api.get('/api/purchases/tax-rules');
+      setRegras(res.data ?? []);
+    } catch {
+      toast.error('Erro ao carregar regras de tributação');
+    }
+  }, []);
+
+  useEffect(() => { carregar(); }, [carregar]);
   const [busca, setBusca] = useState('');
   const [editando, setEditando] = useState(null);
   const [form, setForm] = useState(EMPTY);

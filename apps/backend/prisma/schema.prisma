@@ -870,3 +870,461 @@ model ProductFile {
   @@map("product_files")
 }
 
+// ─── CRM Processes ────────────────────────────────────────────────────────────
+model CrmProcess {
+  id            String    @id @default(uuid()) @db.Uuid
+  type          String    // negociacao | suporte | assistencia
+  title         String
+  clientName    String    @map("client_name")
+  responsible   String?
+  stage         String    @default("Aberto")
+  value         Decimal?  @db.Decimal(14, 2)
+  probability   Int?
+  priority      String    @default("Normal")
+  origin        String?
+  openedAt      DateTime  @default(now()) @map("opened_at")
+  forecastAt    DateTime? @map("forecast_at")
+  linkedOrderId String?   @map("linked_order_id")
+  customFields  Json?     @map("custom_fields")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  notes       CrmProcessNote[]
+  attachments CrmProcessAttachment[]
+
+  @@index([type], map: "idx_crm_processes_type")
+  @@index([stage], map: "idx_crm_processes_stage")
+  @@map("crm_processes")
+}
+
+model CrmProcessNote {
+  id        String   @id @default(uuid()) @db.Uuid
+  processId String   @map("process_id") @db.Uuid
+  userName  String?  @map("user_name")
+  noteType  String   @default("nota") @map("note_type")
+  content   String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  process CrmProcess @relation(fields: [processId], references: [id], onDelete: Cascade)
+
+  @@index([processId], map: "idx_crm_notes_process")
+  @@map("crm_process_notes")
+}
+
+model CrmProcessAttachment {
+  id        String   @id @default(uuid()) @db.Uuid
+  processId String   @map("process_id") @db.Uuid
+  fileName  String   @map("file_name")
+  fileSize  String?  @map("file_size")
+  fileType  String?  @map("file_type")
+  path      String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  process CrmProcess @relation(fields: [processId], references: [id], onDelete: Cascade)
+
+  @@index([processId], map: "idx_crm_attach_process")
+  @@map("crm_process_attachments")
+}
+
+// ─── Projects ─────────────────────────────────────────────────────────────────
+model Project {
+  id           String    @id @default(uuid()) @db.Uuid
+  code         String    @unique
+  name         String
+  clientName   String    @map("client_name")
+  linkedOrderId String?  @map("linked_order_id")
+  startDate    DateTime? @map("start_date")
+  dueDate      DateTime? @map("due_date")
+  status       String    @default("planejamento")
+  progress     Int       @default(0)
+  revenue      Decimal?  @db.Decimal(14, 2)
+  budgetedCost Decimal?  @map("budgeted_cost") @db.Decimal(14, 2)
+  responsible  String?
+  description  String?   @db.Text
+  team         Json?
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  tasks       ProjectTask[]
+  timeEntries ProjectTimeEntry[]
+  costEntries ProjectCostEntry[]
+  notes       ProjectNote[]
+
+  @@index([status], map: "idx_projects_status")
+  @@map("projects")
+}
+
+model ProjectTask {
+  id           String   @id @default(uuid()) @db.Uuid
+  projectId    String   @map("project_id") @db.Uuid
+  level        Int      @default(0)
+  name         String
+  durationDays Int      @default(1) @map("duration_days")
+  startOffset  Int      @default(0) @map("start_offset")
+  progress     Int      @default(0)
+  responsible  String?
+  predecessor  Int?
+  hoursPlanned Decimal  @default(0) @map("hours_planned") @db.Decimal(10, 2)
+  hoursReal    Decimal  @default(0) @map("hours_real") @db.Decimal(10, 2)
+  sortOrder    Int      @default(0) @map("sort_order")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId], map: "idx_project_tasks_project")
+  @@map("project_tasks")
+}
+
+model ProjectTimeEntry {
+  id         String   @id @default(uuid()) @db.Uuid
+  projectId  String   @map("project_id") @db.Uuid
+  taskId     String?  @map("task_id") @db.Uuid
+  personName String   @map("person_name")
+  workDate   DateTime @map("work_date") @db.Date
+  hours      Decimal  @db.Decimal(10, 2)
+  notes      String?  @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId], map: "idx_proj_time_project")
+  @@map("project_time_entries")
+}
+
+model ProjectCostEntry {
+  id          String   @id @default(uuid()) @db.Uuid
+  projectId   String   @map("project_id") @db.Uuid
+  entryDate   DateTime @map("entry_date") @db.Date
+  description String
+  category    String
+  amount      Decimal  @db.Decimal(14, 2)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId], map: "idx_proj_costs_project")
+  @@map("project_cost_entries")
+}
+
+model ProjectNote {
+  id        String   @id @default(uuid()) @db.Uuid
+  projectId String   @map("project_id") @db.Uuid
+  userName  String   @map("user_name")
+  noteType  String   @default("nota") @map("note_type")
+  content   String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId], map: "idx_proj_notes_project")
+  @@map("project_notes")
+}
+
+// ─── Knowledge Base ───────────────────────────────────────────────────────────
+model KnowledgeCategory {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String
+  icon        String?
+  color       String?
+  description String?  @db.Text
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  articles KnowledgeArticle[]
+
+  @@map("knowledge_categories")
+}
+
+model KnowledgeArticle {
+  id          String   @id @default(uuid()) @db.Uuid
+  categoryId  String   @map("category_id") @db.Uuid
+  title       String
+  slug        String   @unique
+  summary     String?  @db.Text
+  content     String   @db.Text
+  status      String   @default("rascunho")
+  visibility  String   @default("interno")
+  subcategory String?
+  author      String?
+  tags        Json?
+  version     String   @default("1.0")
+  views       Int      @default(0)
+  likes       Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  category    KnowledgeCategory    @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  revisions   KnowledgeRevision[]
+  attachments KnowledgeAttachment[]
+
+  @@index([categoryId], map: "idx_kb_articles_cat")
+  @@index([status], map: "idx_kb_articles_status")
+  @@map("knowledge_articles")
+}
+
+model KnowledgeRevision {
+  id          String   @id @default(uuid()) @db.Uuid
+  articleId   String   @map("article_id") @db.Uuid
+  version     String
+  content     String   @db.Text
+  description String?  @db.Text
+  author      String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  article KnowledgeArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@index([articleId], map: "idx_kb_revisions_art")
+  @@map("knowledge_revisions")
+}
+
+model KnowledgeAttachment {
+  id        String   @id @default(uuid()) @db.Uuid
+  articleId String   @map("article_id") @db.Uuid
+  fileName  String   @map("file_name")
+  fileSize  String?  @map("file_size")
+  path      String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  article KnowledgeArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@index([articleId], map: "idx_kb_attach_art")
+  @@map("knowledge_attachments")
+}
+
+// ─── Quality Control ──────────────────────────────────────────────────────────
+model QualityInspectionPlan {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique
+  name        String
+  productCode String?  @map("product_code")
+  stage       String   // recebimento | processo | acabado
+  active      Boolean  @default(true)
+  criteria    Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  inspections QualityInspection[]
+
+  @@map("quality_inspection_plans")
+}
+
+model QualityInspection {
+  id           String   @id @default(uuid()) @db.Uuid
+  planId       String?  @map("plan_id") @db.Uuid
+  code         String   @unique
+  type         String   // recebimento | processo | acabado
+  productCode  String?  @map("product_code")
+  productName  String?  @map("product_name")
+  referenceDoc String?  @map("reference_doc")
+  status       String   @default("aprovado")
+  inspector    String?
+  inspectedAt  DateTime @default(now()) @map("inspected_at")
+  results      Json?
+  notes        String?  @db.Text
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  plan QualityInspectionPlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
+
+  @@index([type], map: "idx_quality_insp_type")
+  @@map("quality_inspections")
+}
+
+model QualityNonConformity {
+  id               String    @id @default(uuid()) @db.Uuid
+  code             String    @unique
+  title            String
+  description      String?   @db.Text
+  origin           String?
+  severity         String    @default("Moderada")
+  status           String    @default("aberto")
+  rootCause        String?   @map("root_cause") @db.Text
+  correctiveAction String?   @map("corrective_action") @db.Text
+  responsible      String?
+  dueDate          DateTime? @map("due_date")
+  closedAt         DateTime? @map("closed_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  @@index([status], map: "idx_quality_nc_status")
+  @@map("quality_nonconformities")
+}
+
+model QualityInstrument {
+  id                  String    @id @default(uuid()) @db.Uuid
+  code                String    @unique
+  name                String
+  instrumentType      String?   @map("instrument_type")
+  location            String?
+  status              String    @default("calibrado")
+  lastCalibration     DateTime? @map("last_calibration")
+  nextCalibration     DateTime? @map("next_calibration")
+  calibrationInterval Int       @default(180) @map("calibration_interval")
+  responsible         String?
+  certificate         String?
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  @@map("quality_instruments")
+}
+
+model QualityDocument {
+  id           String   @id @default(uuid()) @db.Uuid
+  code         String   @unique
+  title        String
+  documentType String?  @map("document_type")
+  productCode  String?  @map("product_code")
+  orderRef     String?  @map("order_ref")
+  status       String   @default("rascunho")
+  content      Json?
+  signatures   Json?
+  author       String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([documentType], map: "idx_quality_docs_type")
+  @@map("quality_documents")
+}
+
+model QualityDatabook {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique
+  title       String
+  orderRef    String?  @map("order_ref")
+  productCode String?  @map("product_code")
+  clientName  String?  @map("client_name")
+  template    String?
+  status      String   @default("em_elaboracao")
+  progress    Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  documents QualityDatabookDocument[]
+
+  @@map("quality_databooks")
+}
+
+model QualityDatabookDocument {
+  id         String   @id @default(uuid()) @db.Uuid
+  databookId String   @map("databook_id") @db.Uuid
+  title      String
+  docType    String?  @map("doc_type")
+  status     String   @default("pendente")
+  required   Boolean  @default(true)
+  sortOrder  Int      @default(0) @map("sort_order")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  databook QualityDatabook @relation(fields: [databookId], references: [id], onDelete: Cascade)
+
+  @@index([databookId], map: "idx_databook_docs")
+  @@map("quality_databook_documents")
+}
+
+// ─── Expedition ───────────────────────────────────────────────────────────────
+model ExpeditionOrder {
+  id          String    @id @default(uuid()) @db.Uuid
+  code        String    @unique
+  saleOrderId String?   @map("sale_order_id")
+  clientName  String    @map("client_name")
+  status      String    @default("aguardando_separacao")
+  scheduledAt DateTime? @map("scheduled_at")
+  shippedAt   DateTime? @map("shipped_at")
+  carrier     String?
+  notes       String?   @db.Text
+  items       Json?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  loads     ExpeditionLoad[]
+  manifests ExpeditionManifest[]
+
+  @@index([status], map: "idx_expedition_status")
+  @@map("expedition_orders")
+}
+
+model ExpeditionLoad {
+  id          String   @id @default(uuid()) @db.Uuid
+  orderId     String   @map("order_id") @db.Uuid
+  code        String   @unique
+  loadType    String   @default("caixa") @map("load_type")
+  description String?
+  weight      Decimal? @db.Decimal(10, 3)
+  items       Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  order ExpeditionOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId], map: "idx_exp_loads_order")
+  @@map("expedition_loads")
+}
+
+model ExpeditionManifest {
+  id           String    @id @default(uuid()) @db.Uuid
+  code         String    @unique
+  orderId      String    @map("order_id") @db.Uuid
+  nfeRef       String?   @map("nfe_ref")
+  status       String    @default("aberto")
+  carrier      String?
+  driverName   String?   @map("driver_name")
+  vehiclePlate String?   @map("vehicle_plate")
+  loads        Json?
+  issuedAt     DateTime? @map("issued_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  order ExpeditionOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId], map: "idx_exp_manifests_order")
+  @@map("expedition_manifests")
+}
+
+// ─── Accounting ───────────────────────────────────────────────────────────────
+model AccountPlan {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique
+  name        String
+  accountType String   @map("account_type")
+  parentCode  String?  @map("parent_code")
+  level       Int      @default(1)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("account_plan")
+}
+
+model AccountEntry {
+  id            String   @id @default(uuid()) @db.Uuid
+  entryDate     DateTime @map("entry_date") @db.Date
+  description   String   @db.Text
+  debitAccount  String   @map("debit_account")
+  creditAccount String   @map("credit_account")
+  amount        Decimal  @db.Decimal(14, 2)
+  origin        String   @default("MANUAL")
+  module        String?
+  referenceId   String?  @map("reference_id")
+  history       String?  @db.Text
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([entryDate], map: "idx_account_entries_date")
+  @@index([module], map: "idx_account_entries_module")
+  @@map("account_entries")
+}
+
+model ProductStandardCost {
+  id           String   @id @default(uuid()) @db.Uuid
+  productId    String   @unique @map("product_id") @db.Uuid
+  materialCost Decimal  @default(0) @map("material_cost") @db.Decimal(14, 4)
+  laborCost    Decimal  @default(0) @map("labor_cost") @db.Decimal(14, 4)
+  overheadCost Decimal  @default(0) @map("overhead_cost") @db.Decimal(14, 4)
+  totalCost    Decimal  @default(0) @map("total_cost") @db.Decimal(14, 4)
+  salePrice    Decimal? @map("sale_price") @db.Decimal(14, 4)
+  marginPct    Decimal? @map("margin_pct") @db.Decimal(5, 2)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("product_standard_costs")
+}
+

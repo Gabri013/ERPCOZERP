@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Download, RefreshCw, CheckCircle, AlertTriangle, FileText, ChevronDown, ChevronRight, Loader2, Eye, Factory, Package, ArrowLeftRight, Users, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '@/services/api';
 
 const fmtN = (v, d = 3) => Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
 const fmtD = (v) => v ? new Date(v + 'T00:00').toLocaleDateString('pt-BR') : '—';
@@ -8,69 +9,12 @@ const fmtD = (v) => v ? new Date(v + 'T00:00').toLocaleDateString('pt-BR') : '�
 const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const ANO_ATUAL = new Date().getFullYear();
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Mock data estruturado por período
-// ─────────────────────────────────────────────────────────────────────────────
-const MOCK_0210 = [
-  { codigo_produto: 'TANK-500L',     descricao_prod: 'Tanque Inox 316L 500L',      codigo_insumo: 'MP-CHAPA-316L-3MM', descricao_insumo: 'Chapa Inox 316L 3mm',   qtd_base: 1,   qtd_consumo: 120.300, unid: 'kg',  perda_perc: 5.0 },
-  { codigo_produto: 'TANK-500L',     descricao_prod: 'Tanque Inox 316L 500L',      codigo_insumo: 'MP-TUBO-1.5',       descricao_insumo: 'Tubo Inox 1.5" SCH10', qtd_base: 1,   qtd_consumo: 8.200,   unid: 'm',   perda_perc: 2.0 },
-  { codigo_produto: 'TANK-500L',     descricao_prod: 'Tanque Inox 316L 500L',      codigo_insumo: 'CP-BOCAL-2',        descricao_insumo: 'Bocal 2" Inox 316L',   qtd_base: 1,   qtd_consumo: 4.000,   unid: 'pc',  perda_perc: 0.0 },
-  { codigo_produto: 'REATOR-200L',   descricao_prod: 'Reator Inox 316L 200L',      codigo_insumo: 'MP-CHAPA-316L-3MM', descricao_insumo: 'Chapa Inox 316L 3mm',   qtd_base: 1,   qtd_consumo: 85.000,  unid: 'kg',  perda_perc: 4.0 },
-  { codigo_produto: 'REATOR-200L',   descricao_prod: 'Reator Inox 316L 200L',      codigo_insumo: 'MP-TUBO-1.5',       descricao_insumo: 'Tubo Inox 1.5" SCH10', qtd_base: 1,   qtd_consumo: 12.500,  unid: 'm',   perda_perc: 3.0 },
-  { codigo_produto: 'COND-50M2',     descricao_prod: 'Condensador Tubular 50m²',   codigo_insumo: 'MP-TUBO-1.5',       descricao_insumo: 'Tubo Inox 1.5" SCH10', qtd_base: 1,   qtd_consumo: 105.000, unid: 'm',   perda_perc: 1.5 },
-];
-
-const MOCK_K200 = [
-  { codigo: 'MP-CHAPA-316L-3MM', descricao: 'Chapa Inox 316L 3mm',        unid: 'kg',  qtd_final: 234.50,  ind_part: '0' },
-  { codigo: 'MP-TUBO-1.5',       descricao: 'Tubo Inox 1.5" SCH10',       unid: 'm',   qtd_final: 0.00,    ind_part: '0' },
-  { codigo: 'CP-BOCAL-2',        descricao: 'Bocal 2" Inox 316L',          unid: 'pc',  qtd_final: 24.00,   ind_part: '0' },
-  { codigo: 'TANK-500L',         descricao: 'Tanque Inox 316L 500L',       unid: 'pc',  qtd_final: 1.00,    ind_part: '0' },
-  { codigo: 'REATOR-200L',       descricao: 'Reator Inox 316L 200L',       unid: 'pc',  qtd_final: 0.00,    ind_part: '0' },
-  { codigo: 'MP-CHAPA-TPC',      descricao: 'Chapa Inox 304 (TERCEIRO)',   unid: 'kg',  qtd_final: 85.00,   ind_part: '1', tipo: 'terceiro_poder' },
-  { codigo: 'MP-TUBO-TPC',       descricao: 'Tubo Inox (TERCEIRO)',        unid: 'm',   qtd_final: 22.00,   ind_part: '1', tipo: 'terceiro_poder' },
-  { codigo: 'MP-CHAPA-OPT',      descricao: 'Chapa 316L (em poder terc.)', unid: 'kg',  qtd_final: 45.00,   ind_part: '2', tipo: 'poder_terceiro' },
-];
-
-const MOCK_K220 = [
-  { data: '2025-05-10', codigo_prod_orig: 'REATOR-200L', qtd_orig: 1, codigo_prod_dest: 'REATOR-200L-EX', qtd_dest: 1, obs: 'Reclassificação — cliente exige código específico' },
-];
-
-const MOCK_K230 = [
-  { data_ini: '2025-05-02', data_fin: '2025-05-08', cod_op: 'OP-2025-001', codigo_prod: 'TANK-500L',   descricao: 'Tanque Inox 316L 500L',    qtd_prod: 2, unid: 'pc' },
-  { data_ini: '2025-05-10', data_fin: '2025-05-15', cod_op: 'OP-2025-002', codigo_prod: 'REATOR-200L', descricao: 'Reator Inox 316L 200L',    qtd_prod: 1, unid: 'pc' },
-  { data_ini: '2025-05-18', data_fin: '2025-05-25', cod_op: 'OP-2025-003', codigo_prod: 'COND-50M2',   descricao: 'Condensador Tubular 50m²', qtd_prod: 1, unid: 'pc' },
-];
-
-const MOCK_K235 = [
-  { data: '2025-05-08', cod_op: 'OP-2025-001', codigo_prod: 'TANK-500L',   codigo_insumo: 'MP-CHAPA-316L-3MM', qtd_consumida: 240.600, unid: 'kg', qtd_perda: 12.03 },
-  { data: '2025-05-08', cod_op: 'OP-2025-001', codigo_prod: 'TANK-500L',   codigo_insumo: 'MP-TUBO-1.5',       qtd_consumida: 16.400,  unid: 'm',  qtd_perda: 0.33 },
-  { data: '2025-05-08', cod_op: 'OP-2025-001', codigo_prod: 'TANK-500L',   codigo_insumo: 'CP-BOCAL-2',        qtd_consumida: 8.000,   unid: 'pc', qtd_perda: 0 },
-  { data: '2025-05-15', cod_op: 'OP-2025-002', codigo_prod: 'REATOR-200L', codigo_insumo: 'MP-CHAPA-316L-3MM', qtd_consumida: 85.000,  unid: 'kg', qtd_perda: 3.40 },
-  { data: '2025-05-15', cod_op: 'OP-2025-002', codigo_prod: 'REATOR-200L', codigo_insumo: 'MP-TUBO-1.5',       qtd_consumida: 12.500,  unid: 'm',  qtd_perda: 0.37 },
-  { data: '2025-05-25', cod_op: 'OP-2025-003', codigo_prod: 'COND-50M2',   codigo_insumo: 'MP-TUBO-1.5',       qtd_consumida: 105.000, unid: 'm',  qtd_perda: 1.57 },
-];
-
-const MOCK_K250 = [
-  { data_ini: '2025-05-05', data_fin: '2025-05-12', cod_opt: 'OPT-2025-001', fornecedor: 'Metal Acab. Ltda', codigo_prod: 'SUPT-INOX', descricao: 'Suporte Inox Polido', qtd_prod: 10, unid: 'pc' },
-];
-
-const MOCK_K255 = [
-  { data: '2025-05-12', cod_opt: 'OPT-2025-001', fornecedor: 'Metal Acab. Ltda', codigo_insumo: 'MP-CHAPA-316L-3MM', qtd_consumida: 18.500, unid: 'kg', qtd_perda: 0.55 },
-  { data: '2025-05-12', cod_opt: 'OPT-2025-001', fornecedor: 'Metal Acab. Ltda', codigo_insumo: 'CP-BOCAL-2',        qtd_consumida: 10.000, unid: 'pc', qtd_perda: 0 },
-];
-
-const MOCK_H005 = [
-  { codigo: 'MP-CHAPA-316L-3MM', descricao: 'Chapa Inox 316L 3mm',       unid: 'kg',  qtd: 234.50, custo_unit: 45.80,  ind_part: '0' },
-  { codigo: 'MP-TUBO-1.5',       descricao: 'Tubo Inox 1.5" SCH10',      unid: 'm',   qtd: 0.00,   custo_unit: 28.50,  ind_part: '0' },
-  { codigo: 'CP-BOCAL-2',        descricao: 'Bocal 2" Inox 316L',         unid: 'pc',  qtd: 24.00,  custo_unit: 18.20,  ind_part: '0' },
-  { codigo: 'TANK-500L',         descricao: 'Tanque Inox 316L 500L',      unid: 'pc',  qtd: 1.00,   custo_unit: 8420.00,ind_part: '0' },
-  { codigo: 'MP-CHAPA-TPC',      descricao: 'Chapa Inox 304 (TERCEIRO)',  unid: 'kg',  qtd: 85.00,  custo_unit: 42.10,  ind_part: '1' },
-];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Gerador de arquivo SPED Bloco K (layout EFD-ICMS/IPI)
 // ─────────────────────────────────────────────────────────────────────────────
-function gerarArquivoSPED(mes, ano, empresa = 'INDUSTRIA INOX LTDA', cnpj = '12.345.678/0001-99') {
+function gerarArquivoSPED(mes, ano, dados, empresa = 'INDUSTRIA INOX LTDA', cnpj = '12.345.678/0001-99') {
+  const { reg0210 = [], k200 = [], k220 = [], k230 = [], k235 = [], k250 = [], k255 = [], h005 = [] } = dados;
   const dtIni = `${String(1).padStart(2,'0')}${String(mes+1).padStart(2,'0')}${ano}`;
   const ultimoDia = new Date(ano, mes + 1, 0).getDate();
   const dtFin = `${String(ultimoDia).padStart(2,'0')}${String(mes+1).padStart(2,'0')}${ano}`;
@@ -82,35 +26,35 @@ function gerarArquivoSPED(mes, ano, empresa = 'INDUSTRIA INOX LTDA', cnpj = '12.
   lines.push(pipe('0001','0'));
 
   // Registro 0210 — consumo específico padronizado
-  MOCK_0210.forEach(r => {
+  reg0210.forEach(r => {
     const qtdC = r.qtd_consumo.toFixed(3).replace('.', ',');
     const perda = r.perda_perc.toFixed(2).replace('.', ',');
     lines.push(pipe('0210',r.codigo_insumo,r.codigo_produto,'',qtdC,r.unid,perda));
   });
-  lines.push(pipe('0990',String(MOCK_0210.length + 2)));
+  lines.push(pipe('0990',String(reg0210.length + 2)));
 
   // Bloco K abertura
   lines.push(pipe('K001','0'));
   lines.push(pipe('K010',cnpj,''));
 
   // K200 — estoque escriturado
-  MOCK_K200.forEach(r => {
+  k200.forEach(r => {
     const qtd = r.qtd_final.toFixed(3).replace('.', ',');
     lines.push(pipe('K200',dtFin,r.codigo,qtd,r.unid,r.ind_part));
   });
 
   // K220 — movimentações internas
-  MOCK_K220.forEach(r => {
+  k220.forEach(r => {
     const dt = r.data.split('-').reverse().join('');
     lines.push(pipe('K220',dt,r.codigo_prod_orig,r.qtd_orig.toFixed(3).replace('.',','),r.codigo_prod_dest,r.qtd_dest.toFixed(3).replace('.',',')));
   });
 
   // K230 / K235
-  MOCK_K230.forEach(r => {
+  k230.forEach(r => {
     const dtI = r.data_ini.split('-').reverse().join('');
     const dtF = r.data_fin.split('-').reverse().join('');
     lines.push(pipe('K230',dtI,dtF,r.codigo_prod,r.qtd_prod.toFixed(3).replace('.',','),r.unid,'',r.cod_op));
-    const insumos = MOCK_K235.filter(k => k.cod_op === r.cod_op);
+    const insumos = k235.filter(k => k.cod_op === r.cod_op);
     insumos.forEach(k => {
       const dt = k.data.split('-').reverse().join('');
       lines.push(pipe('K235',dt,k.codigo_insumo,k.qtd_consumida.toFixed(3).replace('.',','),k.unid,k.qtd_perda.toFixed(3).replace('.',',')));
@@ -118,11 +62,11 @@ function gerarArquivoSPED(mes, ano, empresa = 'INDUSTRIA INOX LTDA', cnpj = '12.
   });
 
   // K250 / K255
-  MOCK_K250.forEach(r => {
+  k250.forEach(r => {
     const dtI = r.data_ini.split('-').reverse().join('');
     const dtF = r.data_fin.split('-').reverse().join('');
     lines.push(pipe('K250',dtI,dtF,r.codigo_prod,r.qtd_prod.toFixed(3).replace('.',','),r.unid,'',r.cod_opt));
-    const insumos = MOCK_K255.filter(k => k.cod_opt === r.cod_opt);
+    const insumos = k255.filter(k => k.cod_opt === r.cod_opt);
     insumos.forEach(k => {
       const dt = k.data.split('-').reverse().join('');
       lines.push(pipe('K255',dt,k.codigo_insumo,k.qtd_consumida.toFixed(3).replace('.',','),k.unid,k.qtd_perda.toFixed(3).replace('.',',')));
@@ -135,12 +79,12 @@ function gerarArquivoSPED(mes, ano, empresa = 'INDUSTRIA INOX LTDA', cnpj = '12.
   // Bloco H
   lines.push(pipe('H001','0'));
   lines.push(pipe('H005',dtFin,'','01'));
-  MOCK_H005.forEach(r => {
+  h005.forEach(r => {
     const qtd = r.qtd.toFixed(3).replace('.', ',');
     const custo = r.custo_unit.toFixed(2).replace('.', ',');
     lines.push(pipe('H010',r.codigo,r.unid,qtd,'03',custo,''));
   });
-  lines.push(pipe('H990',String(MOCK_H005.length + 4)));
+  lines.push(pipe('H990',String(h005.length + 4)));
 
   // Encerramento
   lines.push(pipe('9001','0'));
@@ -163,7 +107,33 @@ export default function BlocoK() {
   const [gerado, setGerado] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
 
-  const conteudoSPED = useMemo(() => gerarArquivoSPED(mesSel, anoSel), [mesSel, anoSel]);
+  const [dadosBloco, setDadosBloco] = useState({ reg0210: [], k200: [], k220: [], k230: [], k235: [], k250: [], k255: [], h005: [] });
+
+  const carregar = useCallback(async () => {
+    try {
+      const res = await api.get(`/api/fiscal/bloco-k?mes=${mesSel + 1}&ano=${anoSel}`);
+      if (res.data && typeof res.data === 'object') {
+        setDadosBloco({
+          reg0210: res.data.reg0210 ?? [],
+          k200:    res.data.k200    ?? [],
+          k220:    res.data.k220    ?? [],
+          k230:    res.data.k230    ?? [],
+          k235:    res.data.k235    ?? [],
+          k250:    res.data.k250    ?? [],
+          k255:    res.data.k255    ?? [],
+          h005:    res.data.h005    ?? [],
+        });
+      }
+    } catch {
+      // keep empty arrays if API not available
+    }
+  }, [mesSel, anoSel]);
+
+  useEffect(() => { carregar(); }, [carregar]);
+
+  const { reg0210: MOCK_0210, k200: MOCK_K200, k220: MOCK_K220, k230: MOCK_K230, k235: MOCK_K235, k250: MOCK_K250, k255: MOCK_K255, h005: MOCK_H005 } = dadosBloco;
+
+  const conteudoSPED = useMemo(() => gerarArquivoSPED(mesSel, anoSel, dadosBloco), [mesSel, anoSel, dadosBloco]);
   const totalLinhas = conteudoSPED.split('\n').length;
 
   const toggleExpand = (key) => setExpandido((p) => ({ ...p, [key]: !p[key] }));

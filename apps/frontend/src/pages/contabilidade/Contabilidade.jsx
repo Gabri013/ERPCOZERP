@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { listEntries, createEntry, listAccountPlan, getDRE } from '@/services/accountingApi.js';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell,
@@ -17,7 +18,7 @@ const R$ = (v, always = false) => {
 };
 
 // ─── Plano de Contas ────────────────────────────────────────────────────────
-const PLANO_CONTAS = [
+const planoContas = [
   { id: '1', codigo: '1', nome: 'ATIVO', tipo: 'grupo', nivel: 0, saldo: 3_842_500 },
   { id: '1.1', codigo: '1.1', nome: 'Ativo Circulante', tipo: 'grupo', nivel: 1, saldo: 1_285_000 },
   { id: '1.1.01', codigo: '1.1.01', nome: 'Caixa e Equivalentes', tipo: 'analitica', natureza: 'D', nivel: 2, saldo: 145_000 },
@@ -46,7 +47,7 @@ const PLANO_CONTAS = [
 ];
 
 // ─── Lançamentos ────────────────────────────────────────────────────────────
-const LANCAMENTOS = [
+const lancamentos = [
   { id: 'LC-2026-4-1452', data: '2026-04-30', origem: 'NF-e Saída', doc: 'NF-e 000321', historico: 'Venda de mercadorias — Pharma Brasil Ltda', debito: '1.1.02', credito: '4.1', valor: 24_800, automatico: true },
   { id: 'LC-2026-4-1451', data: '2026-04-30', origem: 'NF-e Saída', doc: 'NF-e 000321', historico: 'Baixa de estoque — Pharma Brasil Ltda', debito: '5.1', credito: '1.1.03', valor: 18_760, automatico: true },
   { id: 'LC-2026-4-1449', data: '2026-04-28', origem: 'Financeiro', doc: 'REC-2026-0899', historico: 'Recebimento de cliente — Alimentos SA', debito: '1.1.01', credito: '1.1.02', valor: 28_500, automatico: true },
@@ -58,7 +59,7 @@ const LANCAMENTOS = [
 ];
 
 // ─── DRE ────────────────────────────────────────────────────────────────────
-const DRE_MENSAL = [
+const dreMensal = [
   { mes: 'Nov/25', receita: 185_000, cpv: 128_000, lucro_bruto: 57_000, desp_op: 34_000, ebitda: 23_000, result_fin: -5_500, lucro_liq: 17_500 },
   { mes: 'Dez/25', receita: 201_000, cpv: 138_000, lucro_bruto: 63_000, desp_op: 36_200, ebitda: 26_800, result_fin: -5_800, lucro_liq: 21_000 },
   { mes: 'Jan/26', receita: 168_000, cpv: 119_000, lucro_bruto: 49_000, desp_op: 31_400, ebitda: 17_600, result_fin: -6_100, lucro_liq: 11_500 },
@@ -91,6 +92,9 @@ const NIVEL_INDENT = ['', 'pl-4', 'pl-8'];
 
 export default function Contabilidade() {
   const [aba, setAba] = useState('lancamentos');
+  const [planoContas, setPlanoContas] = useState([]);
+  const [lancamentos, setLancamentos] = useState([]);
+  const [dreMensal, setDreMensal] = useState([]);
   const [expandedGrupos, setExpandedGrupos] = useState({ '1': true, '2': true, '3': true, '4': true, '5': true });
   const [busca, setBusca] = useState('');
   const [filtroOrigem, setFiltroOrigem] = useState('');
@@ -98,10 +102,51 @@ export default function Contabilidade() {
   const [reprocessando, setReprocessando] = useState(false);
   const [novoLC, setNovoLC] = useState({ data: '', debito: '', credito: '', valor: '', historico: '' });
 
+  const loadData = useCallback(async () => {
+    try {
+      const [entries, plan, dre] = await Promise.all([listEntries(), listAccountPlan(), getDRE()]);
+      if (entries && entries.length > 0) {
+        setLancamentos(entries.map((e) => ({
+          id: e.id,
+          data: e.entryDate ? e.entryDate.slice(0, 10) : '',
+          debito: e.debitAccount,
+          credito: e.creditAccount,
+          valor: Number(e.amount),
+          historico: e.description,
+          origem: e.origin,
+          modulo: e.module || '',
+        })));
+      }
+      if (plan && plan.length > 0) {
+        setPlanoContas(plan.map((p) => ({
+          codigo: p.code,
+          nome: p.name,
+          tipo: p.accountType,
+          nivel: p.level - 1,
+          saldo: 0,
+          natureza: ['receita'].includes(p.accountType) ? 'C' : 'D',
+        })));
+      }
+      if (dre && dre.monthly) {
+        const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+        setDreMensal(Object.entries(dre.monthly).map(([m, v]) => ({
+          mes: meses[parseInt(m) - 1],
+          receita: v.receita,
+          despesa: v.despesa,
+          lucro: v.receita - v.despesa,
+        })));
+      }
+    } catch {
+      // keep mock data
+    }
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
   const toggleGrupo = (codigo) => setExpandedGrupos((prev) => ({ ...prev, [codigo]: !prev[codigo] }));
 
   const contasVisiveis = useMemo(() => {
-    return PLANO_CONTAS.filter((c) => {
+    return planoContas.filter((c) => {
       if (c.nivel === 0) return true;
       const partes = c.codigo.split('.');
       let parentOk = true;
@@ -114,21 +159,21 @@ export default function Contabilidade() {
   }, [expandedGrupos]);
 
   const lancamentosFiltrados = useMemo(() => {
-    return LANCAMENTOS.filter((l) => {
+    return lancamentos.filter((l) => {
       const matchBusca = !busca || l.historico.toLowerCase().includes(busca.toLowerCase()) || l.doc.toLowerCase().includes(busca.toLowerCase());
       const matchOrigem = !filtroOrigem || l.origem === filtroOrigem;
       return matchBusca && matchOrigem;
     });
   }, [busca, filtroOrigem]);
 
-  const dreAtual = DRE_MENSAL[DRE_MENSAL.length - 1];
+  const dreAtual = dreMensal[dreMensal.length - 1];
   const mgBruta = (dreAtual.lucro_bruto / dreAtual.receita * 100).toFixed(1);
   const mgEbitda = (dreAtual.ebitda / dreAtual.receita * 100).toFixed(1);
   const mgLiq = (dreAtual.lucro_liq / dreAtual.receita * 100).toFixed(1);
 
   const ABAS = [
     { id: 'lancamentos',  label: 'Lançamentos Contábeis' },
-    { id: 'plano_contas', label: 'Plano de Contas' },
+    { id: 'planoContas', label: 'Plano de Contas' },
     { id: 'dre',          label: 'DRE Gerencial' },
     { id: 'dre_projetos', label: 'DRE por Projeto' },
     { id: 'reprocessamento', label: 'Reprocessamento' },
@@ -196,8 +241,8 @@ export default function Contabilidade() {
               </thead>
               <tbody>
                 {lancamentosFiltrados.map((lc) => {
-                  const contaD = PLANO_CONTAS.find((c) => c.codigo === lc.debito);
-                  const contaC = PLANO_CONTAS.find((c) => c.codigo === lc.credito);
+                  const contaD = planoContas.find((c) => c.codigo === lc.debito);
+                  const contaC = planoContas.find((c) => c.codigo === lc.credito);
                   return (
                     <tr key={lc.id}>
                       <td className="font-mono text-[10px] text-primary font-bold">{lc.id}</td>
@@ -219,7 +264,7 @@ export default function Contabilidade() {
       )}
 
       {/* ── PLANO DE CONTAS ─────────────────────────────────────────────── */}
-      {aba === 'plano_contas' && (
+      {aba === 'planoContas' && (
         <div className="erp-card overflow-x-auto">
           <div className="px-4 py-2.5 bg-muted/20 border-b border-border flex items-center justify-between">
             <p className="text-xs font-semibold">Plano de Contas Contábil</p>
@@ -232,7 +277,7 @@ export default function Contabilidade() {
             <thead className="bg-muted/20"><tr><th className="text-left px-3 py-2">Código</th><th className="text-left px-3 py-2">Nome da Conta</th><th className="px-3 py-2">Natureza</th><th className="px-3 py-2">Tipo</th><th className="text-right px-3 py-2">Saldo (R$)</th></tr></thead>
             <tbody>
               {contasVisiveis.map((conta) => {
-                const temFilhos = PLANO_CONTAS.some((c) => c.codigo.startsWith(conta.codigo + '.') && c.codigo.split('.').length === conta.codigo.split('.').length + 1);
+                const temFilhos = planoContas.some((c) => c.codigo.startsWith(conta.codigo + '.') && c.codigo.split('.').length === conta.codigo.split('.').length + 1);
                 return (
                   <tr key={conta.id} className={`border-b border-border/20 ${conta.nivel === 0 ? 'bg-primary/5 font-bold' : conta.nivel === 1 ? 'bg-muted/10 font-semibold' : ''}`}>
                     <td className={`px-3 py-1.5 font-mono ${NIVEL_INDENT[conta.nivel]}`}>
@@ -302,7 +347,7 @@ export default function Contabilidade() {
           <div className="erp-card p-4" style={{ height: 220 }}>
             <p className="text-xs font-semibold mb-2">Evolução — Receita × Lucro Bruto × EBITDA × Lucro Líquido</p>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={DRE_MENSAL} barGap={2}>
+              <BarChart data={dreMensal} barGap={2}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="mes" tick={{ fontSize: 9 }} />
                 <YAxis tick={{ fontSize: 9 }} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
@@ -498,13 +543,13 @@ export default function Contabilidade() {
                 <div><label className="erp-label">Conta Débito</label>
                   <select className="erp-input w-full" value={novoLC.debito} onChange={(e) => setNovoLC({ ...novoLC, debito: e.target.value })}>
                     <option value="">Selecionar...</option>
-                    {PLANO_CONTAS.filter((c) => c.tipo === 'analitica').map((c) => <option key={c.id} value={c.codigo}>{c.codigo} — {c.nome}</option>)}
+                    {planoContas.filter((c) => c.tipo === 'analitica').map((c) => <option key={c.id} value={c.codigo}>{c.codigo} — {c.nome}</option>)}
                   </select>
                 </div>
                 <div><label className="erp-label">Conta Crédito</label>
                   <select className="erp-input w-full" value={novoLC.credito} onChange={(e) => setNovoLC({ ...novoLC, credito: e.target.value })}>
                     <option value="">Selecionar...</option>
-                    {PLANO_CONTAS.filter((c) => c.tipo === 'analitica').map((c) => <option key={c.id} value={c.codigo}>{c.codigo} — {c.nome}</option>)}
+                    {planoContas.filter((c) => c.tipo === 'analitica').map((c) => <option key={c.id} value={c.codigo}>{c.codigo} — {c.nome}</option>)}
                   </select>
                 </div>
               </div>

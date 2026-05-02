@@ -48,6 +48,17 @@ fiscalRouter.get('/nfes/consult/:key', gate, async (req, res) => {
   }
 });
 
+fiscalRouter.get('/bloco-k', gate, async (req, res) => {
+  try {
+    const mes = req.query.mes !== undefined ? Number(req.query.mes) : new Date().getMonth();
+    const ano = req.query.ano !== undefined ? Number(req.query.ano) : new Date().getFullYear();
+    const data = await svc.getBlocoKData(mes, ano);
+    res.json({ success: true, data });
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : 'Erro' });
+  }
+});
+
 fiscalRouter.get('/sped/export', gate, async (req, res) => {
   const q = z
     .object({

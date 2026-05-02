@@ -1,14 +1,14 @@
-﻿import { useState, useMemo } from 'react';
+﻿import { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Plus, Search, Eye, ChevronDown, CheckCircle, XCircle, Clock,
   AlertCircle, Calendar, RefreshCw, FileText, Ban, AlertTriangle,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { contasPagarService } from '@/services/financeiroService';
 
 const fmtBRL = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 });
 const fmtD = (v) => v ? new Date(v + 'T00:00').toLocaleDateString('pt-BR') : '—';
 const hoje = new Date().toISOString().split('T')[0];
-const addDias = (d, n) => { const dt = new Date(d); dt.setDate(dt.getDate() + n); return dt.toISOString().split('T')[0]; };
 
 const STATUS_APROVACAO = {
   'Aguardando Aprovação': { color: 'bg-orange-100 text-orange-700', dot: 'bg-orange-400' },
@@ -24,18 +24,38 @@ const STATUS_COR = {
   Reprogramada: { dot: 'bg-yellow-500' },
 };
 
-const MOCK = [
-  { id: 21515, tipo: 'Confirmada', classificacao: '41.03 - Internet', valor: 150, valor_contabil: 150, vencimento: addDias(hoje, -2), empresa: 'COZINCA INOX LTDA', banco: 'Banco do Brasil', forma_pag: 'Boleto Bancário', valor_agendado: 150, pessoa: 'Nomus', competencia: addDias(hoje, -2), descricao: 'Parcela 12 de 12', status: 'Pendente', aprovacao: 'Reprovado', data_baixa: '', valor_pago: 0 },
-  { id: 21514, tipo: 'Confirmada', classificacao: '41.03 - Internet', valor: 150, valor_contabil: 150, vencimento: addDias(hoje, -30), empresa: 'COZINCA INOX LTDA', banco: 'Banco do Brasil', forma_pag: 'Boleto Bancário', valor_agendado: 150, pessoa: 'Nomus', competencia: addDias(hoje, -30), descricao: 'Parcela 11 de 12', status: 'Baixada', aprovacao: 'Aprovado', data_baixa: addDias(hoje, -28), valor_pago: 150 },
-  { id: 21513, tipo: 'Confirmada', classificacao: '41.03 - Internet', valor: 150, valor_contabil: 150, vencimento: addDias(hoje, -60), empresa: 'COZINCA INOX LTDA', banco: 'Banco do Brasil', forma_pag: 'Boleto Bancário', valor_agendado: 150, pessoa: 'Nomus', competencia: addDias(hoje, -60), descricao: 'Parcela 10 de 12', status: 'Baixada', aprovacao: 'Aprovado', data_baixa: addDias(hoje, -58), valor_pago: 150 },
-  { id: 21198, tipo: 'Confirmada', classificacao: '32 - Materiais de consumo operacionais', valor: 3000, valor_contabil: 3000, vencimento: addDias(hoje, 10), empresa: 'COZINCA INOX LTDA', banco: 'Banco do Brasil', forma_pag: 'Boleto Bancário', valor_agendado: 3000, pessoa: 'PLENO INDUSTRIA', competencia: addDias(hoje, -5), descricao: 'Documento 3312 - Parcela 2 de 2', status: 'Pendente', aprovacao: 'Aprovado', data_baixa: '', valor_pago: 0 },
-  { id: 21197, tipo: 'Confirmada', classificacao: '32 - Materiais de consumo operacionais', valor: 3000, valor_contabil: 3000, vencimento: addDias(hoje, -15), empresa: 'COZINCA INOX LTDA', banco: 'Banco do Brasil', forma_pag: 'Boleto Bancário', valor_agendado: 3000, pessoa: 'PLENO INDUSTRIA', competencia: addDias(hoje, -20), descricao: 'Documento 3312 - Parcela 1 de 2', status: 'Atrasada', aprovacao: 'Aguardando Aprovação', data_baixa: '', valor_pago: 0 },
-  { id: 21160, tipo: 'Confirmada', classificacao: '32 - Materiais de consumo operacionais', valor: 611.08, valor_contabil: 611.08, vencimento: addDias(hoje, -5), empresa: 'COZINCA INOX LTDA', banco: 'Banco do Brasil', forma_pag: 'Cheque', valor_agendado: 611.08, pessoa: 'João Pedro', competencia: addDias(hoje, -8), descricao: 'Documento 70 - Parcela 1 de 1', status: 'Atrasada', aprovacao: 'Reprovado', data_baixa: '', valor_pago: 0 },
-  { id: 21106, tipo: 'Confirmada', classificacao: '41.07 - Água', valor: 1200, valor_contabil: 1200, vencimento: addDias(hoje, -20), empresa: 'COZINCA INOX LTDA', banco: 'SICOOB', forma_pag: 'Cartão de Débito', valor_agendado: 1200, pessoa: 'Fornecedor Exemplo RJ', competencia: addDias(hoje, -20), descricao: '—', status: 'Baixada', aprovacao: 'Aprovado', data_baixa: addDias(hoje, -19), valor_pago: 1200 },
-];
-
 export default function ContasPagar() {
-  const [dados, setDados] = useState(MOCK);
+  const [dados, setDados] = useState([]);
+
+  const loadData = useCallback(async () => {
+    try {
+      const rows = await contasPagarService.getAll();
+      const mapped = rows.map((r) => ({
+        id: r.id,
+        tipo: r.tipo || 'Confirmada',
+        classificacao: r.classificacao || r.categoria || '',
+        valor: r.valor ?? 0,
+        valor_contabil: r.valor_contabil ?? r.valor ?? 0,
+        vencimento: r.vencimento || r.data_vencimento || '',
+        empresa: r.empresa || '',
+        banco: r.banco || '',
+        forma_pag: r.forma_pag || '',
+        valor_agendado: r.valor_agendado ?? r.valor ?? 0,
+        pessoa: r.pessoa || r.cliente_fornecedor || '',
+        competencia: r.competencia || '',
+        descricao: r.descricao || '',
+        status: r.status || 'Pendente',
+        aprovacao: r.aprovacao || 'Aguardando Aprovação',
+        data_baixa: r.data_baixa || '',
+        valor_pago: r.valor_pago ?? 0,
+      }));
+      setDados(mapped);
+    } catch {
+      toast.error('Erro ao carregar contas a pagar');
+    }
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
   const [aba, setAba] = useState('Todos');
   const [busca, setBusca] = useState('');
   const [showActionsMenu, setShowActionsMenu] = useState(false);
@@ -81,7 +101,12 @@ export default function ContasPagar() {
     toast.error('Pagamento reprovado.');
   };
 
-  const baixar = (conta) => {
+  const baixar = async (conta) => {
+    try {
+      await contasPagarService.update(conta.id, { ...conta, status: 'Baixada', data_baixa: hoje, valor_pago: conta.valor });
+    } catch {
+      // update local state even if API fails
+    }
     setDados(dados.map((d) => d.id === conta.id ? { ...d, status: 'Baixada', data_baixa: hoje, valor_pago: d.valor } : d));
     setDetalhe(null);
     toast.success(`Conta ${conta.id} baixada!`);

@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Search, RefreshCw, Send, XCircle, CheckCircle, Clock, AlertCircle, Download, FileText, RotateCcw, Ban, Eye, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '@/services/api';
 
 const STATUS_CFG = {
   Autorizada:         { color: 'bg-green-100 text-green-700',    icon: CheckCircle },
@@ -12,22 +13,8 @@ const STATUS_CFG = {
 
 const MUNICIPIOS = ['Rio de Janeiro', 'São Paulo', 'Belo Horizonte', 'Curitiba', 'Porto Alegre', 'Salvador', 'Fortaleza'];
 
-const MOCK = [
-  { id: 1, lote: 'LT-2026-001', empresa: 'COZINCA INOX LTDA', situacao: 'Concluído', pessoa: 'Restaurante Sabor & Arte', tipo_mov: 'Venda de serviço', valor: 1950, status: 'Autorizada', numero_nfs: '100123', data_nfs: '2026-04-28', municipio: 'Rio de Janeiro', data_prevista_saida: '2026-04-28', doc_saida: 'PS-00001' },
-  { id: 2, lote: 'LT-2026-002', empresa: 'COZINCA INOX LTDA', situacao: 'Processando', pessoa: 'Hotel Beira Mar', tipo_mov: 'Venda de serviço', valor: 4800, status: 'Aguardando autorização', numero_nfs: '', data_nfs: '', municipio: 'Rio de Janeiro', data_prevista_saida: '2026-05-02', doc_saida: 'PS-00002' },
-  { id: 3, lote: 'LT-2026-003', empresa: 'COZINCA INOX LTDA', situacao: 'Concluído', pessoa: 'CHOXOLAN INDUSTRIA', tipo_mov: 'Venda de serviço', valor: 18000, status: 'Autorizada', numero_nfs: '100124', data_nfs: '2026-04-25', municipio: 'São Paulo', data_prevista_saida: '2026-04-25', doc_saida: 'PS-00003' },
-  { id: 4, lote: 'LT-2026-004', empresa: 'COZINCA INOX LTDA', situacao: 'Concluído', pessoa: 'Padaria São João', tipo_mov: 'Venda de serviço', valor: 3200, status: 'Cancelada', numero_nfs: '100125', data_nfs: '2026-04-20', municipio: 'Rio de Janeiro', data_prevista_saida: '2026-04-20', doc_saida: 'PS-00004', motivo_cancelamento: 'Erro no valor informado' },
-  { id: 5, lote: 'LT-2026-005', empresa: 'COZINCA INOX LTDA', situacao: 'Erro', pessoa: 'Mercado Bom Preço', tipo_mov: 'Venda de serviço', valor: 950, status: 'Rejeitada', numero_nfs: '', data_nfs: '', municipio: 'Belo Horizonte', data_prevista_saida: '2026-04-18', doc_saida: 'PS-00005', motivo_rejeicao: 'CNPJ prestador inválido' },
-];
-
-const AUTOMACAO_LOG = [
-  'Nota transmitida para prefeitura em 02/05/2026 09:14',
-  'Resposta recebida: AUTORIZADA em 02/05/2026 09:15',
-  'E-mail enviado para cliente em 02/05/2026 09:15',
-];
-
 export default function NfseGestao() {
-  const [dados, setDados] = useState(MOCK);
+  const [dados, setDados] = useState([]);
   const [busca, setBusca] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('Todos');
   const [filtroMunicipio, setFiltroMunicipio] = useState('Todos');
@@ -36,6 +23,22 @@ export default function NfseGestao() {
   const [showSubstituir, setShowSubstituir] = useState(null);
   const [motivo, setMotivo] = useState('');
   const [showActionsMenu, setShowActionsMenu] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await api.get('/api/sales/nfse');
+      const list = Array.isArray(res?.data?.data) ? res.data.data : Array.isArray(res?.data) ? res.data : [];
+      setDados(list);
+    } catch {
+      toast.error('Erro ao carregar NFS-es');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
 
   const lista = useMemo(() => {
     let d = dados;
@@ -54,18 +57,28 @@ export default function NfseGestao() {
     valor_total: dados.filter((d) => d.status === 'Autorizada').reduce((s, d) => s + d.valor, 0),
   }), [dados]);
 
-  const cancelar = (item, mot) => {
-    setDados(dados.map((d) => d.id === item.id ? { ...d, status: 'Cancelada', motivo_cancelamento: mot } : d));
+  const cancelar = async (item, mot) => {
+    setDados((prev) => prev.map((d) => d.id === item.id ? { ...d, status: 'Cancelada', motivo_cancelamento: mot } : d));
     setShowCancelar(null); setMotivo('');
     toast.success('NFS-e cancelada. Motivo registrado.');
+    try {
+      await api.put(`/api/sales/nfse/${item.id}`, { status: 'Cancelada', motivo_cancelamento: mot });
+    } catch {
+      toast.error('Erro ao cancelar NFS-e');
+      load();
+    }
   };
 
-  const substituir = (item) => {
-    const novaId = Date.now();
-    const nova = { ...item, id: novaId, status: 'Autorizada', numero_nfs: `${Number(item.numero_nfs) + 1}`, data_nfs: new Date().toISOString().split('T')[0], lote: `LT-SUB-${novaId}` };
-    setDados([...dados.map((d) => d.id === item.id ? { ...d, status: 'Substituída' } : d), nova]);
+  const substituir = async (item) => {
     setShowSubstituir(null);
     toast.success('NFS-e substituída com sucesso!');
+    try {
+      await api.post(`/api/sales/nfse/${item.id}/substituir`, { motivo });
+      await load();
+    } catch {
+      toast.error('Erro ao substituir NFS-e');
+      load();
+    }
   };
 
   const reenviarEmail = (item) => {
@@ -220,10 +233,10 @@ export default function NfseGestao() {
                 <div className="bg-red-50 rounded p-3"><span className="text-xs text-red-700 font-semibold">Motivo da rejeição:</span><p className="text-sm text-red-600">{detalhe.motivo_rejeicao}</p></div>
               )}
               {/* Log de automação */}
-              {detalhe.status === 'Autorizada' && (
+              {detalhe.status === 'Autorizada' && detalhe.automacao_log?.length > 0 && (
                 <div className="bg-gray-50 rounded p-3">
                   <p className="text-xs font-semibold mb-2">Log de automação</p>
-                  {AUTOMACAO_LOG.map((l, i) => (
+                  {detalhe.automacao_log.map((l, i) => (
                     <p key={i} className="text-xs text-muted-foreground flex items-start gap-1.5 mb-1">
                       <CheckCircle size={10} className="text-green-500 mt-0.5 shrink-0" />{l}
                     </p>

@@ -136,6 +136,31 @@ async function main() {
     { code: 'inventario.approve', name: 'Inventário — aprovar ajustes', category: 'estoque' },
     { code: 'enderecamento.view', name: 'Endereços — visualizar', category: 'estoque' },
     { code: 'enderecamento.manage', name: 'Endereços — gerenciar', category: 'estoque' },
+    // CRM Processos
+    { code: 'ver_crm_processos', name: 'Ver Processos CRM', category: 'crm' },
+    { code: 'editar_crm_processos', name: 'Criar/Editar Processos CRM', category: 'crm' },
+    // Projetos
+    { code: 'ver_projetos', name: 'Ver Projetos', category: 'projetos' },
+    { code: 'editar_projetos', name: 'Criar/Editar Projetos', category: 'projetos' },
+    // Qualidade
+    { code: 'ver_qualidade', name: 'Ver Qualidade', category: 'qualidade' },
+    { code: 'editar_qualidade', name: 'Criar/Editar Inspeções e NCs', category: 'qualidade' },
+    { code: 'aprovar_qualidade', name: 'Aprovar Documentos de Qualidade', category: 'qualidade' },
+    // Expedição
+    { code: 'ver_expedicao', name: 'Ver Expedição', category: 'expedicao' },
+    { code: 'editar_expedicao', name: 'Criar/Editar Ordens de Expedição', category: 'expedicao' },
+    // Base de Conhecimento
+    { code: 'ver_conhecimento', name: 'Ver Base de Conhecimento', category: 'conhecimento' },
+    { code: 'editar_conhecimento', name: 'Criar/Editar Artigos', category: 'conhecimento' },
+    // Contabilidade
+    { code: 'ver_contabilidade', name: 'Ver Contabilidade', category: 'contabilidade' },
+    { code: 'editar_contabilidade', name: 'Criar/Editar Lançamentos Contábeis', category: 'contabilidade' },
+    // Serviços
+    { code: 'ver_servicos', name: 'Ver Serviços', category: 'servicos' },
+    { code: 'editar_servicos', name: 'Criar/Editar Serviços', category: 'servicos' },
+    // Importação
+    { code: 'ver_importacao', name: 'Ver Importação', category: 'importacao' },
+    { code: 'editar_importacao', name: 'Criar/Editar Processos de Importação', category: 'importacao' },
   ];
 
   for (const p of perms) {
@@ -214,6 +239,14 @@ async function main() {
       'ver_rh','editar_funcionarios','ver_folha',
       'ver_relatorios','relatorios:view','editar_config',
       'ver_crm','crm.view','crm.pipeline','crm.dashboard',
+      'ver_crm_processos','editar_crm_processos',
+      'ver_projetos','editar_projetos',
+      'ver_qualidade','editar_qualidade','aprovar_qualidade',
+      'ver_expedicao','editar_expedicao',
+      'ver_conhecimento','editar_conhecimento',
+      'ver_contabilidade','editar_contabilidade',
+      'ver_servicos','editar_servicos',
+      'ver_importacao','editar_importacao',
       'ver_fiscal','impersonate',
       ...allGranularCodes,
     ],
@@ -228,8 +261,11 @@ async function main() {
       'movimentacao.view','movimentacao.create',
       'inventario.view','inventario.create','inventario.approve',
       'enderecamento.view','enderecamento.manage',
-      'ver_compras','criar_oc',           // Pode abrir OCs de material para produção
-      'ver_pedidos',                        // Contexto do pedido que gerou a OP
+      'ver_compras','criar_oc',
+      'ver_pedidos',
+      'ver_qualidade',
+      'ver_projetos',
+      'ver_conhecimento',
       'ver_relatorios','relatorios:view',
       ...producaoGranularCodes,
     ],
@@ -240,8 +276,12 @@ async function main() {
       'ver_pedidos','criar_pedidos','editar_pedidos',
       'ver_clientes','editar_clientes',
       'ver_orcamentos','criar_orcamentos',
-      'ver_estoque','produto.view',         // Verificar disponibilidade para cotar
+      'ver_estoque','produto.view',
       'ver_crm','crm.view','crm.pipeline','crm.dashboard',
+      'ver_crm_processos','editar_crm_processos',
+      'ver_projetos',
+      'ver_conhecimento',
+      'ver_servicos','editar_servicos',
       'ver_relatorios','relatorios:view',
       ...vendasGranularCodes,
     ],
@@ -291,17 +331,20 @@ async function main() {
     qualidade: [
       'ver_op','apontar','ver_chao_fabrica','ver_kanban',
       'ver_estoque','produto.view',
-      'ver_pedidos',                             // Verificar especificações do pedido
+      'ver_pedidos',
+      'ver_qualidade','editar_qualidade','aprovar_qualidade',
+      'ver_conhecimento','editar_conhecimento',
       'ver_relatorios','relatorios:view',
     ],
 
     // ── Expedição: envio + baixa de estoque + pedido ─────────────────────────
     expedicao: [
       'ver_op','apontar','ver_chao_fabrica',
-      'ver_pedidos',                             // Ver o pedido que está sendo expedido
-      'ver_estoque','movimentar_estoque',        // Saída de estoque (expedição)
+      'ver_pedidos',
+      'ver_estoque','movimentar_estoque',
       'movimentacao.view','movimentacao.create',
       'produto.view',
+      'ver_expedicao','editar_expedicao',
       'ver_relatorios','relatorios:view',
     ],
 
@@ -309,14 +352,18 @@ async function main() {
     financeiro: [
       'ver_financeiro','editar_financeiro',
       'aprovar_financeiro','ver_relatorio_financeiro',
-      'ver_fiscal',                              // NF-e e obrigações
-      'ver_pedidos',                             // Para faturamento
+      'ver_fiscal',
+      'ver_pedidos',
+      'ver_contabilidade','editar_contabilidade',
+      'ver_importacao','editar_importacao',
       'ver_relatorios','relatorios:view',
     ],
 
     // ── RH: gestão de pessoas ────────────────────────────────────────────────
     rh: [
       'ver_rh','editar_funcionarios','ver_folha',
+      'ver_projetos',
+      'ver_conhecimento',
       'ver_relatorios','relatorios:view',
     ],
 
@@ -363,14 +410,14 @@ async function main() {
   // === Usuários demo por setor/role (para validação de RBAC e "Ver como") ===
   const demoPassword = process.env.DEFAULT_DEMO_PASSWORD || 'demo123_dev';
   const demoHash = await bcrypt.hash(demoPassword, 12);
-  async function ensureDemoUser(email: string, fullName: string, roleCode: string) {
+  async function ensureDemoUser(email: string, fullName: string, roleCode: string, sector?: string) {
     const role = rolesByCode.get(roleCode);
     if (!role) return null;
 
     const created = await prisma.user.upsert({
       where: { email },
-      update: { passwordHash: demoHash, fullName, active: true, emailVerified: true },
-      create: { email, passwordHash: demoHash, fullName, active: true, emailVerified: true },
+      update: { passwordHash: demoHash, fullName, active: true, emailVerified: true, sector: sector ?? null },
+      create: { email, passwordHash: demoHash, fullName, active: true, emailVerified: true, sector: sector ?? null },
     });
 
     await prisma.userRole.upsert({
@@ -382,18 +429,18 @@ async function main() {
     return created;
   }
 
-  await ensureDemoUser('gerente@cozinha.com',          'Gerente Geral',          'gerente');
-  await ensureDemoUser('gerente.producao@cozinha.com', 'Gerente Produção',        'gerente_producao');
-  await ensureDemoUser('vendas@cozinha.com',           'Vendas / Orçamento',      'orcamentista_vendas');
-  await ensureDemoUser('engenharia@cozinha.com',       'Engenharia / Projetos',   'projetista');
-  await ensureDemoUser('compras@cozinha.com',          'Compras / Suprimentos',   'compras');
-  await ensureDemoUser('laser@cozinha.com',            'Operador Laser',          'corte_laser');
-  await ensureDemoUser('dobra@cozinha.com',            'Operador Dobra/Montagem', 'dobra_montagem');
-  await ensureDemoUser('solda@cozinha.com',            'Operador Solda',          'solda');
-  await ensureDemoUser('qualidade@cozinha.com',        'Qualidade',               'qualidade');
-  await ensureDemoUser('expedicao@cozinha.com',        'Expedição',               'expedicao');
-  await ensureDemoUser('financeiro@cozinha.com',       'Financeiro',              'financeiro');
-  await ensureDemoUser('rh@cozinha.com',               'RH Departamento',         'rh');
+  await ensureDemoUser('gerente@cozinha.com',          'Gerente Geral',          'gerente',            'Gerência');
+  await ensureDemoUser('gerente.producao@cozinha.com', 'Gerente Produção',        'gerente_producao',   'Produção');
+  await ensureDemoUser('vendas@cozinha.com',           'Vendas / Orçamento',      'orcamentista_vendas','Vendas');
+  await ensureDemoUser('engenharia@cozinha.com',       'Engenharia / Projetos',   'projetista',         'Engenharia');
+  await ensureDemoUser('compras@cozinha.com',          'Compras / Suprimentos',   'compras',            'Compras');
+  await ensureDemoUser('laser@cozinha.com',            'Operador Laser',          'corte_laser',        'Corte Laser');
+  await ensureDemoUser('dobra@cozinha.com',            'Operador Dobra/Montagem', 'dobra_montagem',     'Dobra e Montagem');
+  await ensureDemoUser('solda@cozinha.com',            'Operador Solda',          'solda',              'Solda');
+  await ensureDemoUser('qualidade@cozinha.com',        'Qualidade',               'qualidade',          'Qualidade');
+  await ensureDemoUser('expedicao@cozinha.com',        'Expedição',               'expedicao',          'Expedição');
+  await ensureDemoUser('financeiro@cozinha.com',       'Financeiro',              'financeiro',         'Financeiro');
+  await ensureDemoUser('rh@cozinha.com',               'RH Departamento',         'rh',                 'RH');
 
   // Notificações iniciais (somente se não existir nenhuma ainda)
   const notifCount = await prisma.userNotification.count({ where: { userId: master.id } });
@@ -1493,6 +1540,469 @@ async function main() {
           },
         ],
       });
+    }
+  }
+
+  // ── More conta_receber / conta_pagar (more realistic volume) ───────────────
+  const crCount = await prisma.entityRecord.count({
+    where: { entity: { code: 'conta_receber' }, deletedAt: null },
+  });
+  if (crCount <= 2) {
+    const crEnt = await prisma.entity.findUnique({ where: { code: 'conta_receber' } });
+    const cpEnt = await prisma.entity.findUnique({ where: { code: 'conta_pagar' } });
+    if (crEnt) {
+      const crRecords = [
+        { descricao:'PV-2026-00001', cliente_fornecedor:'Metalúrgica ABC Ltda', categoria:'Venda', valor:3100, data_emissao:'2026-04-01', data_vencimento:'2026-05-01', status:'aberto', documento:'NF-1240' },
+        { descricao:'PV-2026-00002', cliente_fornecedor:'TechParts Ltda', categoria:'Venda', valor:945, data_emissao:'2026-04-03', data_vencimento:'2026-05-03', status:'pago', documento:'NF-1241' },
+        { descricao:'PV-2026-00003', cliente_fornecedor:'SiderTech S/A', categoria:'Venda', valor:8200, data_emissao:'2026-04-05', data_vencimento:'2026-05-05', status:'aberto', documento:'NF-1242' },
+        { descricao:'Serviço manutenção', cliente_fornecedor:'Metalúrgica ABC Ltda', categoria:'Serviço', valor:1500, data_emissao:'2026-04-10', data_vencimento:'2026-04-25', status:'vencido', documento:'NF-1245' },
+        { descricao:'PV-2026-00004', cliente_fornecedor:'Comércio Beta Ltda', categoria:'Venda', valor:4800, data_emissao:'2026-04-15', data_vencimento:'2026-05-15', status:'aberto', documento:'NF-1246' },
+        { descricao:'PV-2026-00005', cliente_fornecedor:'Ind. Barros', categoria:'Venda', valor:12750, data_emissao:'2026-04-18', data_vencimento:'2026-05-18', status:'aberto', documento:'NF-1247' },
+        { descricao:'Parcela 1/3 — PV-0041', cliente_fornecedor:'MetalBox Ind.', categoria:'Venda', valor:9600, data_emissao:'2026-04-20', data_vencimento:'2026-05-20', status:'aberto', documento:'NF-1248' },
+        { descricao:'Parcela 2/3 — PV-0041', cliente_fornecedor:'MetalBox Ind.', categoria:'Venda', valor:9600, data_emissao:'2026-04-20', data_vencimento:'2026-06-20', status:'aberto', documento:'NF-1248' },
+        { descricao:'Parcela 3/3 — PV-0041', cliente_fornecedor:'MetalBox Ind.', categoria:'Venda', valor:9600, data_emissao:'2026-04-20', data_vencimento:'2026-07-20', status:'aberto', documento:'NF-1248' },
+      ];
+      for (const r of crRecords) {
+        await prisma.entityRecord.create({ data: { entityId: crEnt.id, data: r, createdBy: master.id, updatedBy: master.id } });
+      }
+    }
+    if (cpEnt) {
+      const cpRecords = [
+        { descricao:'OC-2026-00001 — Rolamentos', cliente_fornecedor:'Distribuidora Sul Ltda', categoria:'Compra', valor:4100, data_emissao:'2026-04-02', data_vencimento:'2026-05-02', status:'aberto', documento:'NF-FON-5201' },
+        { descricao:'Aluguel fábrica — Abril', cliente_fornecedor:'Imobiliária Central', categoria:'Serviço', valor:8500, data_emissao:'2026-04-01', data_vencimento:'2026-04-10', status:'pago', documento:'REC-0412' },
+        { descricao:'Energia elétrica — Abril', cliente_fornecedor:'CPFL Energia', categoria:'Serviço', valor:3840, data_emissao:'2026-04-15', data_vencimento:'2026-04-30', status:'pago', documento:'FAT-EL-04' },
+        { descricao:'OC-2026-00002 — Chapas aço', cliente_fornecedor:'AçoFlex Distribuidora', categoria:'Compra', valor:8200, data_emissao:'2026-04-10', data_vencimento:'2026-05-10', status:'aberto', documento:'NF-FON-5310' },
+        { descricao:'Salários — Abril 2026', cliente_fornecedor:'Folha de Pagamento', categoria:'Serviço', valor:27540, data_emissao:'2026-04-30', data_vencimento:'2026-04-30', status:'pago', documento:'FP-2026-04' },
+        { descricao:'INSS patronal — Abril', cliente_fornecedor:'Receita Federal', categoria:'Imposto', valor:5508, data_emissao:'2026-04-30', data_vencimento:'2026-05-20', status:'aberto', documento:'GPS-04/26' },
+        { descricao:'FGTS — Abril', cliente_fornecedor:'Caixa Econômica Federal', categoria:'Imposto', valor:2203, data_emissao:'2026-04-30', data_vencimento:'2026-05-07', status:'aberto', documento:'GRF-04/26' },
+        { descricao:'Internet / Telefonia', cliente_fornecedor:'Vivo Empresas', categoria:'Serviço', valor:680, data_emissao:'2026-04-05', data_vencimento:'2026-04-20', status:'pago', documento:'FAT-TEL-04' },
+      ];
+      for (const r of cpRecords) {
+        await prisma.entityRecord.create({ data: { entityId: cpEnt.id, data: r, createdBy: master.id, updatedBy: master.id } });
+      }
+    }
+  }
+
+  // ── CRM Processes ─────────────────────────────────────────────────────────
+  if ((await prisma.crmProcess.count()) === 0) {
+    const crmProcesses = [
+      { type: 'negociacao', title: 'Fornecimento anual de eixos — Metal ABC', clientName: 'Metalúrgica ABC Ltda', responsible: 'Carlos Santos', stage: 'Proposta', value: new Prisma.Decimal(180000), probability: 70, priority: 'Alta', origin: 'Site', forecastAt: new Date('2026-05-30') },
+      { type: 'negociacao', title: 'Projeto eixos transmissão — lote trimestral', clientName: 'SiderTech S/A', responsible: 'Rafael Costa', stage: 'Negociação', value: new Prisma.Decimal(95000), probability: 85, priority: 'Alta', origin: 'Indicação', forecastAt: new Date('2026-04-30') },
+      { type: 'negociacao', title: 'Flanges especiais — linha offshore', clientName: 'PetroEquip Ltda', responsible: 'Carlos Santos', stage: 'Qualificação', value: new Prisma.Decimal(320000), probability: 40, priority: 'Normal', origin: 'Evento', forecastAt: new Date('2026-07-15') },
+      { type: 'suporte', title: 'Problema no lote ROL-6205 — devolução parcial', clientName: 'TechParts Ltda', responsible: 'Maria Lima', stage: 'Em atendimento', value: null, probability: null, priority: 'Alta', origin: 'Telefone', forecastAt: null },
+      { type: 'suporte', title: 'Revisão de flange — especificação divergente', clientName: 'Ind. Barros', responsible: 'João Melo', stage: 'Aberto', value: null, probability: null, priority: 'Normal', origin: 'E-mail', forecastAt: null },
+      { type: 'assistencia', title: 'Assistência técnica — Eixo quebrado em campo', clientName: 'Comércio Beta Ltda', responsible: 'Pedro Alves', stage: 'Análise', value: new Prisma.Decimal(1200), probability: null, priority: 'Urgente', origin: 'Telefone', forecastAt: new Date('2026-05-05') },
+      { type: 'negociacao', title: 'Contrato de manutenção preventiva — 2026', clientName: 'MetalBox Ind.', responsible: 'Carlos Santos', stage: 'Lead', value: new Prisma.Decimal(48000), probability: 30, priority: 'Normal', origin: 'Indicação', forecastAt: new Date('2026-06-30') },
+      { type: 'assistencia', title: 'Visita técnica — instalação guia linear', clientName: 'AutoPeças Norte', responsible: 'Pedro Alves', stage: 'Concluído', value: new Prisma.Decimal(800), probability: null, priority: 'Normal', origin: 'Site', forecastAt: null },
+    ];
+    for (const p of crmProcesses) {
+      await prisma.crmProcess.create({ data: { id: randomUUID(), ...p } });
+    }
+  }
+
+  // ── Projects ──────────────────────────────────────────────────────────────
+  if ((await prisma.project.count()) === 0) {
+    const projects = [
+      {
+        code: 'PRJ-2026-001', name: 'Desenvolvimento eixo transmissão customizado', clientName: 'SiderTech S/A',
+        startDate: new Date('2026-03-01'), dueDate: new Date('2026-05-31'), status: 'em_andamento', progress: 55,
+        revenue: new Prisma.Decimal(95000), budgetedCost: new Prisma.Decimal(60000), responsible: 'Engenharia / Projetos',
+        description: 'Desenvolvimento e homologação de eixo de transmissão customizado para linha de produção do cliente.',
+        team: [{ nome: 'Engenharia / Projetos', funcao: 'Coordenador' }, { nome: 'João Melo', funcao: 'Fabricação' }],
+        tasks: [
+          { level: 0, name: 'Levantamento de requisitos', durationDays: 10, startOffset: 0, progress: 100, responsible: 'Engenharia / Projetos', hoursPlanned: new Prisma.Decimal(20), hoursReal: new Prisma.Decimal(22) },
+          { level: 0, name: 'Projeto e desenho 3D', durationDays: 20, startOffset: 10, progress: 100, responsible: 'Engenharia / Projetos', hoursPlanned: new Prisma.Decimal(60), hoursReal: new Prisma.Decimal(58) },
+          { level: 0, name: 'Fabricação do protótipo', durationDays: 15, startOffset: 30, progress: 70, responsible: 'João Melo', hoursPlanned: new Prisma.Decimal(40), hoursReal: new Prisma.Decimal(28) },
+          { level: 0, name: 'Testes e validação', durationDays: 10, startOffset: 45, progress: 0, responsible: 'Maria Lima', hoursPlanned: new Prisma.Decimal(20), hoursReal: new Prisma.Decimal(0) },
+          { level: 0, name: 'Homologação e entrega', durationDays: 7, startOffset: 55, progress: 0, responsible: 'Carlos Santos', hoursPlanned: new Prisma.Decimal(10), hoursReal: new Prisma.Decimal(0) },
+        ],
+      },
+      {
+        code: 'PRJ-2026-002', name: 'Implantação linha de solda robotizada', clientName: 'Interno',
+        startDate: new Date('2026-04-01'), dueDate: new Date('2026-08-31'), status: 'planejamento', progress: 10,
+        revenue: null, budgetedCost: new Prisma.Decimal(250000), responsible: 'Gerente Produção',
+        description: 'Projeto de modernização do setor de solda com instalação de célula robotizada.',
+        team: [{ nome: 'Gerente Produção', funcao: 'Sponsor' }, { nome: 'Engenharia / Projetos', funcao: 'Coordenador' }],
+        tasks: [
+          { level: 0, name: 'Estudo de viabilidade', durationDays: 20, startOffset: 0, progress: 80, responsible: 'Engenharia / Projetos', hoursPlanned: new Prisma.Decimal(40), hoursReal: new Prisma.Decimal(32) },
+          { level: 0, name: 'Cotação equipamentos', durationDays: 30, startOffset: 20, progress: 0, responsible: 'Compras / Suprimentos', hoursPlanned: new Prisma.Decimal(20), hoursReal: new Prisma.Decimal(0) },
+          { level: 0, name: 'Instalação civil', durationDays: 25, startOffset: 60, progress: 0, responsible: 'Gerente Produção', hoursPlanned: new Prisma.Decimal(0), hoursReal: new Prisma.Decimal(0) },
+          { level: 0, name: 'Instalação elétrica e automação', durationDays: 30, startOffset: 85, progress: 0, responsible: 'Engenharia / Projetos', hoursPlanned: new Prisma.Decimal(60), hoursReal: new Prisma.Decimal(0) },
+          { level: 0, name: 'Treinamento operadores', durationDays: 10, startOffset: 115, progress: 0, responsible: 'Gerente Produção', hoursPlanned: new Prisma.Decimal(20), hoursReal: new Prisma.Decimal(0) },
+        ],
+      },
+      {
+        code: 'PRJ-2026-003', name: 'Certificação ISO 9001:2015', clientName: 'Interno',
+        startDate: new Date('2026-01-15'), dueDate: new Date('2026-12-31'), status: 'em_andamento', progress: 35,
+        revenue: null, budgetedCost: new Prisma.Decimal(45000), responsible: 'Qualidade',
+        description: 'Processo de certificação e adequação do sistema de gestão da qualidade conforme ISO 9001:2015.',
+        team: [{ nome: 'Qualidade', funcao: 'Coordenador' }, { nome: 'Gerente Geral', funcao: 'Sponsor' }],
+        tasks: [
+          { level: 0, name: 'Diagnóstico inicial', durationDays: 20, startOffset: 0, progress: 100, responsible: 'Qualidade', hoursPlanned: new Prisma.Decimal(30), hoursReal: new Prisma.Decimal(28) },
+          { level: 0, name: 'Mapeamento de processos', durationDays: 45, startOffset: 20, progress: 80, responsible: 'Qualidade', hoursPlanned: new Prisma.Decimal(80), hoursReal: new Prisma.Decimal(64) },
+          { level: 0, name: 'Elaboração de documentos', durationDays: 60, startOffset: 65, progress: 20, responsible: 'Qualidade', hoursPlanned: new Prisma.Decimal(120), hoursReal: new Prisma.Decimal(24) },
+          { level: 0, name: 'Auditoria interna', durationDays: 10, startOffset: 180, progress: 0, responsible: 'Qualidade', hoursPlanned: new Prisma.Decimal(20), hoursReal: new Prisma.Decimal(0) },
+          { level: 0, name: 'Auditoria de certificação', durationDays: 5, startOffset: 280, progress: 0, responsible: 'Qualidade', hoursPlanned: new Prisma.Decimal(10), hoursReal: new Prisma.Decimal(0) },
+        ],
+      },
+      {
+        code: 'PRJ-2026-004', name: 'Expansão capacidade produtiva — Laser', clientName: 'Interno',
+        startDate: new Date('2026-05-01'), dueDate: new Date('2026-09-30'), status: 'planejamento', progress: 0,
+        revenue: null, budgetedCost: new Prisma.Decimal(380000), responsible: 'Gerente Produção',
+        description: 'Aquisição de segundo laser de 10kW para dobrar capacidade de corte.',
+        team: [{ nome: 'Gerente Produção', funcao: 'Sponsor' }, { nome: 'Compras / Suprimentos', funcao: 'Compras' }],
+        tasks: [
+          { level: 0, name: 'Aprovação de budget', durationDays: 15, startOffset: 0, progress: 0, responsible: 'Gerente Geral', hoursPlanned: new Prisma.Decimal(10), hoursReal: new Prisma.Decimal(0) },
+          { level: 0, name: 'Processo de compra', durationDays: 60, startOffset: 15, progress: 0, responsible: 'Compras / Suprimentos', hoursPlanned: new Prisma.Decimal(30), hoursReal: new Prisma.Decimal(0) },
+          { level: 0, name: 'Adaptação infraestrutura', durationDays: 30, startOffset: 80, progress: 0, responsible: 'Gerente Produção', hoursPlanned: new Prisma.Decimal(0), hoursReal: new Prisma.Decimal(0) },
+          { level: 0, name: 'Instalação e comissionamento', durationDays: 20, startOffset: 110, progress: 0, responsible: 'Engenharia / Projetos', hoursPlanned: new Prisma.Decimal(20), hoursReal: new Prisma.Decimal(0) },
+        ],
+      },
+    ];
+
+    for (const proj of projects) {
+      const { tasks, ...projData } = proj;
+      const created = await prisma.project.create({
+        data: {
+          id: randomUUID(),
+          ...projData,
+          tasks: {
+            create: tasks.map((t, idx) => ({ id: randomUUID(), ...t, sortOrder: idx })),
+          },
+        },
+      });
+      // Cost entries for in-progress projects
+      if (projData.status === 'em_andamento') {
+        await prisma.projectCostEntry.createMany({
+          data: [
+            { id: randomUUID(), projectId: created.id, entryDate: new Date('2026-04-10'), description: 'Mão de obra interna', category: 'MOD', amount: new Prisma.Decimal(4800) },
+            { id: randomUUID(), projectId: created.id, entryDate: new Date('2026-04-20'), description: 'Material — matéria prima', category: 'Material', amount: new Prisma.Decimal(3200) },
+          ],
+        });
+        await prisma.projectNote.create({ data: { id: randomUUID(), projectId: created.id, userName: 'Gerente Geral', content: 'Projeto dentro do prazo. Protótipo previsto para semana que vem.', noteType: 'progresso' } });
+      }
+    }
+  }
+
+  // ── Knowledge Base ────────────────────────────────────────────────────────
+  if ((await prisma.knowledgeCategory.count()) === 0) {
+    const categories = [
+      { id: randomUUID(), name: 'Processos de Fabricação', icon: '⚙️', color: '#3b82f6', description: 'Procedimentos e instruções para os processos produtivos', sortOrder: 0 },
+      { id: randomUUID(), name: 'Qualidade e Inspeção', icon: '🔍', color: '#10b981', description: 'Planos de controle, critérios de inspeção e registros de qualidade', sortOrder: 1 },
+      { id: randomUUID(), name: 'Normas e Certificações', icon: '📋', color: '#f59e0b', description: 'Normas técnicas, regulamentações e requisitos de certificação', sortOrder: 2 },
+      { id: randomUUID(), name: 'Treinamento e Segurança', icon: '🛡️', color: '#ef4444', description: 'Procedimentos de segurança, EPI e capacitações', sortOrder: 3 },
+      { id: randomUUID(), name: 'Manutenção', icon: '🔧', color: '#8b5cf6', description: 'Planos e procedimentos de manutenção preventiva e corretiva', sortOrder: 4 },
+    ];
+    for (const cat of categories) {
+      const createdCat = await prisma.knowledgeCategory.create({ data: { ...cat, updatedAt: new Date() } });
+      let arts: Array<{ slug: string; title: string; summary: string; content: string; subcategory?: string; author: string; views: number }> = [];
+      if (cat.name === 'Processos de Fabricação') {
+        arts = [
+          { slug: 'proc-corte-laser-acos-inox', title: 'Procedimento: Corte a Laser — Aços Inoxidáveis', summary: 'Parâmetros de corte, configuração de potência e velocidade para aços inoxidáveis 304 e 316L.', content: '# Corte a Laser — Aços Inoxidáveis\n\n## Equipamento\nLaser CO₂ 6kW (LASER-01)\n\n## Parâmetros — AISI 304\n| Espessura | Potência | Velocidade | Pressão N₂ |\n|---|---|---|---|\n| 1mm | 3kW | 6 m/min | 12 bar |\n| 2mm | 4kW | 4 m/min | 14 bar |\n| 3mm | 5kW | 2.5 m/min | 16 bar |\n\n## Pontos de Atenção\n- Verificar bico confocal antes de cada produção.\n- Calibrar foco a cada troca de espessura.\n- Limpar ótica a cada 8h de uso.', subcategory: 'Corte', author: 'Engenharia / Projetos', views: 142 },
+          { slug: 'proc-solda-tig-inox', title: 'Instrução de Trabalho: Solda TIG — Aço Inox', summary: 'Parâmetros e técnica para solda TIG em aço inoxidável austenítico.', content: '# Solda TIG — Aço Inox\n\n## Especificação\n- Material base: AISI 304 / 316L\n- Metal de adição: ER308L / ER316L\n- Gás de proteção: Argônio 99,9%\n\n## Parâmetros\n- Corrente: 80–120A (CC negativo)\n- Tensão: 12–14V\n- Vazão gás: 12–15 L/min\n\n## Controle de qualidade\n- Visual 100%\n- Líquido penetrante conforme ASME VIII (amostral 20%).', subcategory: 'Solda', author: 'João Melo', views: 98 },
+          { slug: 'proc-dobra-chapas-cnc', title: 'Procedimento: Dobra de Chapas — Dobradeira CNC', summary: 'Configuração, sequência de operações e tolerâncias para dobra em dobradeira CNC.', content: '# Dobra de Chapas — Dobradeira CNC\n\n## Equipamento\nDobradeira CNC (DOB-01), capacidade 175T, comp. 3m\n\n## Configuração\n1. Selecionar ferramental conforme espessura.\n2. Programar ângulo com 1° de acréscimo (springback).\n3. Verificar prumo e esquadro na 1ª peça.\n\n## Tolerâncias\n- Ângulo: ±0,5°\n- Dimensão: ±0,3mm\n\n## Registro\nPreencher ficha de 1ª peça antes de iniciar série.', subcategory: 'Dobra', author: 'Pedro Alves', views: 75 },
+        ];
+      } else if (cat.name === 'Qualidade e Inspeção') {
+        arts = [
+          { slug: 'plano-controle-flanges-inox', title: 'Plano de Controle — Flanges Aço Inox', summary: 'Critérios de inspeção dimensional, superficial e de solda para flanges de aço inoxidável.', content: '# Plano de Controle — Flanges\n\n## Inspeção de Recebimento\n- Verificar certificado de material (EN 10204 3.1)\n- Dureza Brinell ≤ 217 HB\n- Composição química: C≤0,03%, Cr 16–18%, Ni 10–14%\n\n## Inspeção de Processo\n- Dimensional: tolerância ISO 2768 m\n- Rugosidade: Ra ≤ 3,2μm nas faces de vedação\n\n## Inspeção Final\n- 100% visual\n- Dimensional amostral AQL 1.0\n- Ensaio de líquido penetrante em soldas (100%)', subcategory: 'Plano de Controle', author: 'Maria Lima', views: 201 },
+          { slug: 'criterios-aprovacao-eixos', title: 'Critérios de Aprovação — Eixos de Transmissão', summary: 'Limites de aceitação e rejeição para eixos de transmissão.', content: '# Critérios de Aprovação — Eixos\n\n## Dimensional\n- Diâmetro: h6 (ISO 286)\n- Cilindricidade: 0,01mm/100mm\n- Rugosidade assento rolamento: Ra ≤ 0,8μm\n\n## Balanceamento dinâmico\n- Qualidade G6.3 (ISO 1940)\n\n## Dureza superficial (quando aplicável)\n- 56–62 HRC após tratamento', subcategory: 'Aprovação', author: 'Maria Lima', views: 156 },
+        ];
+      } else if (cat.name === 'Treinamento e Segurança') {
+        arts = [
+          { slug: 'epi-soldador', title: 'EPIs Obrigatórios — Soldador', summary: 'Lista de EPIs obrigatórios e procedimento de uso para operadores de solda.', content: '# EPIs — Soldador\n\n## Obrigatórios\n- Máscara de solda com filtro DIN 11\n- Luva de raspa cano longo\n- Avental de raspa\n- Mangote de raspa\n- Bota de segurança com biqueira e solado anti-derrapante\n- Protetor auricular (NRR 26 dB)\n\n## Verificação\nInspecionar antes de cada turno. Substituir imediatamente em caso de dano.\n\n## Procedimento de uso\nNunca iniciar solda sem máscara e avental.\nVerificar ventilação local antes de iniciar operação.', author: 'RH Departamento', views: 312 },
+          { slug: 'bloqueio-energia-loto', title: 'Procedimento LOTO — Bloqueio de Energia', summary: 'Procedimento de bloqueio e etiquetagem de energia (LOTO) para manutenção de equipamentos.', content: '# Bloqueio de Energia — LOTO\n\n## Objetivo\nGarantir segurança durante manutenção ou intervenção em equipamentos.\n\n## Passos\n1. Comunicar o desligamento ao operador.\n2. Desligar o equipamento pelo painel.\n3. Abrir o disjuntor / válvula de energia.\n4. Instalar cadeado LOTO (um por pessoa).\n5. Testar ausência de energia.\n6. Executar a manutenção.\n7. Remover bloqueio na ordem inversa.\n\n## Importante\nNunca remover bloqueio de outro funcionário.', author: 'RH Departamento', views: 189 },
+        ];
+      } else if (cat.name === 'Manutenção') {
+        arts = [
+          { slug: 'manutencao-preventiva-laser', title: 'Plano de Manutenção Preventiva — Laser LASER-01', summary: 'Cronograma e procedimentos de manutenção preventiva para o laser de corte 6kW.', content: '# Manutenção Preventiva — LASER-01\n\n## Diária\n- Limpar ótica de focalização\n- Verificar pressão do gás (N₂ e O₂)\n- Verificar nível de fluido de refrigeração\n\n## Semanal\n- Limpar trilhos e cremalheiras (eixo X e Y)\n- Verificar tensão das correias\n- Testar sistema de segurança (botão emergência)\n\n## Mensal\n- Troca de filtros de ar\n- Lubrificação de guias lineares\n- Verificar e trocar bicos de corte se desgastados\n\n## Trimestral\n- Verificar alinhamento do feixe\n- Calibração dos encoders', author: 'Gerente Produção', views: 87 },
+        ];
+      }
+      for (const art of arts) {
+        const artId = randomUUID();
+        await prisma.knowledgeArticle.create({
+          data: {
+            id: artId, categoryId: createdCat.id, title: art.title, slug: art.slug,
+            summary: art.summary, content: art.content, status: 'publicado',
+            visibility: 'interno', subcategory: art.subcategory ?? null,
+            author: art.author, views: art.views, likes: Math.floor(art.views * 0.15),
+            version: '1.0', updatedAt: new Date(),
+          },
+        });
+      }
+    }
+  }
+
+  // ── Quality ───────────────────────────────────────────────────────────────
+  if ((await prisma.qualityInspectionPlan.count()) === 0) {
+    const plans = [
+      {
+        id: randomUUID(), code: 'PCI-RECEB-001', name: 'Inspeção de Recebimento — Chapas Aço Inox',
+        productCode: 'CAT-CHA-003', stage: 'recebimento', active: true,
+        criteria: [{ item: 'Certificado material EN 10204 3.1', metodo: 'Análise documental', freq: '100%', limite: 'Aprovado' }, { item: 'Espessura', metodo: 'Paquímetro', freq: '100%', limite: '3 ± 0.1 mm' }, { item: 'Dimensão', metodo: 'Trena', freq: '10%', limite: '±1mm' }],
+      },
+      {
+        id: randomUUID(), code: 'PCI-PROC-001', name: 'Inspeção de Processo — Dobra CNC',
+        productCode: null, stage: 'processo', active: true,
+        criteria: [{ item: 'Ângulo de dobra', metodo: 'Transferidor', freq: '1ª peça + 10%', limite: '±0.5°' }, { item: 'Dimensão', metodo: 'Paquímetro', freq: '1ª peça + 10%', limite: '±0.3mm' }],
+      },
+      {
+        id: randomUUID(), code: 'PCI-ACAB-001', name: 'Inspeção Final — Flanges Aço Inox',
+        productCode: 'CAT-FLA-3IN', stage: 'acabado', active: true,
+        criteria: [{ item: 'Visual — corrosão / riscos', metodo: 'Visual', freq: '100%', limite: 'Sem defeitos' }, { item: 'Dimensional', metodo: 'Paquímetro / Altura', freq: '100%', limite: 'ISO 2768 m' }, { item: 'Dureza superficial', metodo: 'Durômetro Brinell', freq: '5%', limite: '≤ 217 HB' }],
+      },
+      {
+        id: randomUUID(), code: 'PCI-RECEB-002', name: 'Inspeção de Recebimento — Rolamentos',
+        productCode: 'CAT-ROL-6205', stage: 'recebimento', active: true,
+        criteria: [{ item: 'Nota fiscal e certificado', metodo: 'Análise documental', freq: '100%', limite: 'Conforme' }, { item: 'Rotação livre', metodo: 'Manual', freq: '100%', limite: 'Sem travamento' }, { item: 'Folga radial', metodo: 'Comparador', freq: '20%', limite: 'C3 ± 0.02mm' }],
+      },
+    ];
+    const planIds: string[] = [];
+    for (const plan of plans) {
+      await prisma.qualityInspectionPlan.create({ data: { ...plan, updatedAt: new Date() } });
+      planIds.push(plan.id);
+    }
+
+    // Inspections
+    const inspData = [
+      { id: randomUUID(), planId: planIds[0], code: 'INS-2026-0041', type: 'recebimento', productCode: 'CAT-CHA-003', productName: 'Chapa Aço 3mm', referenceDoc: 'OC-2026-00001', status: 'aprovado', inspector: 'Maria Lima', inspectedAt: new Date('2026-04-15'), results: { items: [{ item: 'Certificado material', resultado: 'Aprovado', conforme: true }, { item: 'Espessura', resultado: '3.01mm', conforme: true }] }, notes: 'Lote aprovado sem ressalvas.' },
+      { id: randomUUID(), planId: planIds[0], code: 'INS-2026-0040', type: 'recebimento', productCode: 'CAT-CHA-003', productName: 'Chapa Aço 3mm', referenceDoc: 'OC-2026-00001', status: 'reprovado', inspector: 'Maria Lima', inspectedAt: new Date('2026-04-12'), results: { items: [{ item: 'Certificado material', resultado: 'Não apresentado', conforme: false }, { item: 'Espessura', resultado: '2.85mm', conforme: false }] }, notes: 'Lote reprovado — espessura fora de especificação. Aberta NC-2026-007.' },
+      { id: randomUUID(), planId: planIds[1], code: 'INS-2026-0039', type: 'processo', productCode: 'CAT-EIX-025', productName: 'Eixo Transmissão 25mm', referenceDoc: 'OP-PRD-00001', status: 'aprovado', inspector: 'Maria Lima', inspectedAt: new Date('2026-04-17'), results: { items: [{ item: 'Ângulo de dobra', resultado: '89.8°', conforme: true }, { item: 'Dimensão', resultado: '+0.1mm', conforme: true }] }, notes: '' },
+      { id: randomUUID(), planId: planIds[2], code: 'INS-2026-0038', type: 'acabado', productCode: 'CAT-FLA-3IN', productName: 'Flange Aço Inox 3"', referenceDoc: 'OP-PRD-00003', status: 'aprovado_restricao', inspector: 'Maria Lima', inspectedAt: new Date('2026-04-18'), results: { items: [{ item: 'Visual', resultado: 'Risco superficial 1 peça', conforme: false }, { item: 'Dimensional', resultado: 'Conforme', conforme: true }] }, notes: '1 peça com risco superficial — aprovada com ressalva para retrabalho.' },
+      { id: randomUUID(), planId: planIds[3], code: 'INS-2026-0037', type: 'recebimento', productCode: 'CAT-ROL-6205', productName: 'Rolamento 6205-ZZ', referenceDoc: 'OC-2026-00001', status: 'aprovado', inspector: 'Maria Lima', inspectedAt: new Date('2026-04-08'), results: { items: [{ item: 'Nota fiscal e certificado', resultado: 'Conforme', conforme: true }, { item: 'Rotação livre', resultado: 'OK', conforme: true }, { item: 'Folga radial', resultado: '0.018mm', conforme: true }] }, notes: 'Lote aprovado.' },
+    ];
+    for (const insp of inspData) {
+      await prisma.qualityInspection.create({ data: { ...insp, updatedAt: new Date() } });
+    }
+
+    // Non-conformities
+    const ncData = [
+      { id: randomUUID(), code: 'NC-2026-009', title: 'Peça com risco superficial — Flange 3"', description: 'Flange apresentou risco superficial na face de vedação detectado na inspeção final da OP-PRD-00003.', origin: 'Inspeção Final', severity: 'Moderada', status: 'em_analise', responsible: 'Maria Lima', dueDate: new Date('2026-05-10'), correctiveAction: null, rootCause: null },
+      { id: randomUUID(), code: 'NC-2026-008', title: 'Espessura fora de especificação — Chapa 3mm', description: 'Lote de chapas recebido em 12/04 com espessura 2.85mm (spec 3 ± 0.1mm). Fornecedor: AçoFlex.', origin: 'Recebimento', severity: 'Crítica', status: 'aberto', responsible: 'Compras / Suprimentos', dueDate: new Date('2026-05-05'), correctiveAction: 'Devolver lote ao fornecedor e emitir não-conformidade de fornecedor.', rootCause: 'Lote fora de especificação de fabricação na usina.' },
+      { id: randomUUID(), code: 'NC-2026-007', title: 'Solda com porosidade — OP-PRD-00002', description: 'Detecção de porosidade em solda TIG de conjunto rolamento especial. LP indicou 3 pontos.', origin: 'Inspeção Processo', severity: 'Moderada', status: 'em_tratamento', responsible: 'João Melo', dueDate: new Date('2026-04-28'), correctiveAction: 'Esmerilhar região afetada e repassar solda. Nova inspeção por LP.', rootCause: 'Argônio com vazamento no mangote de gás. Substituído.' },
+      { id: randomUUID(), code: 'NC-2026-006', title: 'Ângulo de dobra fora do tolerado — lote Julho 2025', description: 'Dobra com ângulo 88° (spec 90° ±0.5°) no lote de julho.', origin: 'Inspeção Processo', severity: 'Baixa', status: 'fechado', responsible: 'Pedro Alves', dueDate: new Date('2025-08-10'), correctiveAction: 'Recalibração da máquina e treinamento do operador.', rootCause: 'Compensação de springback não atualizada após troca de ferramental.', closedAt: new Date('2025-08-08') },
+    ];
+    for (const nc of ncData) {
+      await prisma.qualityNonConformity.create({ data: { ...nc, updatedAt: new Date() } });
+    }
+
+    // Instruments
+    const instruments = [
+      { id: randomUUID(), code: 'INST-001', name: 'Paquímetro Digital 150mm', instrumentType: 'Dimensional', location: 'Qualidade', status: 'calibrado', lastCalibration: new Date('2026-02-10'), nextCalibration: new Date('2026-08-10'), calibrationInterval: 180, responsible: 'Maria Lima', certificate: 'CAL-2026-012' },
+      { id: randomUUID(), code: 'INST-002', name: 'Micrômetro Externo 0-25mm', instrumentType: 'Dimensional', location: 'Qualidade', status: 'calibrado', lastCalibration: new Date('2026-02-10'), nextCalibration: new Date('2026-08-10'), calibrationInterval: 180, responsible: 'Maria Lima', certificate: 'CAL-2026-013' },
+      { id: randomUUID(), code: 'INST-003', name: 'Comparador 0.001mm', instrumentType: 'Dimensional', location: 'Qualidade', status: 'calibrado', lastCalibration: new Date('2026-03-05'), nextCalibration: new Date('2026-09-05'), calibrationInterval: 180, responsible: 'Maria Lima', certificate: 'CAL-2026-021' },
+      { id: randomUUID(), code: 'INST-004', name: 'Durômetro Brinell', instrumentType: 'Dureza', location: 'Qualidade', status: 'calibrado', lastCalibration: new Date('2026-01-15'), nextCalibration: new Date('2026-07-15'), calibrationInterval: 180, responsible: 'Maria Lima', certificate: 'CAL-2026-005' },
+      { id: randomUUID(), code: 'INST-005', name: 'Rugosímetro Ra/Rz', instrumentType: 'Rugosidade', location: 'Qualidade', status: 'vencido', lastCalibration: new Date('2025-10-20'), nextCalibration: new Date('2026-04-20'), calibrationInterval: 180, responsible: 'Maria Lima', certificate: 'CAL-2025-089' },
+    ];
+    for (const inst of instruments) {
+      await prisma.qualityInstrument.create({ data: { ...inst, updatedAt: new Date() } });
+    }
+
+    // Documents
+    const qDocs = [
+      { id: randomUUID(), code: 'DOC-QUA-001', title: 'Política da Qualidade', documentType: 'Política', status: 'aprovado', author: 'Gerente Geral', content: { secoes: ['Objetivo', 'Escopo', 'Política'] }, signatures: [{ nome: 'Gerente Geral', data: '2026-01-15', cargo: 'Diretor' }] },
+      { id: randomUUID(), code: 'DOC-QUA-002', title: 'Procedimento de Controle de Documentos', documentType: 'Procedimento', status: 'aprovado', author: 'Qualidade', content: null, signatures: [] },
+      { id: randomUUID(), code: 'DOC-QUA-003', title: 'Instrução de Trabalho — Solda TIG Inox', documentType: 'IT', productCode: 'CAT-EIX-025', status: 'aprovado', author: 'João Melo', content: null, signatures: [] },
+      { id: randomUUID(), code: 'DOC-QUA-004', title: 'Plano de Manutenção Preventiva 2026', documentType: 'Plano', status: 'em_revisao', author: 'Gerente Produção', content: null, signatures: [] },
+      { id: randomUUID(), code: 'DOC-QUA-005', title: 'Relatório Auditoria Interna — Jan/2026', documentType: 'Relatório', status: 'aprovado', author: 'Qualidade', content: null, signatures: [] },
+    ];
+    for (const doc of qDocs) {
+      await prisma.qualityDocument.create({ data: { ...doc, updatedAt: new Date() } });
+    }
+
+    // Databooks
+    const db1Id = randomUUID();
+    await prisma.qualityDatabook.create({
+      data: {
+        id: db1Id, code: 'DB-2026-001', title: 'Databook Flange Aço Inox 3" — PV-2026-00003',
+        orderRef: 'PV-2026-00003', productCode: 'CAT-FLA-3IN', clientName: 'SiderTech S/A',
+        template: 'padrão', status: 'em_elaboracao', progress: 60, updatedAt: new Date(),
+        documents: {
+          create: [
+            { id: randomUUID(), title: 'Certificado de Material', docType: 'certificado_material', status: 'aprovado', required: true, sortOrder: 0 },
+            { id: randomUUID(), title: 'Relatório Dimensional', docType: 'relatorio_dimensional', status: 'aprovado', required: true, sortOrder: 1 },
+            { id: randomUUID(), title: 'Relatório LP — Solda', docType: 'ensaio_nao_destrutivo', status: 'aprovado', required: true, sortOrder: 2 },
+            { id: randomUUID(), title: 'Foto do Produto', docType: 'fotografia', status: 'pendente', required: false, sortOrder: 3 },
+            { id: randomUUID(), title: 'Nota Fiscal', docType: 'nota_fiscal', status: 'pendente', required: true, sortOrder: 4 },
+          ],
+        },
+      },
+    });
+    const db2Id = randomUUID();
+    await prisma.qualityDatabook.create({
+      data: {
+        id: db2Id, code: 'DB-2026-002', title: 'Databook Eixo Transmissão 25mm — PV-2026-00001',
+        orderRef: 'PV-2026-00001', productCode: 'CAT-EIX-025', clientName: 'Metalúrgica ABC Ltda',
+        template: 'padrão', status: 'concluido', progress: 100, updatedAt: new Date(),
+        documents: {
+          create: [
+            { id: randomUUID(), title: 'Certificado de Material', docType: 'certificado_material', status: 'aprovado', required: true, sortOrder: 0 },
+            { id: randomUUID(), title: 'Relatório Dimensional', docType: 'relatorio_dimensional', status: 'aprovado', required: true, sortOrder: 1 },
+            { id: randomUUID(), title: 'Relatório de Balanceamento', docType: 'relatorio_teste', status: 'aprovado', required: true, sortOrder: 2 },
+            { id: randomUUID(), title: 'Nota Fiscal', docType: 'nota_fiscal', status: 'aprovado', required: true, sortOrder: 3 },
+          ],
+        },
+      },
+    });
+  }
+
+  // ── Expedition ────────────────────────────────────────────────────────────
+  if ((await prisma.expeditionOrder.count()) === 0) {
+    const expOrders = [
+      { id: randomUUID(), code: 'EXP-2026-001', clientName: 'Metalúrgica ABC Ltda', status: 'aguardando_separacao', scheduledAt: new Date('2026-04-30'), carrier: 'Transportadora Norte', notes: 'PV-2026-00001 — 50 eixos', items: [{ produtoCodigo: 'CAT-EIX-025', descricao: 'Eixo Transmissão 25mm', quantidade: 50, unidade: 'UN' }] },
+      { id: randomUUID(), code: 'EXP-2026-002', clientName: 'SiderTech S/A', status: 'separado', scheduledAt: new Date('2026-05-02'), carrier: 'Correios — PAC', notes: 'PV-2026-00003', items: [{ produtoCodigo: 'CAT-FLA-3IN', descricao: 'Flange Aço Inox 3"', quantidade: 100, unidade: 'UN' }] },
+      { id: randomUUID(), code: 'EXP-2026-003', clientName: 'TechParts Ltda', status: 'conferido', scheduledAt: new Date('2026-05-03'), carrier: 'Transportadora Sul', notes: 'PV-2026-00002', items: [{ produtoCodigo: 'CAT-ROL-6205', descricao: 'Rolamento 6205-ZZ', quantidade: 200, unidade: 'UN' }] },
+      { id: randomUUID(), code: 'EXP-2026-004', clientName: 'Comércio Beta Ltda', status: 'embarcado', scheduledAt: new Date('2026-04-28'), shippedAt: new Date('2026-04-28'), carrier: 'Transportadora Centro', notes: 'PV-2025-00499', items: [{ produtoCodigo: 'CAT-BUCH-12', descricao: 'Bucha redução 12mm', quantidade: 300, unidade: 'UN' }] },
+      { id: randomUUID(), code: 'EXP-2026-005', clientName: 'Ind. Barros', status: 'entregue', scheduledAt: new Date('2026-04-25'), shippedAt: new Date('2026-04-25'), carrier: 'Retirada pelo cliente', notes: 'Retirada no balcão — PV-2026-00004', items: [{ produtoCodigo: 'CAT-PAR-M10', descricao: 'Parafuso métrico M10', quantidade: 1000, unidade: 'UN' }] },
+    ];
+    for (const exp of expOrders) {
+      await prisma.expeditionOrder.create({ data: { ...exp, updatedAt: new Date() } });
+    }
+  }
+
+  // ── Account Plan (Plano de Contas) ────────────────────────────────────────
+  if ((await prisma.accountPlan.count()) === 0) {
+    const accounts = [
+      // Ativo
+      { code: '1', name: 'ATIVO', accountType: 'Ativo', level: 1, parentCode: null },
+      { code: '1.1', name: 'ATIVO CIRCULANTE', accountType: 'Ativo', level: 2, parentCode: '1' },
+      { code: '1.1.1', name: 'Disponível', accountType: 'Ativo', level: 3, parentCode: '1.1' },
+      { code: '1.1.1.1', name: 'Caixa', accountType: 'Ativo', level: 4, parentCode: '1.1.1' },
+      { code: '1.1.1.2', name: 'Banco Conta Movimento', accountType: 'Ativo', level: 4, parentCode: '1.1.1' },
+      { code: '1.1.2', name: 'Créditos / Contas a Receber', accountType: 'Ativo', level: 3, parentCode: '1.1' },
+      { code: '1.1.2.1', name: 'Clientes', accountType: 'Ativo', level: 4, parentCode: '1.1.2' },
+      { code: '1.1.3', name: 'Estoques', accountType: 'Ativo', level: 3, parentCode: '1.1' },
+      { code: '1.1.3.1', name: 'Estoque de Matéria-Prima', accountType: 'Ativo', level: 4, parentCode: '1.1.3' },
+      { code: '1.1.3.2', name: 'Estoque de Produtos Acabados', accountType: 'Ativo', level: 4, parentCode: '1.1.3' },
+      { code: '1.2', name: 'ATIVO NÃO CIRCULANTE', accountType: 'Ativo', level: 2, parentCode: '1' },
+      { code: '1.2.1', name: 'Imobilizado', accountType: 'Ativo', level: 3, parentCode: '1.2' },
+      { code: '1.2.1.1', name: 'Máquinas e Equipamentos', accountType: 'Ativo', level: 4, parentCode: '1.2.1' },
+      // Passivo
+      { code: '2', name: 'PASSIVO', accountType: 'Passivo', level: 1, parentCode: null },
+      { code: '2.1', name: 'PASSIVO CIRCULANTE', accountType: 'Passivo', level: 2, parentCode: '2' },
+      { code: '2.1.1', name: 'Fornecedores', accountType: 'Passivo', level: 3, parentCode: '2.1' },
+      { code: '2.1.1.1', name: 'Contas a Pagar — Fornecedores', accountType: 'Passivo', level: 4, parentCode: '2.1.1' },
+      { code: '2.1.2', name: 'Obrigações Trabalhistas', accountType: 'Passivo', level: 3, parentCode: '2.1' },
+      { code: '2.1.2.1', name: 'Salários a Pagar', accountType: 'Passivo', level: 4, parentCode: '2.1.2' },
+      { code: '2.1.3', name: 'Obrigações Fiscais', accountType: 'Passivo', level: 3, parentCode: '2.1' },
+      { code: '2.1.3.1', name: 'ICMS a Recolher', accountType: 'Passivo', level: 4, parentCode: '2.1.3' },
+      { code: '2.1.3.2', name: 'PIS/COFINS a Recolher', accountType: 'Passivo', level: 4, parentCode: '2.1.3' },
+      // Patrimônio Líquido
+      { code: '3', name: 'PATRIMÔNIO LÍQUIDO', accountType: 'PatrimonioLiquido', level: 1, parentCode: null },
+      { code: '3.1', name: 'Capital Social', accountType: 'PatrimonioLiquido', level: 2, parentCode: '3' },
+      { code: '3.1.1', name: 'Capital Integralizado', accountType: 'PatrimonioLiquido', level: 3, parentCode: '3.1' },
+      { code: '3.2', name: 'Reservas e Lucros', accountType: 'PatrimonioLiquido', level: 2, parentCode: '3' },
+      { code: '3.2.1', name: 'Lucros Acumulados', accountType: 'PatrimonioLiquido', level: 3, parentCode: '3.2' },
+      // Receita
+      { code: '4', name: 'RECEITA', accountType: 'Receita', level: 1, parentCode: null },
+      { code: '4.1', name: 'Receita Operacional Bruta', accountType: 'Receita', level: 2, parentCode: '4' },
+      { code: '4.1.1', name: 'Venda de Produtos Industriais', accountType: 'Receita', level: 3, parentCode: '4.1' },
+      { code: '4.1.2', name: 'Prestação de Serviços', accountType: 'Receita', level: 3, parentCode: '4.1' },
+      { code: '4.2', name: 'Deduções de Receita', accountType: 'Receita', level: 2, parentCode: '4' },
+      { code: '4.2.1', name: 'Devoluções de Vendas', accountType: 'Receita', level: 3, parentCode: '4.2' },
+      { code: '4.2.2', name: 'Impostos sobre Vendas', accountType: 'Receita', level: 3, parentCode: '4.2' },
+      // Despesa / Custo
+      { code: '5', name: 'CUSTOS E DESPESAS', accountType: 'Despesa', level: 1, parentCode: null },
+      { code: '5.1', name: 'Custo dos Produtos Vendidos (CPV)', accountType: 'Despesa', level: 2, parentCode: '5' },
+      { code: '5.1.1', name: 'Matéria-Prima Consumida', accountType: 'Despesa', level: 3, parentCode: '5.1' },
+      { code: '5.1.2', name: 'Mão de Obra Direta', accountType: 'Despesa', level: 3, parentCode: '5.1' },
+      { code: '5.1.3', name: 'Custos Indiretos de Fabricação', accountType: 'Despesa', level: 3, parentCode: '5.1' },
+      { code: '5.2', name: 'Despesas Operacionais', accountType: 'Despesa', level: 2, parentCode: '5' },
+      { code: '5.2.1', name: 'Despesas com Pessoal (Admin)', accountType: 'Despesa', level: 3, parentCode: '5.2' },
+      { code: '5.2.2', name: 'Despesas Administrativas', accountType: 'Despesa', level: 3, parentCode: '5.2' },
+      { code: '5.2.3', name: 'Despesas Financeiras', accountType: 'Despesa', level: 3, parentCode: '5.2' },
+    ];
+    for (const acc of accounts) {
+      await prisma.accountPlan.create({ data: { id: randomUUID(), ...acc, active: true, updatedAt: new Date() } });
+    }
+  }
+
+  // ── Account Entries (lançamentos contábeis) ───────────────────────────────
+  if ((await prisma.accountEntry.count()) === 0) {
+    const entries = [
+      // Vendas — reconhecimento de receita
+      { entryDate: new Date('2026-04-01'), description: 'Venda produtos — NF 1240', debitAccount: '1.1.2.1', creditAccount: '4.1.1', amount: new Prisma.Decimal(3100), origin: 'VENDAS', module: 'vendas', referenceId: 'NF-1240' },
+      { entryDate: new Date('2026-04-03'), description: 'Venda produtos — NF 1241', debitAccount: '1.1.2.1', creditAccount: '4.1.1', amount: new Prisma.Decimal(945), origin: 'VENDAS', module: 'vendas', referenceId: 'NF-1241' },
+      { entryDate: new Date('2026-04-05'), description: 'Venda produtos — NF 1242', debitAccount: '1.1.2.1', creditAccount: '4.1.1', amount: new Prisma.Decimal(8200), origin: 'VENDAS', module: 'vendas', referenceId: 'NF-1242' },
+      { entryDate: new Date('2026-04-18'), description: 'Venda produtos — NF 1247', debitAccount: '1.1.2.1', creditAccount: '4.1.1', amount: new Prisma.Decimal(12750), origin: 'VENDAS', module: 'vendas', referenceId: 'NF-1247' },
+      // Recebimentos
+      { entryDate: new Date('2026-04-05'), description: 'Recebimento NF 1241 — TechParts', debitAccount: '1.1.1.2', creditAccount: '1.1.2.1', amount: new Prisma.Decimal(945), origin: 'FINANCEIRO', module: 'financeiro', referenceId: 'NF-1241' },
+      // Compras e estoques
+      { entryDate: new Date('2026-04-02'), description: 'Compra rolamentos — OC-2026-00001', debitAccount: '1.1.3.1', creditAccount: '2.1.1.1', amount: new Prisma.Decimal(4100), origin: 'COMPRAS', module: 'compras', referenceId: 'OC-2026-00001' },
+      { entryDate: new Date('2026-04-10'), description: 'Compra chapas aço — OC-2026-00002', debitAccount: '1.1.3.1', creditAccount: '2.1.1.1', amount: new Prisma.Decimal(8200), origin: 'COMPRAS', module: 'compras', referenceId: 'OC-2026-00002' },
+      // Custos de produção
+      { entryDate: new Date('2026-04-17'), description: 'Consumo matéria-prima — OP-PRD-00001', debitAccount: '5.1.1', creditAccount: '1.1.3.1', amount: new Prisma.Decimal(3700), origin: 'PRODUCAO', module: 'producao', referenceId: 'OP-PRD-00001' },
+      { entryDate: new Date('2026-04-17'), description: 'MOD apurada — OP-PRD-00001', debitAccount: '5.1.2', creditAccount: '2.1.2.1', amount: new Prisma.Decimal(960), origin: 'PRODUCAO', module: 'producao', referenceId: 'OP-PRD-00001' },
+      { entryDate: new Date('2026-04-18'), description: 'CIF alocado — OP-PRD-00001', debitAccount: '5.1.3', creditAccount: '2.1.2.1', amount: new Prisma.Decimal(480), origin: 'PRODUCAO', module: 'producao', referenceId: 'OP-PRD-00001' },
+      // Despesas
+      { entryDate: new Date('2026-04-01'), description: 'Aluguel fábrica — Abril/2026', debitAccount: '5.2.2', creditAccount: '2.1.1.1', amount: new Prisma.Decimal(8500), origin: 'FINANCEIRO', module: 'financeiro', referenceId: 'REC-0412' },
+      { entryDate: new Date('2026-04-15'), description: 'Energia elétrica — Abril/2026', debitAccount: '5.2.2', creditAccount: '2.1.3.1', amount: new Prisma.Decimal(3840), origin: 'FINANCEIRO', module: 'financeiro', referenceId: 'FAT-EL-04' },
+      { entryDate: new Date('2026-04-30'), description: 'Salários — Abril/2026', debitAccount: '5.2.1', creditAccount: '2.1.2.1', amount: new Prisma.Decimal(27540), origin: 'RH', module: 'rh', referenceId: 'FP-2026-04' },
+      { entryDate: new Date('2026-04-30'), description: 'INSS patronal — Abril/2026', debitAccount: '5.2.1', creditAccount: '2.1.3.2', amount: new Prisma.Decimal(5508), origin: 'RH', module: 'rh', referenceId: 'GPS-04/26' },
+      { entryDate: new Date('2026-04-30'), description: 'FGTS — Abril/2026', debitAccount: '5.2.1', creditAccount: '2.1.3.2', amount: new Prisma.Decimal(2203), origin: 'RH', module: 'rh', referenceId: 'GRF-04/26' },
+      // Impostos sobre vendas
+      { entryDate: new Date('2026-04-18'), description: 'ICMS sobre vendas — NF 1247', debitAccount: '4.2.2', creditAccount: '2.1.3.1', amount: new Prisma.Decimal(1530), origin: 'FISCAL', module: 'fiscal', referenceId: 'NF-1247' },
+      { entryDate: new Date('2026-04-18'), description: 'PIS/COFINS — NF 1247', debitAccount: '4.2.2', creditAccount: '2.1.3.2', amount: new Prisma.Decimal(510), origin: 'FISCAL', module: 'fiscal', referenceId: 'NF-1247' },
+      // Pagamentos
+      { entryDate: new Date('2026-04-10'), description: 'Pagamento aluguel', debitAccount: '2.1.1.1', creditAccount: '1.1.1.2', amount: new Prisma.Decimal(8500), origin: 'FINANCEIRO', module: 'financeiro', referenceId: 'REC-0412' },
+      { entryDate: new Date('2026-04-20'), description: 'Pagamento energia elétrica', debitAccount: '2.1.3.1', creditAccount: '1.1.1.2', amount: new Prisma.Decimal(3840), origin: 'FINANCEIRO', module: 'financeiro', referenceId: 'FAT-EL-04' },
+    ];
+    for (const e of entries) {
+      await prisma.accountEntry.create({ data: { id: randomUUID(), ...e, history: e.description } });
+    }
+  }
+
+  // ── Product Standard Costs ────────────────────────────────────────────────
+  if ((await prisma.productStandardCost.count()) === 0 && (await prisma.product.count()) > 0) {
+    const products = await prisma.product.findMany({ orderBy: { code: 'asc' } });
+    const costMap: Record<string, { mat: number; labor: number; overhead: number }> = {
+      'CAT-EIX-025':    { mat: 95,  labor: 52,  overhead: 38 },
+      'CAT-ROL-6205':   { mat: 6.2, labor: 0.5, overhead: 1.5 },
+      'CAT-CHA-003':    { mat: 280, labor: 10,  overhead: 30 },
+      'CAT-PAR-M10':    { mat: 0.3, labor: 0.05, overhead: 0.1 },
+      'CAT-FLA-3IN':    { mat: 28,  labor: 8,   overhead: 6 },
+      'CAT-BUCH-12':    { mat: 2.1, labor: 0.5, overhead: 0.5 },
+      'CAT-POR-M12':    { mat: 0.2, labor: 0.04, overhead: 0.08 },
+      'CAT-ARR-10':     { mat: 0.05, labor: 0.01, overhead: 0.02 },
+      'CAT-GUI-LINEAR': { mat: 140, labor: 30,  overhead: 40 },
+      'CAT-MOTOR-05':   { mat: 610, labor: 120, overhead: 160 },
+    };
+    for (const p of products) {
+      const c = costMap[p.code] ?? { mat: Number(p.costPrice) * 0.6, labor: Number(p.costPrice) * 0.25, overhead: Number(p.costPrice) * 0.15 };
+      const total = c.mat + c.labor + c.overhead;
+      const saleP = Number(p.salePrice ?? 0);
+      const margin = saleP > 0 ? ((saleP - total) / saleP) * 100 : null;
+      await prisma.productStandardCost.create({
+        data: {
+          id: randomUUID(), productId: p.id,
+          materialCost: new Prisma.Decimal(c.mat),
+          laborCost: new Prisma.Decimal(c.labor),
+          overheadCost: new Prisma.Decimal(c.overhead),
+          totalCost: new Prisma.Decimal(total),
+          salePrice: saleP > 0 ? new Prisma.Decimal(saleP) : null,
+          marginPct: margin !== null ? new Prisma.Decimal(margin.toFixed(2)) : null,
+        },
+      });
+    }
+  }
+
+  // ── HR Time Entries + Leave Requests (via Prisma HrLeaveRequest if exists, else entity) ──
+  const leaveEnt = await prisma.entity.findUnique({ where: { code: 'rh_ferias' } });
+  const pontosEnt = await prisma.entity.findUnique({ where: { code: 'rh_ponto' } });
+  // Adicionar mais registros de ponto se poucos
+  if (pontosEnt) {
+    const pontoCount = await prisma.entityRecord.count({ where: { entityId: pontosEnt.id, deletedAt: null } });
+    if (pontoCount < 10) {
+      const extraPontos = [
+        { nome:'Carlos Santos', matricula:'MAT-004', data:'2026-04-21', entrada:'08:00', saida_almoco:'12:00', retorno:'13:00', saida:'17:15', horas:'8:15', status:'Normal' },
+        { nome:'Ana Paula', matricula:'MAT-005', data:'2026-04-21', entrada:'08:10', saida_almoco:'12:00', retorno:'13:00', saida:'17:00', horas:'7:50', status:'Atraso' },
+        { nome:'Rafael Costa', matricula:'MAT-006', data:'2026-04-21', entrada:'08:00', saida_almoco:'12:00', retorno:'13:05', saida:'18:00', horas:'8:55', status:'Hora Extra' },
+        { nome:'João Melo', matricula:'MAT-001', data:'2026-04-19', entrada:'08:00', saida_almoco:'12:00', retorno:'13:00', saida:'17:00', horas:'8:00', status:'Normal' },
+        { nome:'Pedro Alves', matricula:'MAT-002', data:'2026-04-19', entrada:'08:00', saida_almoco:'12:00', retorno:'13:00', saida:'17:00', horas:'8:00', status:'Normal' },
+        { nome:'Maria Lima', matricula:'MAT-003', data:'2026-04-19', entrada:'08:00', saida_almoco:'12:00', retorno:'13:00', saida:'17:00', horas:'8:00', status:'Normal' },
+      ];
+      for (const p of extraPontos) {
+        await prisma.entityRecord.create({ data: { entityId: pontosEnt.id, data: p, createdBy: master.id, updatedBy: master.id } });
+      }
     }
   }
 

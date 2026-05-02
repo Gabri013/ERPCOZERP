@@ -5,6 +5,7 @@ import {
   Upload, Scale, RefreshCw, Info, Printer,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '@/services/api';
 
 const fmtBRL = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 });
 const fmtN4 = (v) => Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
@@ -12,48 +13,12 @@ const fmtN2 = (v) => Number(v || 0).toLocaleString('pt-BR', { minimumFractionDig
 const fmtD = (v) => v ? new Date(v + 'T00:00').toLocaleDateString('pt-BR') : '—';
 const hoje = new Date().toISOString().split('T')[0];
 
-// Dados mock para um processo específico
-const MOCK_PROCESSO = {
-  id: 'IMP-2025-002',
-  fornecedor_ext: 'Outokumpu Oy',
-  pais_origem: 'Finlândia',
-  moeda: 'EUR',
-  incoterm: 'CIF',
-  valor_fob_usd: 32000,
-  valor_frete_usd: 1800,
-  valor_seguro_usd: 320,
-  taxa_cambio: 5.48,
-  num_di: 'DI/2025/00123456',
-  data_di: '2026-05-01',
-  status: 'DI Registrada',
-  recinto_aduaneiro: 'Porto de Santos — SP',
-  despachante: 'Aduaneiro Associados Ltda',
-  // Taxas e despesas adicionais (em BRL)
-  taxa_siscomex: 214.50,
-  taxa_armazenagem: 1850.00,
-  taxa_thc: 980.00,
-  taxa_desembaraco: 2200.00,
-  taxa_afrmm: 320.00,
-  outros_gastos: 0,
-  // Método de rateio
-  metodo_rateio: 'valor_aduaneiro',
-  adicoes: [
-    {
-      num: 1, produto: 'Bobina Inox 304 1.5mm', ncm: '7219.33.00',
-      qtd: 2000, unidade: 'kg', cfop: '3101',
-      valor_unit_usd: 16, valor_total_usd: 32000,
-      valor_total_brl: 175360,
-      peso_bruto: 2100, peso_liq: 2000,
-      // Tributos DI
-      ii_aliq: 12, ii_valor: 0,
-      ipi_aliq: 0, ipi_valor: 0,
-      pis_aliq: 2.10, pis_valor: 0,
-      cofins_aliq: 9.65, cofins_valor: 0,
-      icms_aliq: 12, icms_valor: 0,
-      // Rateio (calculado)
-      frete_rateado: 0, seguro_rateado: 0, taxas_rateadas: 0,
-    },
-  ],
+const PROCESSO_VAZIO = {
+  id: '', fornecedor_ext: '', pais_origem: '', moeda: 'USD', incoterm: 'FOB',
+  valor_fob_usd: 0, valor_frete_usd: 0, valor_seguro_usd: 0, taxa_cambio: 1,
+  num_di: null, data_di: null, status: '', recinto_aduaneiro: '', despachante: '',
+  taxa_siscomex: 0, taxa_armazenagem: 0, taxa_thc: 0, taxa_desembaraco: 0,
+  taxa_afrmm: 0, outros_gastos: 0, metodo_rateio: 'valor_aduaneiro', adicoes: [],
 };
 
 const METODOS_RATEIO = [
@@ -67,15 +32,31 @@ export default function ImportacaoDI() {
   const { id } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const processoInit = location.state?.processo || MOCK_PROCESSO;
 
-  const [processo, setProcesso] = useState(MOCK_PROCESSO);
+  const [processo, setProcesso] = useState(location.state?.processo || PROCESSO_VAZIO);
   const [aba, setAba] = useState('geral');
-  const [metodoRateio, setMetodoRateio] = useState(MOCK_PROCESSO.metodo_rateio);
-  const [adicoes, setAdicoes] = useState(MOCK_PROCESSO.adicoes);
+  const [metodoRateio, setMetodoRateio] = useState('valor_aduaneiro');
+  const [adicoes, setAdicoes] = useState([]);
   const [conferido, setConferido] = useState(false);
-  const [nfeGerada, setNfeGerada] = useState(!!MOCK_PROCESSO.num_nfe);
+  const [nfeGerada, setNfeGerada] = useState(false);
   const [showNfeModal, setShowNfeModal] = useState(false);
+
+  useEffect(() => {
+    if (!id) return;
+    (async () => {
+      try {
+        const res = await api.get(`/api/purchases/import/${id}`);
+        if (res.data) {
+          setProcesso(res.data);
+          setMetodoRateio(res.data.metodo_rateio || 'valor_aduaneiro');
+          setAdicoes(res.data.adicoes ?? []);
+          setNfeGerada(!!res.data.num_nfe);
+        }
+      } catch {
+        toast.error('Erro ao carregar processo de importação');
+      }
+    })();
+  }, [id]);
 
   // ---- Cálculos de rateio e tributos ----
   const totalFOB_BRL = processo.valor_fob_usd * processo.taxa_cambio;

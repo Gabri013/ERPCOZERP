@@ -1,12 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Plus, Search, Download, Upload, Eye, CheckCircle, XCircle, Clock, AlertCircle, FileText, Send, ChevronDown, Printer } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '@/services/api';
 
 const fmtBRL = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 });
 const fmtD = (v) => v ? new Date(v + 'T00:00').toLocaleDateString('pt-BR') : '—';
-const hoje = new Date().toISOString().split('T')[0];
-const addDias = (d, n) => { const dt = new Date(d); dt.setDate(dt.getDate() + n); return dt.toISOString().split('T')[0]; };
-
 const STATUS_BOLETO = {
   'Aguardando remessa': { color: 'bg-yellow-100 text-yellow-700', dot: 'bg-yellow-400' },
   'Remessa enviada':    { color: 'bg-blue-100 text-blue-700',    dot: 'bg-blue-500' },
@@ -16,23 +14,23 @@ const STATUS_BOLETO = {
   'Cancelado':          { color: 'bg-gray-100 text-gray-500',    dot: 'bg-gray-400' },
 };
 
-const MOCK_BOLETOS = [
-  { id: 1, numero_doc: 'BOL-0001', cliente: 'Cliente Exemplo SP', conta_receber: 21027, banco: 'SICOOB', vencimento: addDias(hoje, -3), valor: 6000, nosso_numero: '0013384-C', linha_digitavel: '75692.30126 01000.008803 01340.290012 6 12990000060000', status: 'Vencido', data_emissao: addDias(hoje, -15) },
-  { id: 2, numero_doc: 'BOL-0002', cliente: 'Hotel Beira Mar', conta_receber: 21025, banco: 'SICOOB', vencimento: addDias(hoje, 5), valor: 4800, nosso_numero: '0013385-A', linha_digitavel: '75692.30126 01000.008803 01340.290012 7 12990000048000', status: 'Registrado', data_emissao: addDias(hoje, -3) },
-  { id: 3, numero_doc: 'BOL-0003', cliente: 'Cozinha Industrial LTDA', conta_receber: 21024, banco: 'Banco do Brasil', vencimento: addDias(hoje, 8), valor: 7500, nosso_numero: '0013386-B', linha_digitavel: '00190.00009 02084.068002 00112.906178 1 97740000075000', status: 'Remessa enviada', data_emissao: addDias(hoje, -2) },
-  { id: 4, numero_doc: 'BOL-0004', cliente: 'Padaria São João', conta_receber: 20915, banco: 'Banco do Brasil', vencimento: addDias(hoje, 15), valor: 275.10, nosso_numero: '0013387-C', linha_digitavel: '', status: 'Aguardando remessa', data_emissao: hoje },
-];
-
-const MOCK_REMESSAS = [
-  { id: 534, empresa: 'COZINCA INOX LTDA', banco: 'Banco do Brasil', convenio: '04', numero: '419', data_criacao: addDias(hoje, -2) + ' 17:30', status: 'Arquivo enviado para o banco', metodo: 'Automático pelo EDI Financeiro', arquivo: 'Cobranca.30104.40618K.534.REM', valor: 2267.53 },
-  { id: 533, empresa: 'COZINCA INOX LTDA', banco: 'Banco do Brasil', convenio: '04', numero: '418', data_criacao: addDias(hoje, -4) + ' 17:30', status: 'Arquivo enviado para o banco', metodo: 'Automático pelo EDI Financeiro', arquivo: 'Cobranca.30104.40618K.533.REM', valor: 2313.08 },
-  { id: 532, empresa: 'COZINCA INOX LTDA', banco: 'Banco do Brasil', convenio: '04', numero: '417', data_criacao: addDias(hoje, -4) + ' 09:30', status: 'Arquivo gerado aguardando envio', metodo: '—', arquivo: 'Cobranca.30104.40618K.532.REM', valor: 315 },
-];
-
 export default function BoletoBancario() {
   const [aba, setAba] = useState('boletos');
-  const [boletos, setBoletos] = useState(MOCK_BOLETOS);
-  const [remessas] = useState(MOCK_REMESSAS);
+  const [boletos, setBoletos] = useState([]);
+  const [remessas, setRemessas] = useState([]);
+
+  const loadData = useCallback(async () => {
+    try {
+      const res = await api.get('/api/financial/boletos');
+      const body = res?.data?.data ?? res?.data ?? {};
+      setBoletos(Array.isArray(body.boletos) ? body.boletos : Array.isArray(body) ? body : []);
+      setRemessas(Array.isArray(body.remessas) ? body.remessas : []);
+    } catch {
+      toast.error('Erro ao carregar boletos');
+    }
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
   const [busca, setBusca] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('Todos');
   const [detalhe, setDetalhe] = useState(null);

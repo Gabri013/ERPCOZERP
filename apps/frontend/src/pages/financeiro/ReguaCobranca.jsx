@@ -1,44 +1,52 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Plus, Send, Edit2, Trash2, XCircle, Save, ArrowUp, ArrowDown } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '@/services/api';
 
 const TIPOS_PASSO = [
   'Lembrete de vencimento', 'Cobrança após vencimento', 'Confirmação de recebimento',
 ];
 
-const MOCK_REGUAS = [
-  { id: 1, nome: 'Régua Padrão', descricao: 'Lembretes e cobranças padrão', ativa: true, passos: 10 },
-  { id: 2, nome: 'Régua Agressiva', descricao: 'Cobranças mais frequentes', ativa: false, passos: 6 },
-];
-
-const MOCK_PASSOS = [
-  { id: 1, passo: 1, descricao: 'Lembrete 3 dias antes do vencimento', tipo: 'Lembrete de vencimento', dias: 3 },
-  { id: 2, passo: 2, descricao: 'Lembrete no dia do vencimento', tipo: 'Lembrete de vencimento', dias: 0 },
-  { id: 3, passo: 3, descricao: 'Cobrança 3 dias após o vencimento', tipo: 'Cobrança após vencimento', dias: 3 },
-  { id: 4, passo: 4, descricao: 'Cobrança 7 dias após o vencimento', tipo: 'Cobrança após vencimento', dias: 7 },
-  { id: 5, passo: 5, descricao: 'Cobrança 15 dias após o vencimento', tipo: 'Cobrança após vencimento', dias: 15 },
-  { id: 6, passo: 6, descricao: 'Cobrança 30 dias após o vencimento', tipo: 'Cobrança após vencimento', dias: 30 },
-  { id: 7, passo: 7, descricao: 'Cobrança 45 dias após o vencimento', tipo: 'Cobrança após vencimento', dias: 45 },
-  { id: 8, passo: 8, descricao: 'Cobrança 60 dias após o vencimento', tipo: 'Cobrança após vencimento', dias: 60 },
-  { id: 9, passo: 9, descricao: 'Cobrança 90 dias após o vencimento', tipo: 'Cobrança após vencimento', dias: 90 },
-  { id: 10, passo: 10, descricao: 'Confirmação do recebimento', tipo: 'Confirmação de recebimento', dias: null },
-];
-
 export default function ReguaCobranca() {
-  const [reguas, setReguas] = useState(MOCK_REGUAS);
-  const [selecionada, setSelecionada] = useState(MOCK_REGUAS[0]);
-  const [passos, setPassos] = useState(MOCK_PASSOS);
+  const [reguas, setReguas] = useState([]);
+  const [selecionada, setSelecionada] = useState(null);
+  const [passos, setPassos] = useState([]);
+
+  const loadData = useCallback(async () => {
+    try {
+      const res = await api.get('/api/financial/collection-rules');
+      const body = res?.data?.data ?? res?.data ?? {};
+      const reguasList = Array.isArray(body.reguas) ? body.reguas : Array.isArray(body) ? body : [];
+      setReguas(reguasList);
+      if (reguasList.length > 0 && !selecionada) {
+        setSelecionada(reguasList[0]);
+        setPassos(Array.isArray(reguasList[0].passos) ? reguasList[0].passos : []);
+      }
+    } catch {
+      toast.error('Erro ao carregar réguas de cobrança');
+    }
+  }, [selecionada]);
+
+  useEffect(() => { loadData(); }, []);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ descricao: '', tipo: TIPOS_PASSO[0], dias: '' });
   const [editPasso, setEditPasso] = useState(null);
 
-  const salvarPasso = () => {
+  const salvarPasso = async () => {
     if (!form.descricao) return toast.error('Informe a descrição');
+    const payload = { ...form, dias: Number(form.dias) || 0, regua_id: selecionada?.id };
     if (editPasso) {
+      try {
+        await api.put(`/api/financial/collection-rules/${editPasso.id}`, payload);
+      } catch { /* atualiza local */ }
       setPassos(passos.map((p) => p.id === editPasso.id ? { ...editPasso, ...form, dias: Number(form.dias) || 0 } : p));
       toast.success('Passo atualizado!');
     } else {
-      const novo = { ...form, id: Date.now(), passo: passos.length + 1, dias: Number(form.dias) || 0 };
+      let novo = { ...payload, id: Date.now(), passo: passos.length + 1 };
+      try {
+        const res = await api.post('/api/financial/collection-rules', payload);
+        novo = { ...novo, ...(res?.data?.data ?? res?.data ?? {}) };
+      } catch { /* usa local */ }
       setPassos([...passos, novo]);
       toast.success('Passo adicionado!');
     }
@@ -72,7 +80,7 @@ export default function ReguaCobranca() {
       {/* Seletor de régua */}
       <div className="flex gap-2 flex-wrap">
         {reguas.map((r) => (
-          <button key={r.id} type="button" onClick={() => setSelecionada(r)}
+          <button key={r.id} type="button" onClick={() => { setSelecionada(r); setPassos(Array.isArray(r.passos) ? r.passos : []); }}
             className={`px-4 py-2 rounded-lg border text-sm transition-colors ${selecionada?.id === r.id ? 'border-primary bg-primary/5 text-primary font-medium' : 'border-border hover:bg-muted'}`}>
             <span className={`inline-block w-1.5 h-1.5 rounded-full mr-2 ${r.ativa ? 'bg-green-500' : 'bg-gray-400'}`} />
             {r.nome}

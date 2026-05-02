@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { Package, ShoppingCart, Factory, AlertTriangle, CheckCircle, Loader2, ChevronDown, ChevronRight, TrendingUp, Zap, Clock } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '@/services/api';
 
 const MESES_ABREV = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 const ANO = new Date().getFullYear();
@@ -12,51 +13,17 @@ const PERIODOS = Array.from({ length: 6 }, (_, i) => {
   return { label: `${MESES_ABREV[m]}/${a}`, mes: m, ano: a, idx: i };
 });
 
-// ─── Mock: Insumos com cálculo MRP ───────────────────────────────────────────
-const MOCK_MRP = [
-  {
-    id: 1, codigo: 'MP-CHAPA-316L-3MM', descricao: 'Chapa Inox 316L 3mm', tipo: 'MP', unidade: 'kg',
-    estoque_atual: 234.5, estoque_minimo: 200, lead_time: 15,
-    necessidade_bruta: [240.6, 170.0, 205.0, 240.0, 85.0, 170.0],
-    recepcao_pc:       [500.0, 0, 0, 0, 0, 0],
-    empenhos:          [0, 0, 85.0, 0, 0, 0],
-    lote_minimo: 500,
-  },
-  {
-    id: 2, codigo: 'MP-TUBO-1.5', descricao: 'Tubo Inox 1.5" SCH10', tipo: 'MP', unidade: 'm',
-    estoque_atual: 0, estoque_minimo: 80, lead_time: 20,
-    necessidade_bruta: [16.4, 12.5, 25.0, 12.5, 16.4, 8.2],
-    recepcao_pc:       [200.0, 0, 0, 0, 0, 0],
-    empenhos:          [0, 0, 0, 0, 0, 0],
-    lote_minimo: 100,
-  },
-  {
-    id: 3, codigo: 'CP-BOCAL-2', descricao: 'Bocal 2" Inox 316L', tipo: 'CP', unidade: 'pc',
-    estoque_atual: 24, estoque_minimo: 10, lead_time: 7,
-    necessidade_bruta: [8, 4, 8, 4, 8, 4],
-    recepcao_pc:       [0, 50, 0, 0, 0, 0],
-    empenhos:          [0, 0, 0, 0, 0, 0],
-    lote_minimo: 50,
-  },
-  {
-    id: 4, codigo: 'SA-CORPO-TANK', descricao: 'Corpo Tanque (Semi-acabado)', tipo: 'SA', unidade: 'pc',
-    estoque_atual: 0, estoque_minimo: 0, lead_time: 5,
-    necessidade_bruta: [3, 4, 3, 4, 5, 4],
-    recepcao_pc:       [0, 0, 0, 0, 0, 0],
-    empenhos:          [0, 0, 0, 0, 0, 0],
-    lote_minimo: 1,
-  },
-];
+const CENTROS_FALLBACK = ['Corte', 'Soldagem', 'Acabamento', 'Montagem Final'];
 
 function calcMRP(item) {
-  let saldo = item.estoque_atual;
+  let saldo = item.estoque_atual ?? 0;
   return PERIODOS.map((p, i) => {
-    const nb = item.necessidade_bruta[i] || 0;
-    const recepcao = item.recepcao_pc[i] || 0;
-    const empenho = item.empenhos[i] || 0;
+    const nb = (item.necessidade_bruta ?? [])[i] || 0;
+    const recepcao = (item.recepcao_pc ?? [])[i] || 0;
+    const empenho = (item.empenhos ?? [])[i] || 0;
     const estDisp = saldo + recepcao - empenho;
     const nl = Math.max(0, nb - estDisp);
-    const a_comprar = nl > 0 ? Math.ceil(nl / item.lote_minimo) * item.lote_minimo : 0;
+    const a_comprar = nl > 0 ? Math.ceil(nl / (item.lote_minimo || 1)) * (item.lote_minimo || 1) : 0;
     saldo = Math.max(0, estDisp + a_comprar - nb);
     return {
       ...p,
@@ -67,29 +34,40 @@ function calcMRP(item) {
       nl,
       a_comprar,
       saldo_proj: saldo,
-      critico: a_comprar > 0 && saldo < item.estoque_minimo,
+      critico: a_comprar > 0 && saldo < (item.estoque_minimo ?? 0),
     };
   });
 }
-
-// ─── Mock CRP — Centro de Trabalho ───────────────────────────────────────────
-const CENTROS = ['Corte', 'Soldagem', 'Acabamento', 'Montagem Final'];
-const MOCK_CRP = CENTROS.map((c, ci) => ({
-  centro: c,
-  capacidade: 160,
-  periodos: PERIODOS.map((p, i) => ({
-    ...p,
-    carga: [110, 140, 165, 130, 155, 125][i] + ci * 10 + Math.floor(Math.random() * 15),
-  })),
-}));
 
 export default function MRP() {
   const [aba, setAba] = useState('mrp');
   const [expandido, setExpandido] = useState({});
   const [gerando, setGerando] = useState(false);
   const [gerado, setGerado] = useState({});
+  const [mrpItems, setMrpItems] = useState([]);
+  const [crpCentros, setCrpCentros] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const mrpCalc = useMemo(() => MOCK_MRP.map((item) => ({ ...item, periodos: calcMRP(item) })), []);
+  const loadMRP = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await api.get('/api/production/mrp');
+      const data = res.data?.data ?? res.data ?? {};
+      const items = Array.isArray(data) ? data : (data.items ?? []);
+      const centros = data.centros ?? data.crp ?? [];
+      setMrpItems(items);
+      setCrpCentros(centros);
+    } catch {
+      setMrpItems([]);
+      setCrpCentros([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadMRP(); }, [loadMRP]);
+
+  const mrpCalc = useMemo(() => mrpItems.map((item) => ({ ...item, periodos: calcMRP(item) })), [mrpItems]);
 
   const totalSCs = useMemo(() =>
     mrpCalc.filter((i) => i.tipo !== 'SA').reduce((s, i) => s + i.periodos.filter((p) => p.a_comprar > 0).length, 0),
@@ -120,15 +98,22 @@ export default function MRP() {
     toast.success(tipo === 'SA' ? 'OP de semi-acabado gerada!' : 'Solicitação de compra gerada!');
   };
 
+  const centrosNomes = crpCentros.length
+    ? crpCentros.map((ct) => ct.centro ?? ct.name ?? '')
+    : CENTROS_FALLBACK;
+
   const crpChartData = useMemo(() => PERIODOS.map((p, i) => {
     const d = { name: p.label, capacidade: 160 };
-    CENTROS.forEach((c, ci) => { d[c] = MOCK_CRP[ci].periodos[i].carga; });
+    crpCentros.forEach((ct) => {
+      const nome = ct.centro ?? ct.name ?? '';
+      d[nome] = ct.periodos?.[i]?.carga ?? 0;
+    });
     return d;
-  }), []);
+  }), [crpCentros]);
 
+  const COR_CENTROS = ['#2563eb','#f59e0b','#10b981','#8b5cf6'];
   const TIPO_COR = { 'MP': 'bg-blue-100 text-blue-700', 'CP': 'bg-teal-100 text-teal-700', 'SA': 'bg-orange-100 text-orange-700' };
   const TIPO_DESC = { 'MP': 'Matéria Prima', 'CP': 'Componente', 'SA': 'Semi-acabado' };
-  const COR_CENTROS = ['#2563eb','#f59e0b','#10b981','#8b5cf6'];
 
   return (
     <div className="space-y-3">
@@ -137,7 +122,7 @@ export default function MRP() {
           <h1 className="text-xl font-bold flex items-center gap-2"><Zap size={20} className="text-primary" /> MRP — Planejamento de Materiais</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Cálculo integrado com plano de produção, empenhos, pedidos de compra e estoque atual</p>
         </div>
-        <button type="button" onClick={gerarTudo} disabled={gerando}
+        <button type="button" onClick={gerarTudo} disabled={gerando || loading}
           className="erp-btn-primary flex items-center gap-2 disabled:opacity-60">
           {gerando ? <><Loader2 size={14} className="animate-spin" /> Executando MRP...</> : <><Zap size={14} /> Executar MRP</>}
         </button>
@@ -146,10 +131,10 @@ export default function MRP() {
       {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Itens no MRP',         value: mrpCalc.length, color: 'text-primary' },
-          { label: 'SC a gerar',           value: totalSCs, color: 'text-blue-600' },
-          { label: 'OPs semi-acabados',    value: totalOPsSA, color: 'text-orange-600' },
-          { label: 'Itens críticos',       value: mrpCalc.filter((i) => i.periodos.some((p) => p.critico)).length, color: 'text-red-600' },
+          { label: 'Itens no MRP',         value: loading ? '…' : mrpCalc.length, color: 'text-primary' },
+          { label: 'SC a gerar',           value: loading ? '…' : totalSCs, color: 'text-blue-600' },
+          { label: 'OPs semi-acabados',    value: loading ? '…' : totalOPsSA, color: 'text-orange-600' },
+          { label: 'Itens críticos',       value: loading ? '…' : mrpCalc.filter((i) => i.periodos.some((p) => p.critico)).length, color: 'text-red-600' },
         ].map((k) => (
           <div key={k.label} className="erp-card p-3">
             <p className="text-[10px] text-muted-foreground">{k.label}</p>
@@ -182,6 +167,11 @@ export default function MRP() {
             <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-purple-200 inline-block" /> Saldo Projetado</span>
           </div>
 
+          {loading && <div className="py-8 text-center text-sm text-muted-foreground">Carregando MRP…</div>}
+          {!loading && mrpCalc.length === 0 && (
+            <div className="py-8 text-center text-sm text-muted-foreground">Nenhum item no MRP. Execute o planejamento para calcular necessidades.</div>
+          )}
+
           {/* Por item */}
           {mrpCalc.map((item) => {
             const expKey = `item-${item.id}`;
@@ -196,14 +186,14 @@ export default function MRP() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-mono text-xs font-bold text-primary">{item.codigo}</span>
                         <span className="font-medium text-sm">{item.descricao}</span>
-                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${TIPO_COR[item.tipo]}`}>{TIPO_DESC[item.tipo]}</span>
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${TIPO_COR[item.tipo] || 'bg-gray-100 text-gray-600'}`}>{TIPO_DESC[item.tipo] || item.tipo}</span>
                         {temCritico && <span className="flex items-center gap-0.5 text-[10px] text-red-600 bg-red-50 px-1.5 py-0.5 rounded"><AlertTriangle size={9} /> Crítico</span>}
                       </div>
                       <div className="flex gap-3 mt-0.5 text-[10px] text-muted-foreground">
-                        <span>Estoque: <strong>{item.estoque_atual} {item.unidade}</strong></span>
-                        <span>Mínimo: <strong>{item.estoque_minimo} {item.unidade}</strong></span>
-                        <span>Lead time: <strong>{item.lead_time}d</strong></span>
-                        <span>Lote mín: <strong>{item.lote_minimo} {item.unidade}</strong></span>
+                        <span>Estoque: <strong>{item.estoque_atual ?? 0} {item.unidade}</strong></span>
+                        <span>Mínimo: <strong>{item.estoque_minimo ?? 0} {item.unidade}</strong></span>
+                        <span>Lead time: <strong>{item.lead_time ?? 0}d</strong></span>
+                        <span>Lote mín: <strong>{item.lote_minimo ?? 1} {item.unidade}</strong></span>
                         {totalAC > 0 && <span className={`font-semibold ${item.tipo === 'SA' ? 'text-orange-600' : 'text-blue-600'}`}>
                           {item.tipo === 'SA' ? 'A produzir' : 'A comprar'}: {totalAC} {item.unidade}
                         </span>}
@@ -269,41 +259,15 @@ export default function MRP() {
           })}
 
           {/* Resumo de sugestões */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {/* Solicitações de compra */}
-            <div className="erp-card p-4">
-              <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5"><ShoppingCart size={13} className="text-blue-500" /> Solicitações de Compra Sugeridas</h3>
-              <table className="w-full text-xs">
-                <thead><tr className="bg-muted"><th className="p-1.5 text-left">Código</th><th className="p-1.5 text-left">Período</th><th className="p-1.5 text-right">Qtd</th><th className="p-1.5 text-center">Status</th></tr></thead>
-                <tbody>
-                  {mrpCalc.filter((i) => i.tipo !== 'SA').flatMap((item) =>
-                    item.periodos.filter((p) => p.a_comprar > 0).map((per) => {
-                      const key = `${item.id}-${per.label}`;
-                      return (
-                        <tr key={key} className="border-b border-border/30">
-                          <td className="p-1.5 font-mono text-[10px]">{item.codigo}</td>
-                          <td className="p-1.5">{per.label}</td>
-                          <td className="p-1.5 text-right font-medium">{per.a_comprar} {item.unidade}</td>
-                          <td className="p-1.5 text-center">
-                            {gerado[key] === 'sc' ? <CheckCircle size={11} className="text-green-500 mx-auto" /> : <Clock size={11} className="text-muted-foreground mx-auto" />}
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-            {/* OPs de semi-acabados */}
-            <div className="erp-card p-4">
-              <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5"><Factory size={13} className="text-orange-500" /> OPs Semi-acabados Sugeridas</h3>
-              {mrpCalc.filter((i) => i.tipo === 'SA').flatMap((item) => item.periodos.filter((p) => p.a_comprar > 0)).length === 0 ? (
-                <p className="text-xs text-muted-foreground">Nenhuma OP de semi-acabado necessária no período</p>
-              ) : (
+          {mrpCalc.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Solicitações de compra */}
+              <div className="erp-card p-4">
+                <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5"><ShoppingCart size={13} className="text-blue-500" /> Solicitações de Compra Sugeridas</h3>
                 <table className="w-full text-xs">
                   <thead><tr className="bg-muted"><th className="p-1.5 text-left">Código</th><th className="p-1.5 text-left">Período</th><th className="p-1.5 text-right">Qtd</th><th className="p-1.5 text-center">Status</th></tr></thead>
                   <tbody>
-                    {mrpCalc.filter((i) => i.tipo === 'SA').flatMap((item) =>
+                    {mrpCalc.filter((i) => i.tipo !== 'SA').flatMap((item) =>
                       item.periodos.filter((p) => p.a_comprar > 0).map((per) => {
                         const key = `${item.id}-${per.label}`;
                         return (
@@ -312,7 +276,7 @@ export default function MRP() {
                             <td className="p-1.5">{per.label}</td>
                             <td className="p-1.5 text-right font-medium">{per.a_comprar} {item.unidade}</td>
                             <td className="p-1.5 text-center">
-                              {gerado[key] === 'op' ? <CheckCircle size={11} className="text-orange-500 mx-auto" /> : <Clock size={11} className="text-muted-foreground mx-auto" />}
+                              {gerado[key] === 'sc' ? <CheckCircle size={11} className="text-green-500 mx-auto" /> : <Clock size={11} className="text-muted-foreground mx-auto" />}
                             </td>
                           </tr>
                         );
@@ -320,9 +284,37 @@ export default function MRP() {
                     )}
                   </tbody>
                 </table>
-              )}
+              </div>
+              {/* OPs de semi-acabados */}
+              <div className="erp-card p-4">
+                <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5"><Factory size={13} className="text-orange-500" /> OPs Semi-acabados Sugeridas</h3>
+                {mrpCalc.filter((i) => i.tipo === 'SA').flatMap((item) => item.periodos.filter((p) => p.a_comprar > 0)).length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Nenhuma OP de semi-acabado necessária no período</p>
+                ) : (
+                  <table className="w-full text-xs">
+                    <thead><tr className="bg-muted"><th className="p-1.5 text-left">Código</th><th className="p-1.5 text-left">Período</th><th className="p-1.5 text-right">Qtd</th><th className="p-1.5 text-center">Status</th></tr></thead>
+                    <tbody>
+                      {mrpCalc.filter((i) => i.tipo === 'SA').flatMap((item) =>
+                        item.periodos.filter((p) => p.a_comprar > 0).map((per) => {
+                          const key = `${item.id}-${per.label}`;
+                          return (
+                            <tr key={key} className="border-b border-border/30">
+                              <td className="p-1.5 font-mono text-[10px]">{item.codigo}</td>
+                              <td className="p-1.5">{per.label}</td>
+                              <td className="p-1.5 text-right font-medium">{per.a_comprar} {item.unidade}</td>
+                              <td className="p-1.5 text-center">
+                                {gerado[key] === 'op' ? <CheckCircle size={11} className="text-orange-500 mx-auto" /> : <Clock size={11} className="text-muted-foreground mx-auto" />}
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -334,58 +326,67 @@ export default function MRP() {
             <span>O CRP (Planejamento da Necessidade de Capacidade) mostra a carga de trabalho projetada em cada centro de produção. Barras em vermelho indicam gargalos onde a carga supera a capacidade disponível.</span>
           </div>
 
-          {/* Gráfico de carga */}
-          <div className="erp-card p-4" style={{ height: 320 }}>
-            <p className="text-xs font-semibold mb-3">Carga por Centro de Trabalho vs. Capacidade (horas/mês)</p>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={crpChartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                <YAxis tick={{ fontSize: 10 }} domain={[0, 220]} />
-                <Tooltip />
-                <Legend wrapperStyle={{ fontSize: 10 }} />
-                <ReferenceLine y={160} stroke="#ef4444" strokeDasharray="6 3" label={{ value: 'Cap. 160h', fill: '#ef4444', fontSize: 10, position: 'insideTopRight' }} />
-                {CENTROS.map((c, i) => <Bar key={c} dataKey={c} fill={COR_CENTROS[i]} radius={[3,3,0,0]} />)}
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          {loading && <div className="py-8 text-center text-sm text-muted-foreground">Carregando CRP…</div>}
 
-          {/* Tabela detalhe por centro */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {MOCK_CRP.map((ct, ci) => {
-              const gargalos = ct.periodos.filter((p) => p.carga > ct.capacidade);
-              return (
-                <div key={ct.centro} className="erp-card p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-xs font-semibold">{ct.centro}</h3>
-                    <div className="flex items-center gap-1">
-                      {gargalos.length > 0
-                        ? <span className="flex items-center gap-0.5 text-[10px] text-red-600 bg-red-50 px-1.5 py-0.5 rounded"><AlertTriangle size={9} /> {gargalos.length} gargalo(s)</span>
-                        : <span className="flex items-center gap-0.5 text-[10px] text-green-600 bg-green-50 px-1.5 py-0.5 rounded"><CheckCircle size={9} /> OK</span>}
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    {ct.periodos.map((p, i) => {
-                      const perc = Math.min(100, Math.round((p.carga / ct.capacidade) * 100));
-                      const supera = p.carga > ct.capacidade;
-                      return (
-                        <div key={i}>
-                          <div className="flex justify-between text-[10px] mb-0.5">
-                            <span>{p.label}</span>
-                            <span className={supera ? 'text-red-600 font-bold' : 'text-muted-foreground'}>{p.carga}h / {ct.capacidade}h ({perc}%)</span>
-                          </div>
-                          <div className="h-2 bg-muted rounded-full overflow-hidden">
-                            <div className={`h-full rounded-full transition-all ${supera ? 'bg-red-500' : perc > 80 ? 'bg-orange-400' : 'bg-green-500'}`} style={{ width: `${Math.min(100, perc)}%` }} />
-                          </div>
-                          {supera && <p className="text-[9px] text-red-500 mt-0.5">Gargalo: {p.carga - ct.capacidade}h acima da capacidade</p>}
+          {!loading && crpCentros.length === 0 ? (
+            <div className="py-8 text-center text-sm text-muted-foreground">Nenhum dado de capacidade disponível.</div>
+          ) : (
+            <>
+              {/* Gráfico de carga */}
+              <div className="erp-card p-4" style={{ height: 320 }}>
+                <p className="text-xs font-semibold mb-3">Carga por Centro de Trabalho vs. Capacidade (horas/mês)</p>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={crpChartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                    <YAxis tick={{ fontSize: 10 }} domain={[0, 220]} />
+                    <Tooltip />
+                    <Legend wrapperStyle={{ fontSize: 10 }} />
+                    <ReferenceLine y={160} stroke="#ef4444" strokeDasharray="6 3" label={{ value: 'Cap. 160h', fill: '#ef4444', fontSize: 10, position: 'insideTopRight' }} />
+                    {centrosNomes.map((c, i) => <Bar key={c} dataKey={c} fill={COR_CENTROS[i % COR_CENTROS.length]} radius={[3,3,0,0]} />)}
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Tabela detalhe por centro */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {crpCentros.map((ct, ci) => {
+                  const cap = ct.capacidade ?? 160;
+                  const gargalos = (ct.periodos || []).filter((p) => p.carga > cap);
+                  return (
+                    <div key={ct.centro ?? ct.name ?? ci} className="erp-card p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-xs font-semibold">{ct.centro ?? ct.name ?? '—'}</h3>
+                        <div className="flex items-center gap-1">
+                          {gargalos.length > 0
+                            ? <span className="flex items-center gap-0.5 text-[10px] text-red-600 bg-red-50 px-1.5 py-0.5 rounded"><AlertTriangle size={9} /> {gargalos.length} gargalo(s)</span>
+                            : <span className="flex items-center gap-0.5 text-[10px] text-green-600 bg-green-50 px-1.5 py-0.5 rounded"><CheckCircle size={9} /> OK</span>}
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        {(ct.periodos || []).map((p, i) => {
+                          const perc = Math.min(100, Math.round((p.carga / cap) * 100));
+                          const supera = p.carga > cap;
+                          return (
+                            <div key={i}>
+                              <div className="flex justify-between text-[10px] mb-0.5">
+                                <span>{p.label ?? PERIODOS[i]?.label ?? ''}</span>
+                                <span className={supera ? 'text-red-600 font-bold' : 'text-muted-foreground'}>{p.carga}h / {cap}h ({perc}%)</span>
+                              </div>
+                              <div className="h-2 bg-muted rounded-full overflow-hidden">
+                                <div className={`h-full rounded-full transition-all ${supera ? 'bg-red-500' : perc > 80 ? 'bg-orange-400' : 'bg-green-500'}`} style={{ width: `${Math.min(100, perc)}%` }} />
+                              </div>
+                              {supera && <p className="text-[9px] text-red-500 mt-0.5">Gargalo: {p.carga - cap}h acima da capacidade</p>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

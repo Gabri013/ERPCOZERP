@@ -1,7 +1,8 @@
-﻿import { useState } from 'react';
+﻿import { useState, useEffect, useCallback } from 'react';
 import PageHeader from '@/components/common/PageHeader';
 import { Download, CheckCircle, Clock, AlertCircle, RefreshCw, CalendarClock } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '@/services/api';
 
 const now = new Date();
 const ANO = now.getFullYear();
@@ -72,6 +73,19 @@ function buildObrigacoes() {
 export default function SPED() {
   const [obrigacoes, setObrigacoes] = useState(buildObrigacoes);
   const [gerando, setGerando] = useState(null);
+
+  const carregar = useCallback(async () => {
+    try {
+      const res = await api.get('/api/fiscal/sped');
+      if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+        setObrigacoes(res.data);
+      }
+    } catch {
+      // fallback to computed local obligations if API not available
+    }
+  }, []);
+
+  useEffect(() => { carregar(); }, [carregar]);
 
   const pendentes = obrigacoes.filter(o => o.status === 'Pendente');
   const entregues = obrigacoes.filter(o => o.status === 'Entregue');

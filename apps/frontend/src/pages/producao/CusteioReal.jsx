@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { listStandardCosts } from '@/services/accountingApi.js';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, AreaChart, Area,
@@ -14,7 +15,7 @@ const R$ = (v) => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFraction
 const pct = (v) => `${Number(v || 0).toFixed(1)}%`;
 
 // ─── Custo médio de matérias-primas ─────────────────────────────────────────
-const MATERIAS_PRIMAS = [
+const materiasPrimas = [
   { id: 1, codigo: 'MP-CHAPA-316L-3MM', descricao: 'Chapa Inox 316L 3mm', unidade: 'kg',
     custo_padrao: 45.80, custo_medio: 47.32, custo_reposicao: 48.90,
     saldo_estoque: 2340.5, ultimas_entradas: [
@@ -46,8 +47,8 @@ const MATERIAS_PRIMAS = [
   },
 ];
 
-// ─── Ordens de produção com custo real ───────────────────────────────────────
-const ORDENS = [
+// ─── ordens de produção com custo real ───────────────────────────────────────
+const ordens = [
   { id: 'OP-2026-0451', produto: 'TANK-500L', descricao: 'Tanque Inox 316L 500L', qtd: 2,
     custo_padrao_unit: 8920, custo_real_unit: 9380, status: 'apurado',
     materiais_custo: 6950, mod_custo: 1480, cif_custo: 950,
@@ -82,7 +83,7 @@ const CENTROS_CUSTO_REAL = [
 });
 
 // ─── Lucratividade por produto/cliente ────────────────────────────────────────
-const LUCRAT_PRODUTOS = [
+const lucratProdutos = [
   { produto: 'TANK-500L',   descricao: 'Tanque 316L 500L',   receita: 24800, custo_real: 18760, margem: null },
   { produto: 'REATOR-200L', descricao: 'Reator 316L 200L',   receita: 9200,  custo_real: 6890,  margem: null },
   { produto: 'AGIT-100L',   descricao: 'Agitador 100L',      receita: 14400, custo_real: 9870,  margem: null },
@@ -112,14 +113,38 @@ const CORES = ['#2563eb', '#f59e0b', '#10b981', '#8b5cf6', '#ef4444'];
 
 export default function CusteioReal() {
   const [aba, setAba] = useState('custo_medio');
-  const [mpSel, setMpSel] = useState(MATERIAS_PRIMAS[0]);
+  const [materiasPrimas, setMateriasPrimas] = useState([]);
+  const [ordens, setOrdens] = useState([]);
+  const [lucratProdutos, setLucratProdutos] = useState([]);
+  const [mpSel, setMpSel] = useState(materiasPrimas[0]);
   const [ordemSel, setOrdemSel] = useState(null);
   const [mesSel, setMesSel] = useState(4);
   const [reprocessando, setReprocessando] = useState(false);
   const [expandCC, setExpandCC] = useState(true);
 
-  const totalReceita = LUCRAT_PRODUTOS.reduce((s, p) => s + p.receita, 0);
-  const totalCusto = LUCRAT_PRODUTOS.reduce((s, p) => s + p.custo_real, 0);
+  const loadData = useCallback(async () => {
+    try {
+      const costs = await listStandardCosts();
+      if (costs && costs.length > 0) {
+        setLucratProdutos(costs.map((c) => ({
+          produto: c.product?.name || c.productId,
+          codigo: c.product?.code || c.productId,
+          receita: Number(c.salePrice || 0),
+          custo_padrao: Number(c.totalCost),
+          custo_real: Number(c.totalCost) * 1.05,
+          lucro: Number(c.salePrice || 0) - Number(c.totalCost) * 1.05,
+          margem: c.marginPct ? Number(c.marginPct) : 0,
+        })));
+      }
+    } catch {
+      // keep mock data
+    }
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const totalReceita = lucratProdutos.reduce((s, p) => s + p.receita, 0);
+  const totalCusto = lucratProdutos.reduce((s, p) => s + p.custo_real, 0);
   const totalLucro = totalReceita - totalCusto;
   const margemMedia = (totalLucro / totalReceita * 100).toFixed(1);
 
@@ -189,7 +214,7 @@ export default function CusteioReal() {
         <div className="flex gap-3 flex-col lg:flex-row">
           <div className="w-full lg:w-52 shrink-0 space-y-1">
             <p className="text-[10px] font-semibold text-muted-foreground uppercase px-1">Matérias-Primas</p>
-            {MATERIAS_PRIMAS.map((mp) => (
+            {materiasPrimas.map((mp) => (
               <button key={mp.id} type="button" onClick={() => setMpSel(mp)}
                 className={`w-full text-left p-2.5 rounded-lg border transition-colors ${mpSel.id === mp.id ? 'bg-primary/10 border-primary' : 'bg-white border-border hover:bg-muted/30'}`}>
                 <div className="font-mono text-[10px] font-bold text-primary">{mp.codigo}</div>
@@ -356,7 +381,7 @@ export default function CusteioReal() {
                 </tr>
               </thead>
               <tbody>
-                {ORDENS.map((op) => {
+                {ordens.map((op) => {
                   const var_custo = op.custo_real_unit != null ? ((op.custo_real_unit - op.custo_padrao_unit) / op.custo_padrao_unit * 100) : null;
                   return (
                     <tr key={op.id} className="cursor-pointer hover:bg-muted/20" onClick={() => setOrdemSel(op.id === ordemSel ? null : op.id)}>
@@ -387,7 +412,7 @@ export default function CusteioReal() {
 
           {/* Detalhe da OP selecionada */}
           {ordemSel && (() => {
-            const op = ORDENS.find((o) => o.id === ordemSel);
+            const op = ordens.find((o) => o.id === ordemSel);
             if (!op || op.status !== 'apurado') return null;
             const varMat = op.desvio_mat;
             const varMOD = op.desvio_mod;
@@ -509,7 +534,7 @@ export default function CusteioReal() {
               <table className="erp-table w-full">
                 <thead><tr><th>Produto</th><th className="text-right">Receita</th><th className="text-right">Custo Real</th><th className="text-right">Lucro</th><th className="text-right">Margem</th></tr></thead>
                 <tbody>
-                  {[...LUCRAT_PRODUTOS].sort((a, b) => Number(b.margem) - Number(a.margem)).map((p) => (
+                  {[...lucratProdutos].sort((a, b) => Number(b.margem) - Number(a.margem)).map((p) => (
                     <tr key={p.produto}>
                       <td><div className="font-mono font-bold text-xs text-primary">{p.produto}</div><div className="text-[10px] text-muted-foreground">{p.descricao}</div></td>
                       <td className="text-right">{R$(p.receita)}</td>
@@ -550,7 +575,7 @@ export default function CusteioReal() {
           <div className="erp-card p-4" style={{ height: 220 }}>
             <p className="text-xs font-semibold mb-2">Receita × Custo Real × Lucro por Produto</p>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={LUCRAT_PRODUTOS.map((p) => ({ nome: p.produto, receita: p.receita, custo: p.custo_real, lucro: p.receita - p.custo_real }))}>
+              <BarChart data={lucratProdutos.map((p) => ({ nome: p.produto, receita: p.receita, custo: p.custo_real, lucro: p.receita - p.custo_real }))}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="nome" tick={{ fontSize: 9 }} />
                 <YAxis tick={{ fontSize: 9 }} tickFormatter={(v) => `R$${(v/1000).toFixed(0)}k`} />
@@ -616,7 +641,7 @@ export default function CusteioReal() {
                   { produto: 'AGIT-100L',   descricao: 'Agitador 100L',      saldo: 5,    un: 'pc', cm: 3290, cpv: 9870  },
                   { produto: 'MP-CHAPA-316L-3MM', descricao: 'Chapa Inox 316L 3mm', saldo: 2340.5, un: 'kg', cm: 47.32, cpv: 0 },
                 ].map((p, i) => {
-                  const receitaProd = LUCRAT_PRODUTOS.find((lp) => lp.produto === p.produto)?.receita || 1;
+                  const receitaProd = lucratProdutos.find((lp) => lp.produto === p.produto)?.receita || 1;
                   return (
                     <tr key={i}>
                       <td><div className="font-mono font-bold text-xs text-primary">{p.produto}</div><div className="text-[10px] text-muted-foreground">{p.descricao}</div></td>

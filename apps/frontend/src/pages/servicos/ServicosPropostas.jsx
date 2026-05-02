@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Plus, Search, Mail, CheckCircle, XCircle, Clock, FileText, Send, ArrowRight, Eye, Download } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '@/services/api';
 
 const STATUS_CFG = {
   Rascunho:    { color: 'bg-gray-100 text-gray-600',    label: 'Rascunho' },
@@ -16,21 +17,29 @@ const CAUSAS_REJEICAO = [
   'Cliente sem orçamento', 'Serviço não adequado', 'Outro',
 ];
 
-const MOCK = [
-  { id: 1, codigo: 'PR-0001', cliente: 'Restaurante Sabor & Arte', contato: 'Carlos Mendes', servico: 'Manutenção preventiva câmara fria', status: 'Enviada', valor: 1950, validade: '2026-05-15', data: '2026-04-28', email_enviado: true, causa_rejeicao: '' },
-  { id: 2, codigo: 'PR-0002', cliente: 'Hotel Beira Mar', contato: 'Fernanda Souza', servico: 'Instalação balcão refrigerado 3m', status: 'Em Negociação', valor: 4800, validade: '2026-05-20', data: '2026-04-30', email_enviado: true, causa_rejeicao: '' },
-  { id: 3, codigo: 'PR-0003', cliente: 'Cozinha Industrial LTDA', contato: 'Paulo Lima', servico: 'Cuba tripla sob medida ABNT', status: 'Aprovada', valor: 7500, validade: '2026-05-10', data: '2026-04-25', email_enviado: true, causa_rejeicao: '' },
-  { id: 4, codigo: 'PR-0004', cliente: 'Padaria São João', contato: 'Lucia Torres', servico: 'Retrofit coifa inox 2,5m', status: 'Rascunho', valor: 3200, validade: '2026-05-25', data: '2026-05-01', email_enviado: false, causa_rejeicao: '' },
-  { id: 5, codigo: 'PR-0005', cliente: 'Mercado Central', contato: 'Carlos Rocha', servico: 'Consultoria layout cozinha', status: 'Rejeitada', valor: 950, validade: '2026-04-20', data: '2026-04-10', email_enviado: true, causa_rejeicao: 'Preço acima do esperado' },
-];
-
 export default function ServicosPropostas() {
-  const [dados, setDados] = useState(MOCK);
+  const [dados, setDados] = useState([]);
   const [busca, setBusca] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('Todos');
   const [detalhe, setDetalhe] = useState(null);
   const [showRejeicaoModal, setShowRejeicaoModal] = useState(null);
   const [causaRejeicao, setCausaRejeicao] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await api.get('/api/sales/service-proposals');
+      const list = Array.isArray(res?.data?.data) ? res.data.data : Array.isArray(res?.data) ? res.data : [];
+      setDados(list);
+    } catch {
+      toast.error('Erro ao carregar propostas');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
 
   const lista = useMemo(() => {
     let d = dados;
@@ -47,19 +56,33 @@ export default function ServicosPropostas() {
     return { total, aprovadas, taxa: total ? Math.round((aprovadas / total) * 100) : 0, valorAprovado, valorPipeline };
   }, [dados]);
 
-  const avancar = (item) => {
+  const avancar = async (item) => {
     const map = { Rascunho: 'Enviada', Enviada: 'Em Negociação', 'Em Negociação': 'Aprovada' };
     if (!map[item.status]) return;
-    setDados(dados.map((d) => d.id === item.id ? { ...d, status: map[d.status], email_enviado: map[d.status] !== 'Enviada' ? d.email_enviado : true } : d));
-    setDetalhe((p) => p?.id === item.id ? { ...p, status: map[p.status] } : p);
-    toast.success(`Proposta → ${map[item.status]}`);
+    const newStatus = map[item.status];
+    const emailEnviado = newStatus === 'Enviada' ? true : item.email_enviado;
+    setDados((prev) => prev.map((d) => d.id === item.id ? { ...d, status: newStatus, email_enviado: emailEnviado } : d));
+    setDetalhe((p) => p?.id === item.id ? { ...p, status: newStatus } : p);
+    toast.success(`Proposta → ${newStatus}`);
+    try {
+      await api.put(`/api/sales/service-proposals/${item.id}`, { status: newStatus, email_enviado: emailEnviado });
+    } catch {
+      toast.error('Erro ao atualizar proposta');
+      load();
+    }
   };
 
-  const rejeitar = (item, causa) => {
-    setDados(dados.map((d) => d.id === item.id ? { ...d, status: 'Rejeitada', causa_rejeicao: causa } : d));
+  const rejeitar = async (item, causa) => {
+    setDados((prev) => prev.map((d) => d.id === item.id ? { ...d, status: 'Rejeitada', causa_rejeicao: causa } : d));
     setDetalhe((p) => p?.id === item.id ? { ...p, status: 'Rejeitada', causa_rejeicao: causa } : p);
     setShowRejeicaoModal(null); setCausaRejeicao('');
     toast.info('Proposta rejeitada. Causa registrada.');
+    try {
+      await api.put(`/api/sales/service-proposals/${item.id}`, { status: 'Rejeitada', causa_rejeicao: causa });
+    } catch {
+      toast.error('Erro ao rejeitar proposta');
+      load();
+    }
   };
 
   const Chip = ({ status }) => {
@@ -137,7 +160,7 @@ export default function ServicosPropostas() {
                   <div className="flex gap-1">
                     <button type="button" onClick={() => setDetalhe(r)} className="p-1 rounded hover:bg-muted text-muted-foreground"><Eye size={13} /></button>
                     {!r.email_enviado && (
-                      <button type="button" onClick={() => { setDados(dados.map((d) => d.id === r.id ? { ...d, email_enviado: true } : d)); toast.success('Proposta enviada por e-mail!'); }}
+                      <button type="button" onClick={async () => { setDados((prev) => prev.map((d) => d.id === r.id ? { ...d, email_enviado: true } : d)); toast.success('Proposta enviada por e-mail!'); try { await api.put(`/api/sales/service-proposals/${r.id}`, { email_enviado: true }); } catch { load(); } }}
                         className="p-1 rounded hover:bg-blue-50 text-blue-600" title="Enviar por e-mail"><Send size={13} /></button>
                     )}
                     {['Rascunho', 'Enviada', 'Em Negociação'].includes(r.status) && (
@@ -201,7 +224,7 @@ export default function ServicosPropostas() {
             </div>
             <div className="p-4 border-t border-border flex flex-wrap gap-2 justify-end">
               {!detalhe.email_enviado && (
-                <button type="button" onClick={() => { setDados(dados.map((d) => d.id === detalhe.id ? { ...d, email_enviado: true } : d)); setDetalhe({ ...detalhe, email_enviado: true }); toast.success('Enviado por e-mail!'); }}
+                <button type="button" onClick={async () => { setDados((prev) => prev.map((d) => d.id === detalhe.id ? { ...d, email_enviado: true } : d)); setDetalhe({ ...detalhe, email_enviado: true }); toast.success('Enviado por e-mail!'); try { await api.put(`/api/sales/service-proposals/${detalhe.id}`, { email_enviado: true }); } catch { load(); } }}
                   className="erp-btn-ghost flex items-center gap-1 text-blue-600"><Send size={13} /> Enviar E-mail</button>
               )}
               {['Rascunho', 'Enviada', 'Em Negociação'].includes(detalhe.status) && (

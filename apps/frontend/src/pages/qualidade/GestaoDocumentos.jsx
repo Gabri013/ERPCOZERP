@@ -1,4 +1,5 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { listDocuments, createDocument, updateDocument } from '@/services/qualityApi.js';
 import {
   FileText, Plus, Download, Printer, Mail, CheckCircle, Clock,
   Edit3, Eye, Search, Upload, PenTool, Layers, AlertTriangle,
@@ -19,8 +20,8 @@ const TIPOS_DOC = [
   { id: 9, codigo: 'NCR', nome: 'Relatório de Não Conformidade',    campos: ['descricao','causa','acao','responsavel'], requer_assinatura: false },
 ];
 
-// ─── Documentos registrados ──────────────────────────────────────────────────
-const DOCUMENTOS = [
+// ─── documentos registrados ──────────────────────────────────────────────────
+const documentos = [
   { id: 'RI-2026-0482', tipo: 'RI',  titulo: 'Rel. de Inspeção — OP-2026-0451 / TANK-500L', data: '2026-04-30', criado_por: 'Paulo Qualidade', status: 'assinado', assinaturas: ['Paulo Qualidade','Ana Diretora'], ref: 'OP-2026-0451' },
   { id: 'CI-2026-0093', tipo: 'CI',  titulo: 'Certificado de Inspeção — TANK-500L',          data: '2026-04-30', criado_por: 'Paulo Qualidade', status: 'assinado', assinaturas: ['Paulo Qualidade'], ref: 'OP-2026-0451' },
   { id: 'RI-2026-0481', tipo: 'RI',  titulo: 'Rel. de Inspeção — OP-2026-0448 / REATOR-200L',data: '2026-04-29', criado_por: 'Maria Inspetora', status: 'assinado', assinaturas: ['Maria Inspetora','Carlos Eng.'], ref: 'OP-2026-0448' },
@@ -82,16 +83,43 @@ export default function GestaoDocumentos() {
   const canvasRef = useRef(null);
   const [desenhando, setDesenhando] = useState(false);
   const [assinado, setAssinado] = useState(false);
+  const [documentos, setDocumentos] = useState([]);
 
-  const docsFiltrados = DOCUMENTOS.filter((d) => {
+  const loadDocuments = useCallback(async () => {
+    try {
+      const data = await listDocuments();
+      if (data && data.length > 0) {
+        setDocumentos(data.map((d) => ({
+          id: d.code,
+          _id: d.id,
+          tipo: d.documentType || 'RI',
+          titulo: d.title,
+          produto: d.productCode || '',
+          pedido: d.orderRef || '',
+          status: d.status,
+          autor: d.author || '',
+          versao: '1.0',
+          data: d.createdAt?.slice(0, 10),
+          campos: d.content || {},
+          assinaturas: Array.isArray(d.signatures) ? d.signatures : [],
+        })));
+      }
+    } catch {
+      // keep mock on error
+    }
+  }, []);
+
+  useEffect(() => { loadDocuments(); }, [loadDocuments]);
+
+  const docsFiltrados = documentos.filter((d) => {
     const matchBusca = !busca || d.titulo.toLowerCase().includes(busca.toLowerCase()) || d.id.toLowerCase().includes(busca.toLowerCase());
     const matchTipo = !filtroTipo || d.tipo === filtroTipo;
     const matchStatus = !filtroStatus || d.status === filtroStatus;
     return matchBusca && matchTipo && matchStatus;
   });
 
-  const pendentes = DOCUMENTOS.filter((d) => d.status === 'pendente_assinatura').length;
-  const assinados = DOCUMENTOS.filter((d) => d.status === 'assinado').length;
+  const pendentes = documentos.filter((d) => d.status === 'pendente_assinatura').length;
+  const assinados = documentos.filter((d) => d.status === 'assinado').length;
   const produtosRequisitos = [...new Set(REQUISITOS.map((r) => r.produto))];
 
   // Canvas signature
@@ -113,7 +141,7 @@ export default function GestaoDocumentos() {
   };
 
   const ABAS = [
-    { id: 'documentos', label: 'Documentos' },
+    { id: 'documentos', label: 'documentos' },
     { id: 'novo',       label: 'Preencher Documento' },
     { id: 'requisitos', label: 'Requisitos de Documentação' },
     { id: 'assinaturas',label: 'Assinaturas Digitais' },
@@ -123,7 +151,7 @@ export default function GestaoDocumentos() {
     <div className="space-y-3">
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
         <div>
-          <h1 className="text-xl font-bold flex items-center gap-2"><FileText size={20} className="text-primary" />Gestão de Documentos</h1>
+          <h1 className="text-xl font-bold flex items-center gap-2"><FileText size={20} className="text-primary" />Gestão de documentos</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Documentação eletrônica com assinatura digital integrada à qualidade e produção</p>
         </div>
         <div className="flex gap-2">
@@ -135,7 +163,7 @@ export default function GestaoDocumentos() {
       {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Total de Documentos', val: DOCUMENTOS.length, icon: <FileText size={14} className="text-primary" />,        cor: 'text-primary' },
+          { label: 'Total de documentos', val: documentos.length, icon: <FileText size={14} className="text-primary" />,        cor: 'text-primary' },
           { label: 'Assinados',           val: assinados,          icon: <Shield size={14} className="text-green-600" />,        cor: 'text-green-700' },
           { label: 'Pend. Assinatura',    val: pendentes,          icon: <PenTool size={14} className="text-yellow-600" />,      cor: 'text-yellow-600' },
           { label: 'Tipos de Documento',  val: TIPOS_DOC.length,   icon: <Layers size={14} className="text-purple-600" />,       cor: 'text-purple-700' },
@@ -167,7 +195,7 @@ export default function GestaoDocumentos() {
         ))}
       </div>
 
-      {/* ── DOCUMENTOS ──────────────────────────────────────────────────── */}
+      {/* ── documentos ──────────────────────────────────────────────────── */}
       {aba === 'documentos' && (
         <div className="space-y-3">
           <div className="flex flex-col sm:flex-row gap-2">
@@ -393,10 +421,10 @@ export default function GestaoDocumentos() {
                 </button>
                 {aberto && (
                   <table className="erp-table w-full">
-                    <thead><tr><th>Operação do Roteiro</th><th>Documentos Exigidos</th><th>Obrigatoriedade</th><th>Atendido?</th></tr></thead>
+                    <thead><tr><th>Operação do Roteiro</th><th>documentos Exigidos</th><th>Obrigatoriedade</th><th>Atendido?</th></tr></thead>
                     <tbody>
                       {reqs.map((req) => {
-                        const docsExistentes = DOCUMENTOS.filter((d) => d.ref.includes(produto.split('-')[0]) && req.docs.includes(d.tipo)).length;
+                        const docsExistentes = documentos.filter((d) => d.ref.includes(produto.split('-')[0]) && req.docs.includes(d.tipo)).length;
                         const atendido = docsExistentes >= req.docs.length;
                         return (
                           <tr key={req.id}>
@@ -450,10 +478,10 @@ export default function GestaoDocumentos() {
           </div>
 
           <div className="erp-card p-4 space-y-2">
-            <p className="text-sm font-semibold">Documentos Aguardando Assinatura</p>
-            {DOCUMENTOS.filter((d) => d.status === 'pendente_assinatura').length === 0
+            <p className="text-sm font-semibold">documentos Aguardando Assinatura</p>
+            {documentos.filter((d) => d.status === 'pendente_assinatura').length === 0
               ? <p className="text-xs text-muted-foreground">Nenhum documento pendente de assinatura.</p>
-              : DOCUMENTOS.filter((d) => d.status === 'pendente_assinatura').map((doc) => (
+              : documentos.filter((d) => d.status === 'pendente_assinatura').map((doc) => (
                 <div key={doc.id} className="flex items-center justify-between bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-2.5 text-xs">
                   <div>
                     <p className="font-semibold">{doc.id} — {doc.titulo}</p>

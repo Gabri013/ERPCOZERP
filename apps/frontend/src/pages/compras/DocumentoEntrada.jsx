@@ -1,11 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Plus, Search, Eye, CheckCircle, XCircle, FileText, Upload, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '@/services/api';
 
 const fmtBRL = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 });
 const fmtD = (v) => v ? new Date(v + 'T00:00').toLocaleDateString('pt-BR') : '—';
-const hoje = new Date().toISOString().split('T')[0];
-const addDias = (d, n) => { const dt = new Date(d); dt.setDate(dt.getDate() + n); return dt.toISOString().split('T')[0]; };
 
 const STATUS_COR = {
   'Rascunho':    'bg-gray-100 text-gray-600',
@@ -13,29 +12,23 @@ const STATUS_COR = {
   'Cancelado':   'bg-red-100 text-red-700',
 };
 
-const MOCK = [
-  {
-    id: 'DE-2025-0038', pedido: 'PC-2025-0042', fornecedor: 'Fornecedor Inox SP', nfe_num: '000.123', nfe_serie: '1',
-    data_entrada: addDias(hoje, -1), data_emissao: addDias(hoje, -2), chave_acesso: '35250462137272000155550010001234561982341234',
-    status: 'Confirmado', valor_produtos: 13500, valor_ipi: 0, valor_icms: 1350, valor_pis: 0, valor_cofins: 0, valor_frete: 0, valor_total: 13500,
-    itens: [
-      { produto: 'Chapa Inox 304 2mm', ncm: '7219.12.00', cfop: '1101', quantidade: 50, unidade: 'chapa', valor_unit: 270, valor_total: 13500, icms_aliq: 12, ipi_aliq: 0, pis_aliq: 1.65, cofins_aliq: 7.6 },
-    ],
-    contas_pagar: [{ codigo: 21600, valor: 13500, vencimento: addDias(hoje, 30), forma_pag: 'Boleto Bancário' }],
-  },
-  {
-    id: 'DE-2025-0037', pedido: 'PC-2025-0040', fornecedor: 'Metalúrgica Brasil', nfe_num: '000.089', nfe_serie: '1',
-    data_entrada: addDias(hoje, -10), data_emissao: addDias(hoje, -11), chave_acesso: '35250412345678000195550010000897651234567890',
-    status: 'Confirmado', valor_produtos: 8750, valor_ipi: 875, valor_icms: 1050, valor_pis: 144.37, valor_cofins: 665, valor_frete: 300, valor_total: 9725,
-    itens: [
-      { produto: 'Tubo Inox 1" SCH10', ncm: '7306.40.00', cfop: '1101', quantidade: 200, unidade: 'm', valor_unit: 43.75, valor_total: 8750, icms_aliq: 12, ipi_aliq: 10, pis_aliq: 1.65, cofins_aliq: 7.6 },
-    ],
-    contas_pagar: [{ codigo: 21540, valor: 9725, vencimento: addDias(hoje, -5), forma_pag: 'Boleto Bancário' }],
-  },
-];
-
 export default function DocumentoEntrada() {
-  const [documentos, setDocumentos] = useState(MOCK);
+  const [documentos, setDocumentos] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const carregar = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await api.get('/api/purchases/receipts');
+      setDocumentos(res.data ?? []);
+    } catch {
+      toast.error('Erro ao carregar documentos de entrada');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { carregar(); }, [carregar]);
   const [busca, setBusca] = useState('');
   const [detalhe, setDetalhe] = useState(null);
   const [abaDetalhe, setAbaDetalhe] = useState('geral');

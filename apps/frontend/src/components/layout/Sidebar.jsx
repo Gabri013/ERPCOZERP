@@ -4,7 +4,7 @@ import {
   LayoutDashboard, ShoppingCart, Truck, Factory,
   DollarSign, ChevronDown, ChevronRight,
   FileText, Boxes, Database, Users, X, Wrench,
-  PanelLeftClose, PanelLeftOpen, BarChart2, Settings, Briefcase, Globe, BookOpen, ClipboardCheck,
+  PanelLeftClose, PanelLeftOpen, BarChart2, Settings, Briefcase, Globe, BookOpen, ClipboardCheck, FolderKanban,
 } from 'lucide-react';
 import { usePermissao } from '@/lib/PermissaoContext';
 import { useMetadataStore } from '@/stores/metadataStore';
@@ -64,6 +64,27 @@ const MENU_SECTIONS = [
           { label: 'Importação de XML',  path: '/compras/importacao-xml',      required: 'ver_compras' },
           { label: 'Manifestação NF-e',  path: '/compras/manifestacao-nfe',    required: 'ver_compras' },
           { label: 'Regras de Tributação', path: '/compras/regras-tributacao', required: 'ver_compras' },
+        ],
+      },
+      {
+        label: 'Expedição', icon: Truck, children: [
+          { label: 'Controle da Expedição', path: '/expedicao', required: 'ver_vendas' },
+        ],
+      },
+      {
+        label: 'Projetos', icon: FolderKanban, children: [
+          { label: 'Gestão de Projetos', path: '/projetos', required: 'ver_vendas' },
+        ],
+      },
+      {
+        label: 'CRM', icon: Users, children: [
+          { label: 'Gestão de Processos', path: '/crm', required: 'ver_vendas' },
+        ],
+      },
+      {
+        label: 'Conhecimento', icon: BookOpen, children: [
+          { label: 'Base de Conhecimento', path: '/conhecimento', required: 'ver_vendas' },
+          { label: 'Como Funciona / Módulos', path: '/sobre',       required: 'ver_vendas' },
         ],
       },
       {
@@ -150,6 +171,7 @@ const MENU_SECTIONS = [
         label: 'Qualidade', icon: ClipboardCheck, children: [
           { label: 'Controle de Qualidade', path: '/qualidade',            required: 'ver_producao' },
           { label: 'Gestão de Documentos',  path: '/qualidade/documentos', required: 'ver_producao' },
+          { label: 'Databooks',             path: '/qualidade/databooks',  required: 'ver_producao' },
         ],
       },
       {

@@ -1,4 +1,5 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { listInspections, createInspection, listNonConformities, createNonConformity, updateNonConformity, listInstruments, listInspectionPlans, getQualityStats } from '@/services/qualityApi.js';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, RadarChart, Radar, PolarGrid, PolarAngleAxis,
@@ -17,8 +18,8 @@ const badge = (status) => {
   return map[status] || 'erp-badge-default';
 };
 
-// ─── Planos de Inspeção ─────────────────────────────────────────────────────
-const PLANOS = [
+// ─── planos de Inspeção ─────────────────────────────────────────────────────
+const planos = [
   {
     id: 1, codigo: 'PI-001', produto: 'TANK-500L', tipo: 'Produto Fabricado', ativo: true,
     itens: [
@@ -40,7 +41,7 @@ const PLANOS = [
 ];
 
 // ─── Inspeções realizadas ────────────────────────────────────────────────────
-const INSPECOES = [
+const inspecoes = [
   { id: 'INS-2026-0312', data: '2026-04-30', tipo: 'Produto Fabricado', ref: 'OP-2026-0451', produto: 'TANK-500L', inspetor: 'Paulo Qualidade', status: 'aprovado',  nc: 0 },
   { id: 'INS-2026-0311', data: '2026-04-29', tipo: 'Produto Fabricado', ref: 'OP-2026-0448', produto: 'REATOR-200L', inspetor: 'Paulo Qualidade', status: 'aprovado',nc: 0 },
   { id: 'INS-2026-0310', data: '2026-04-28', tipo: 'Recebimento MP',    ref: 'NF-e 004812',  produto: 'Chapa 316L 3mm', inspetor: 'Maria Insp.', status: 'aprovado',  nc: 0 },
@@ -83,8 +84,8 @@ const RADAR_QUALIDADE = [
   { area: 'Processo', meta: 95, real: 96 },
 ];
 
-// ─── Instrumentos ────────────────────────────────────────────────────────────
-const INSTRUMENTOS = [
+// ─── instrumentos ────────────────────────────────────────────────────────────
+const instrumentos = [
   { id: 1, codigo: 'INST-001', nome: 'Micrômetro Externo 0-25mm', marca: 'Mitutoyo', serie: 'MT-2026-1', calibracao: '2026-01-15', proxima: '2026-07-15', status: 'ok' },
   { id: 2, codigo: 'INST-002', nome: 'Rugosímetro TR200',          marca: 'Time',     serie: 'TR-2025-8', calibracao: '2025-11-20', proxima: '2026-05-20', status: 'vencendo' },
   { id: 3, codigo: 'INST-003', nome: 'Medidor Ultrassônico',       marca: 'Olympus',  serie: 'OL-2024-4', calibracao: '2025-08-10', proxima: '2026-08-10', status: 'ok' },
@@ -96,12 +97,88 @@ const CORES_NC = ['#ef4444', '#f97316', '#f59e0b', '#8b5cf6', '#6b7280'];
 
 export default function ControleQualidade() {
   const [aba, setAba] = useState('painel');
-  const [planoSel, setPlanoSel] = useState(PLANOS[0]);
+  const [planos, setPlanos] = useState([]);
+  const [planoSel, setPlanoSel] = useState(planos[0]);
+  const [inspecoes, setInspecoes] = useState([]);
+  const [instrumentos, setInstrumentos] = useState([]);
+  const [naoConformidades, setNaoConformidades] = useState([]);
   const [inspecaoSel, setInspecaoSel] = useState(null);
   const [showNovaInsp, setShowNovaInsp] = useState(false);
   const [showCertificado, setShowCertificado] = useState(false);
   const [ncSel, setNcSel] = useState(null);
   const fileRef = useRef(null);
+
+  const loadData = useCallback(async () => {
+    try {
+      const [insps, ncs, insts, plans] = await Promise.all([
+        listInspections(),
+        listNonConformities(),
+        listInstruments(),
+        listInspectionPlans(),
+      ]);
+      if (insps && insps.length > 0) {
+        setInspecoes(insps.map((i) => ({
+          id: i.code,
+          _id: i.id,
+          tipo: i.type,
+          produto: i.productName || '',
+          codProduto: i.productCode || '',
+          docRef: i.referenceDoc || '',
+          resultado: i.status,
+          inspetor: i.inspector || '',
+          data: i.inspectedAt ? i.inspectedAt.slice(0, 10) : '',
+          criterios: Array.isArray(i.results) ? i.results : [],
+          obs: i.notes || '',
+        })));
+      }
+      if (ncs && ncs.length > 0) {
+        setNaoConformidades(ncs.map((n) => ({
+          id: n.code,
+          _id: n.id,
+          titulo: n.title,
+          descricao: n.description || '',
+          origem: n.origin || '',
+          gravidade: n.severity,
+          status: n.status,
+          causaRaiz: n.rootCause || '',
+          acaoCorretiva: n.correctiveAction || '',
+          responsavel: n.responsible || '',
+          prazo: n.dueDate ? n.dueDate.slice(0, 10) : '',
+          fechamento: n.closedAt ? n.closedAt.slice(0, 10) : null,
+        })));
+      }
+      if (insts && insts.length > 0) {
+        setInstrumentos(insts.map((i) => ({
+          id: i.code,
+          _id: i.id,
+          nome: i.name,
+          tipo: i.instrumentType || '',
+          local: i.location || '',
+          status: i.status,
+          ultCalib: i.lastCalibration ? i.lastCalibration.slice(0, 10) : '',
+          proxCalib: i.nextCalibration ? i.nextCalibration.slice(0, 10) : '',
+          responsavel: i.responsible || '',
+          certificado: i.certificate || '',
+        })));
+      }
+      if (plans && plans.length > 0) {
+        setPlanos(plans.map((p) => ({
+          id: p.code,
+          _id: p.id,
+          nome: p.name,
+          produto: p.productCode || '',
+          etapa: p.stage,
+          ativo: p.active,
+          criterios: Array.isArray(p.criteria) ? p.criteria : [],
+        })));
+        setPlanoSel(plans.length > 0 ? { id: plans[0].code, nome: plans[0].name, criterios: Array.isArray(plans[0].criteria) ? plans[0].criteria : [] } : null);
+      }
+    } catch {
+      // keep mock data on error
+    }
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
 
   const totalInsp = INDICADORES_MENSAL.reduce((s, m) => s + m.inspecoes, 0);
   const totalAprov = INDICADORES_MENSAL.reduce((s, m) => s + m.aprovadas, 0);
@@ -110,10 +187,10 @@ export default function ControleQualidade() {
 
   const ABAS = [
     { id: 'painel',       label: 'Painel de Qualidade' },
-    { id: 'planos',       label: 'Planos de Inspeção' },
+    { id: 'planos',       label: 'planos de Inspeção' },
     { id: 'inspecoes',    label: 'Inspeções' },
     { id: 'nao_conform',  label: 'Não Conformidades' },
-    { id: 'instrumentos', label: 'Instrumentos' },
+    { id: 'instrumentos', label: 'instrumentos' },
     { id: 'indicadores',  label: 'Indicadores' },
   ];
 
@@ -137,7 +214,7 @@ export default function ControleQualidade() {
           { label: 'Inspeções (6m)',    val: totalInsp,           sub: 'realizadas',       icon: <ClipboardCheck size={14} className="text-primary" />,    cor: 'text-primary' },
           { label: 'Taxa de Aprovação', val: `${txAprovacao}%`,   sub: 'últimos 6 meses',  icon: <CheckCircle size={14} className="text-green-600" />,     cor: 'text-green-700' },
           { label: 'Não Conformidades', val: totalNCs,            sub: 'últimos 6 meses',  icon: <AlertTriangle size={14} className="text-red-600" />,     cor: 'text-red-600' },
-          { label: 'Calibrações Venc.', val: INSTRUMENTOS.filter((i) => i.status !== 'ok').length, sub: 'instrumentos', icon: <Gauge size={14} className="text-yellow-600" />, cor: 'text-yellow-600' },
+          { label: 'Calibrações Venc.', val: instrumentos.filter((i) => i.status !== 'ok').length, sub: 'instrumentos', icon: <Gauge size={14} className="text-yellow-600" />, cor: 'text-yellow-600' },
         ].map((k) => (
           <div key={k.label} className="erp-card p-3 flex items-center gap-3">
             {k.icon}
@@ -254,15 +331,15 @@ export default function ControleQualidade() {
         </div>
       )}
 
-      {/* ── PLANOS DE INSPEÇÃO ───────────────────────────────────────────── */}
+      {/* ── planos DE INSPEÇÃO ───────────────────────────────────────────── */}
       {aba === 'planos' && (
         <div className="flex gap-3 flex-col lg:flex-row">
           <div className="w-full lg:w-52 shrink-0 space-y-1">
             <div className="flex items-center justify-between px-1 mb-1">
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase">Planos</p>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase">planos</p>
               <button type="button" onClick={() => toast.info('Novo plano criado!')} className="erp-btn text-[10px] py-0.5 px-1.5 flex items-center gap-0.5"><Plus size={9} />Novo</button>
             </div>
-            {PLANOS.map((p) => (
+            {planos.map((p) => (
               <button key={p.id} type="button" onClick={() => setPlanoSel(p)}
                 className={`w-full text-left p-2.5 rounded-lg border transition-colors ${planoSel.id === p.id ? 'bg-primary/10 border-primary' : 'bg-white border-border hover:bg-muted/20'}`}>
                 <div className="font-mono text-[10px] font-bold text-primary">{p.codigo}</div>
@@ -311,7 +388,7 @@ export default function ControleQualidade() {
             <table className="erp-table w-full min-w-[780px]">
               <thead><tr><th>Código</th><th>Data</th><th>Tipo</th><th>Referência</th><th>Produto</th><th>Inspetor</th><th>Status</th><th>NCs</th><th></th></tr></thead>
               <tbody>
-                {INSPECOES.map((ins) => (
+                {inspecoes.map((ins) => (
                   <tr key={ins.id} className="cursor-pointer" onClick={() => setInspecaoSel(ins.id === inspecaoSel ? null : ins.id)}>
                     <td className="font-mono font-bold text-primary text-xs">{ins.id}</td>
                     <td>{ins.data}</td>
@@ -336,9 +413,9 @@ export default function ControleQualidade() {
 
           {/* Detalhe inspeção */}
           {inspecaoSel && (() => {
-            const ins = INSPECOES.find((i) => i.id === inspecaoSel);
+            const ins = inspecoes.find((i) => i.id === inspecaoSel);
             if (!ins) return null;
-            const plano = PLANOS.find((p) => p.tipo === ins.tipo.replace(' MP', ' de MP') || p.produto.startsWith(ins.produto.split(' ')[0])) || PLANOS[0];
+            const plano = planos.find((p) => p.tipo === ins.tipo.replace(' MP', ' de MP') || p.produto.startsWith(ins.produto.split(' ')[0])) || planos[0];
             return (
               <div className="erp-card overflow-hidden">
                 <div className="px-4 py-2.5 bg-muted/20 border-b border-border flex items-center justify-between">
@@ -438,24 +515,24 @@ export default function ControleQualidade() {
         </div>
       )}
 
-      {/* ── INSTRUMENTOS ─────────────────────────────────────────────────── */}
+      {/* ── instrumentos ─────────────────────────────────────────────────── */}
       {aba === 'instrumentos' && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-xs text-muted-foreground">Gestão de calibração dos instrumentos de medição utilizados nas inspeções.</p>
             <button type="button" onClick={() => toast.info('Novo instrumento cadastrado!')} className="erp-btn text-xs flex items-center gap-1.5"><Plus size={12} />Novo Instrumento</button>
           </div>
-          {INSTRUMENTOS.filter((i) => i.status !== 'ok').length > 0 && (
+          {instrumentos.filter((i) => i.status !== 'ok').length > 0 && (
             <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-3 flex items-center gap-2 text-xs text-yellow-800">
               <AlertTriangle size={14} className="shrink-0" />
-              <span><strong>{INSTRUMENTOS.filter((i) => i.status !== 'ok').length} instrumentos</strong> com calibração vencida ou vencendo. Realize ou agende a calibração.</span>
+              <span><strong>{instrumentos.filter((i) => i.status !== 'ok').length} instrumentos</strong> com calibração vencida ou vencendo. Realize ou agende a calibração.</span>
             </div>
           )}
           <div className="erp-card overflow-x-auto">
             <table className="erp-table w-full min-w-[700px]">
               <thead><tr><th>Código</th><th>Instrumento</th><th>Marca / Série</th><th>Última Calibração</th><th>Próxima Calibração</th><th>Status</th><th></th></tr></thead>
               <tbody>
-                {INSTRUMENTOS.map((inst) => (
+                {instrumentos.map((inst) => (
                   <tr key={inst.id} className={inst.status === 'vencido' ? 'bg-red-50' : inst.status === 'vencendo' ? 'bg-yellow-50' : ''}>
                     <td className="font-mono font-bold text-xs text-primary">{inst.codigo}</td>
                     <td className="font-medium">{inst.nome}</td>
@@ -484,7 +561,7 @@ export default function ControleQualidade() {
               { label: 'Taxa de Aprovação (Abr)', val: `${(28/30*100).toFixed(1)}%`, meta: '95%', ok: true },
               { label: 'NCs abertas (Abr)',        val: '1',   meta: '0',    ok: false },
               { label: 'PPM (Abr)',                val: '1100',meta: '≤800', ok: false },
-              { label: 'Instrumentos calibrados',  val: `${INSTRUMENTOS.filter((i) => i.status === 'ok').length}/${INSTRUMENTOS.length}`, meta: '100%', ok: false },
+              { label: 'instrumentos calibrados',  val: `${instrumentos.filter((i) => i.status === 'ok').length}/${instrumentos.length}`, meta: '100%', ok: false },
             ].map((k) => (
               <div key={k.label} className={`erp-card p-3 border-l-4 ${k.ok ? 'border-l-green-500' : 'border-l-red-400'}`}>
                 <p className="text-[10px] text-muted-foreground">{k.label}</p>
@@ -555,7 +632,7 @@ export default function ControleQualidade() {
                 </div>
                 <div><label className="erp-label">Referência (OP / NF-e)</label><input className="erp-input w-full" placeholder="OP-2026-..." /></div>
                 <div><label className="erp-label">Plano de Inspeção</label>
-                  <select className="erp-input w-full">{PLANOS.map((p) => <option key={p.id}>{p.codigo} — {p.produto}</option>)}</select>
+                  <select className="erp-input w-full">{planos.map((p) => <option key={p.id}>{p.codigo} — {p.produto}</option>)}</select>
                 </div>
                 <div><label className="erp-label">Inspetor Responsável</label><input className="erp-input w-full" defaultValue="Paulo Qualidade" /></div>
               </div>

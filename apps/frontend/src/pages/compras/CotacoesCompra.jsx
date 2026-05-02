@@ -1,11 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Plus, Search, Eye, Send, CheckCircle, XCircle, Star, ChevronDown, FileText, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '@/services/api';
 
 const fmtBRL = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 });
 const fmtD = (v) => v ? new Date(v + 'T00:00').toLocaleDateString('pt-BR') : '—';
-const hoje = new Date().toISOString().split('T')[0];
-const addDias = (d, n) => { const dt = new Date(d); dt.setDate(dt.getDate() + n); return dt.toISOString().split('T')[0]; };
 
 const STATUS_COR = {
   'Rascunho':          'bg-gray-100 text-gray-600',
@@ -17,39 +16,23 @@ const STATUS_COR = {
   'Cancelada':         'bg-red-100 text-red-700',
 };
 
-const MOCK_COTACOES = [
-  {
-    id: 'COT-2025-001', descricao: 'Chapas Inox 304 2mm', data_criacao: addDias(hoje, -5), validade: addDias(hoje, 10),
-    status: 'Proposta Recebida', solicitacao: 'SC-2025-001',
-    itens: [{ produto: 'Chapa Inox 304 2mm', quantidade: 50, unidade: 'chapa' }],
-    fornecedores: [
-      { nome: 'Fornecedor Inox SP', contato: 'joao@inoxsp.com', status: 'Respondida', valor_unit: 270, prazo_entrega: 7, cond_pag: '30 dias', melhor: true },
-      { nome: 'Metalúrgica Brasil', contato: 'compras@metalurgica.com.br', status: 'Respondida', valor_unit: 295, prazo_entrega: 5, cond_pag: '15 dias', melhor: false },
-      { nome: 'Distribuidora Aço Sul', contato: 'vendas@acosul.com', status: 'Aguardando', valor_unit: null, prazo_entrega: null, cond_pag: null, melhor: false },
-    ],
-  },
-  {
-    id: 'COT-2025-002', descricao: 'Tubos Inox 1" SCH10', data_criacao: addDias(hoje, -2), validade: addDias(hoje, 15),
-    status: 'Enviada', solicitacao: 'SC-2025-002',
-    itens: [{ produto: 'Tubo Inox 1" SCH10', quantidade: 200, unidade: 'm' }],
-    fornecedores: [
-      { nome: 'Fornecedor Inox SP', contato: 'joao@inoxsp.com', status: 'Aguardando', valor_unit: null, prazo_entrega: null, cond_pag: null, melhor: false },
-      { nome: 'Importadora Metais', contato: 'import@metais.com', status: 'Aguardando', valor_unit: null, prazo_entrega: null, cond_pag: null, melhor: false },
-    ],
-  },
-  {
-    id: 'COT-2025-003', descricao: 'Válvulas Borboleta 2"', data_criacao: addDias(hoje, -10), validade: addDias(hoje, -1),
-    status: 'Aprovada', solicitacao: 'SC-2025-003',
-    itens: [{ produto: 'Válvula Borboleta 2"', quantidade: 10, unidade: 'pç' }],
-    fornecedores: [
-      { nome: 'Distribuidora Aço Sul', contato: 'vendas@acosul.com', status: 'Respondida', valor_unit: 320, prazo_entrega: 10, cond_pag: '28 dias', melhor: true },
-      { nome: 'Metalúrgica Brasil', contato: 'compras@metalurgica.com.br', status: 'Respondida', valor_unit: 360, prazo_entrega: 7, cond_pag: '15 dias', melhor: false },
-    ],
-  },
-];
-
 export default function CotacoesCompra() {
-  const [cotacoes, setCotacoes] = useState(MOCK_COTACOES);
+  const [cotacoes, setCotacoes] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const carregar = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await api.get('/api/purchases/quotes');
+      setCotacoes(res.data ?? []);
+    } catch {
+      toast.error('Erro ao carregar cotações de compra');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { carregar(); }, [carregar]);
   const [aba, setAba] = useState('Todas');
   const [busca, setBusca] = useState('');
   const [detalhe, setDetalhe] = useState(null);

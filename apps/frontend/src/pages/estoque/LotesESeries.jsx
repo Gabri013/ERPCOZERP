@@ -1,10 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Search, ChevronRight, Package, Truck, Factory, ShoppingCart, ArrowRight, Filter } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '@/services/api';
 
 const fmtD = (v) => v ? new Date(v + 'T00:00').toLocaleDateString('pt-BR') : '—';
-const hoje = new Date().toISOString().split('T')[0];
-const addDias = (d, n) => { const dt = new Date(d); dt.setDate(dt.getDate() + n); return dt.toISOString().split('T')[0]; };
 
 const TIPO_ICONE = {
   'Compra':     <Truck size={13} className="text-blue-500" />,
@@ -14,76 +13,38 @@ const TIPO_ICONE = {
   'Transferência': <ArrowRight size={13} className="text-teal-500" />,
 };
 
-const MOCK_LOTES = [
-  {
-    id: 1, lote: 'LT-2025-0042', produto_codigo: 'MP-CHAPA-316L-3MM', produto: 'Chapa Inox 316L 3mm',
-    qtd_entrada: 500, qtd_saldo: 234.5, unidade: 'kg', data_entrada: addDias(hoje, -20),
-    fornecedor: 'Outokumpu Oy', nfe_entrada: 'NF-001234',
-    data_validade: null, lote_fabricante: 'OTK-Q42-2025', tipo: 'Matéria Prima',
-    rastreabilidade: [
-      { data: addDias(hoje, -20), tipo: 'Compra',     doc: 'NF-001234',   descricao: 'Entrada por NF-e de compra', qtd: +500,   saldo: 500 },
-      { data: addDias(hoje, -15), tipo: 'Requisição', doc: 'REQ-018',     descricao: 'Requisição para OP-2025-001', qtd: -120.3, saldo: 379.7 },
-      { data: addDias(hoje, -10), tipo: 'Requisição', doc: 'REQ-022',     descricao: 'Requisição para OP-2025-003', qtd: -85,    saldo: 294.7 },
-      { data: addDias(hoje, -5),  tipo: 'Transferência', doc: 'TRF-008',  descricao: 'Transferência Almox → Produção', qtd: -60.2, saldo: 234.5 },
-    ],
-    consumidoEm: [
-      { op: 'OP-2025-001', produto_fab: 'Tanque Inox 316L 500L', qtd: 120.3, data: addDias(hoje, -15) },
-      { op: 'OP-2025-003', produto_fab: 'Reator 200L',           qtd: 85,    data: addDias(hoje, -10) },
-    ],
-  },
-  {
-    id: 2, lote: 'LT-2025-0051', produto_codigo: 'TANK-500L', produto: 'Tanque Inox 316L 500L',
-    qtd_entrada: 2, qtd_saldo: 1, unidade: 'pc', data_entrada: addDias(hoje, -3),
-    fornecedor: null, op_origem: 'OP-2025-001', nfe_entrada: null,
-    data_validade: null, lote_fabricante: null, tipo: 'Produto Acabado',
-    rastreabilidade: [
-      { data: addDias(hoje, -3), tipo: 'Produção', doc: 'OP-2025-001', descricao: 'Entrada por reporte de produção',   qtd: +2, saldo: 2 },
-      { data: addDias(hoje, -1), tipo: 'Venda',    doc: 'NF-003045',   descricao: 'Saída por NF-e de venda PV-2025-018', qtd: -1, saldo: 1 },
-    ],
-    consumidoEm: [],
-    faturadoPara: [
-      { cliente: 'Indústria Química Beta', nfe: 'NF-003045', data: addDias(hoje, -1), qtd: 1 },
-    ],
-  },
-  {
-    id: 3, lote: 'LT-2025-0039', produto_codigo: 'MP-TUBO-1.5', produto: 'Tubo Inox 1.5" SCH10',
-    qtd_entrada: 200, qtd_saldo: 0, unidade: 'm', data_entrada: addDias(hoje, -30),
-    fornecedor: 'Salzgitter Mannesmann', nfe_entrada: 'NF-000892',
-    data_validade: null, lote_fabricante: 'SM-2025-03', tipo: 'Matéria Prima',
-    rastreabilidade: [
-      { data: addDias(hoje, -30), tipo: 'Compra',     doc: 'NF-000892', descricao: 'Entrada por NF-e de compra', qtd: +200,  saldo: 200 },
-      { data: addDias(hoje, -25), tipo: 'Requisição', doc: 'REQ-010',   descricao: 'Requisição OP-2025-002',     qtd: -95,   saldo: 105 },
-      { data: addDias(hoje, -18), tipo: 'Requisição', doc: 'REQ-015',   descricao: 'Requisição OP-2025-004',     qtd: -105,  saldo: 0 },
-    ],
-    consumidoEm: [
-      { op: 'OP-2025-002', produto_fab: 'Trocador Tubular 100m²', qtd: 95,  data: addDias(hoje, -25) },
-      { op: 'OP-2025-004', produto_fab: 'Condensador 50m²',       qtd: 105, data: addDias(hoje, -18) },
-    ],
-  },
-];
-
-const SERIES = [
-  { id: 1, serie: 'SN-2025-0001', produto: 'Motor WEG 7,5CV', produto_codigo: 'CP-MOTOR-7CV', data_entrada: addDias(hoje, -45), origem: 'Compra', doc_entrada: 'NF-000521', status: 'Em Estoque' },
-  { id: 2, serie: 'SN-2025-0002', produto: 'Motor WEG 7,5CV', produto_codigo: 'CP-MOTOR-7CV', data_entrada: addDias(hoje, -45), origem: 'Compra', doc_entrada: 'NF-000521', status: 'Faturado', doc_saida: 'NF-002988', cliente: 'Laticínios Serra Verde' },
-];
-
 export default function LotesESeries() {
   const [aba, setAba] = useState('lotes');
   const [busca, setBusca] = useState('');
   const [tipoFiltro, setTipoFiltro] = useState('Todos');
   const [loteSel, setLoteSel] = useState(null);
+  const [lotes, setLotes] = useState([]);
+  const [series, setSeries] = useState([]);
+
+  const carregar = useCallback(async () => {
+    try {
+      const res = await api.get('/api/stock/lots');
+      const data = res.data ?? {};
+      setLotes(Array.isArray(data) ? data : (data.lotes ?? []));
+      setSeries(Array.isArray(data) ? [] : (data.series ?? []));
+    } catch {
+      toast.error('Erro ao carregar lotes e séries');
+    }
+  }, []);
+
+  useEffect(() => { carregar(); }, [carregar]);
 
   const lotesFiltrados = useMemo(() => {
-    let d = MOCK_LOTES;
+    let d = lotes;
     if (tipoFiltro !== 'Todos') d = d.filter((l) => l.tipo === tipoFiltro);
     if (busca) { const q = busca.toLowerCase(); d = d.filter((l) => l.lote.toLowerCase().includes(q) || l.produto_codigo.toLowerCase().includes(q) || l.produto.toLowerCase().includes(q) || l.fornecedor?.toLowerCase().includes(q)); }
     return d;
-  }, [busca, tipoFiltro]);
+  }, [lotes, busca, tipoFiltro]);
 
   const kpis = {
-    lotes_ativos: MOCK_LOTES.filter((l) => l.qtd_saldo > 0).length,
-    lotes_esgotados: MOCK_LOTES.filter((l) => l.qtd_saldo === 0).length,
-    series_estoque: SERIES.filter((s) => s.status === 'Em Estoque').length,
+    lotes_ativos: lotes.filter((l) => l.qtd_saldo > 0).length,
+    lotes_esgotados: lotes.filter((l) => l.qtd_saldo === 0).length,
+    series_estoque: series.filter((s) => s.status === 'Em Estoque').length,
   };
 
   return (
@@ -242,7 +203,7 @@ export default function LotesESeries() {
           <table className="erp-table w-full min-w-[700px]">
             <thead><tr><th>Nº Série</th><th>Produto</th><th>Código</th><th>Data Entrada</th><th>Origem</th><th>Doc. Entrada</th><th>Status</th><th>Saída/Cliente</th></tr></thead>
             <tbody>
-              {SERIES.map((s) => (
+              {series.map((s) => (
                 <tr key={s.id}>
                   <td className="font-mono font-semibold text-primary">{s.serie}</td>
                   <td>{s.produto}</td>

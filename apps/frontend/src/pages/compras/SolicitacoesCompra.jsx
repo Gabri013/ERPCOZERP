@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Plus, Search, Eye, CheckCircle, XCircle, ChevronDown, Send, Package, AlertTriangle, Zap } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '@/services/api';
 
 const fmtBRL = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 });
 const fmtD = (v) => v ? new Date(v + 'T00:00').toLocaleDateString('pt-BR') : '—';
@@ -23,21 +24,27 @@ const ORIGEM_COLOR = {
 
 const PRODUTOS = ['Chapa Inox 304 2mm', 'Chapa Inox 316L 1.5mm', 'Tubo Inox 1" SCH10', 'Aço Carbono Barra', 'Válvula Borboleta 2"', 'Parafuso M8 Inox'];
 const UNIDADES = ['kg', 'pç', 'barra', 'chapa', 'm', 'cx'];
-const FORNECEDORES = ['Fornecedor Inox SP', 'Metalúrgica Brasil', 'Distribuidora Aço Sul', 'Importadora Metais'];
-
-const MOCK = [
-  { id: 'SC-2025-001', produto: 'Chapa Inox 304 2mm', descricao: 'Chapas inox para carcaça', quantidade: 50, unidade: 'chapa', necessidade: addDias(hoje, 10), origem: 'MRP', status: 'Nova', solicitante: 'Carlos Engenharia', prioridade: 'Alta', valor_estimado: 12500, observacoes: 'Urgente para OP-789' },
-  { id: 'SC-2025-002', produto: 'Tubo Inox 1" SCH10', descricao: 'Tubos para alimentação', quantidade: 200, unidade: 'm', necessidade: addDias(hoje, 5), origem: 'Plano de Produção', status: 'Em Cotação', solicitante: 'Ana Produção', prioridade: 'Alta', valor_estimado: 8400, observacoes: '' },
-  { id: 'SC-2025-003', produto: 'Válvula Borboleta 2"', descricao: 'Válvulas para tanques', quantidade: 10, unidade: 'pç', necessidade: addDias(hoje, 15), origem: 'Manual', status: 'Cotação Aprovada', solicitante: 'João Compras', prioridade: 'Normal', valor_estimado: 3200, observacoes: '' },
-  { id: 'SC-2025-004', produto: 'Chapa Inox 316L 1.5mm', descricao: 'Material para projeto farmacêutico', quantidade: 30, unidade: 'chapa', necessidade: addDias(hoje, 20), origem: 'MRP', status: 'Pedido Gerado', solicitante: 'Carlos Engenharia', prioridade: 'Normal', valor_estimado: 9900, observacoes: '' },
-  { id: 'SC-2025-005', produto: 'Aço Carbono Barra', descricao: 'Barras para estrutura', quantidade: 100, unidade: 'barra', necessidade: addDias(hoje, -3), origem: 'Manual', status: 'Nova', solicitante: 'Marcos Almoxarifado', prioridade: 'Urgente', valor_estimado: 2200, observacoes: 'Estoque zerado!' },
-];
 
 const EMPTY_FORM = { produto: '', descricao: '', quantidade: '', unidade: 'kg', necessidade: addDias(hoje, 7), origem: 'Manual', prioridade: 'Normal', solicitante: '', observacoes: '' };
 
 export default function SolicitacoesCompra() {
-  const [dados, setDados] = useState(MOCK);
+  const [dados, setDados] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [aba, setAba] = useState('Todas');
+
+  const carregar = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await api.get('/api/purchases/requests');
+      setDados(res.data ?? []);
+    } catch {
+      toast.error('Erro ao carregar solicitações de compra');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { carregar(); }, [carregar]);
   const [busca, setBusca] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);

@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Plus, Search, Eye, ArrowRight, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '@/services/api';
 
 const fmtBRL = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 });
 const fmtD = (v) => v ? new Date(v + 'T00:00').toLocaleDateString('pt-BR') : '—';
@@ -10,18 +11,22 @@ const addDias = (d, n) => { const dt = new Date(d); dt.setDate(dt.getDate() + n)
 const CONTAS = ['Banco do Brasil', 'SICOOB', 'Itaú', 'Bradesco'];
 const EMPRESAS = ['COZINCA INOX LTDA', 'COZINCA INOX LTDA 2'];
 
-const MOCK = [
-  { id: 79, empresa_orig: 'COZINCA INOX LTDA', banco_orig: 'Banco do Brasil', empresa_dest: 'COZINCA INOX LTDA', banco_dest: 'Bradesco', data: addDias(hoje, -30), valor_orig: 14.64, valor_dest: 14.64, descricao: 'DÉBITO SERVIÇO COBRANÇA', pessoa: '000022 - Empresa Sucesso Ltda', classif: 'Transferência' },
-  { id: 76, empresa_orig: 'COZINCA INOX LTDA', banco_orig: 'Bradesco', empresa_dest: 'COZINCA INOX LTDA 2', banco_dest: 'Itaú', data: addDias(hoje, -10), valor_orig: 150, valor_dest: 150, descricao: '—', pessoa: '000022 - Empresa Sucesso Ltda', classif: 'Transferência' },
-  { id: 71, empresa_orig: 'COZINCA INOX LTDA', banco_orig: 'Bradesco', empresa_dest: 'COZINCA INOX LTDA 2', banco_dest: 'Itaú', data: addDias(hoje, -12), valor_orig: 2500, valor_dest: 2500, descricao: '—', pessoa: '000022 - Empresa Sucesso Ltda', classif: 'Transferência' },
-  { id: 44, empresa_orig: 'COZINCA INOX LTDA', banco_orig: 'José Silva', empresa_dest: 'COZINCA INOX LTDA', banco_dest: 'Fátima Regina', data: addDias(hoje, -100), valor_orig: 500, valor_dest: 500, descricao: '—', pessoa: '000022 - Empresa Sucesso Ltda', classif: 'Transferência' },
-  { id: 39, empresa_orig: 'COZINCA INOX LTDA', banco_orig: 'Banco do Brasil', empresa_dest: 'COZINCA INOX LTDA', banco_dest: 'Bradesco', data: addDias(hoje, -120), valor_orig: 2000, valor_dest: 2000, descricao: 'Transferência da conta E01 para Bradesco', pessoa: '000022 - Empresa Sucesso Ltda', classif: 'Transferência' },
-];
-
 const EMPTY = { empresa_orig: 'COZINCA INOX LTDA', banco_orig: '', empresa_dest: '', banco_dest: '', data: hoje, valor_orig: '', descricao: '', pessoa: '' };
 
 export default function TransferenciasBancarias() {
-  const [dados, setDados] = useState(MOCK);
+  const [dados, setDados] = useState([]);
+
+  const loadData = useCallback(async () => {
+    try {
+      const res = await api.get('/api/financial/transfers');
+      const body = res?.data?.data ?? res?.data ?? [];
+      setDados(Array.isArray(body) ? body : []);
+    } catch {
+      toast.error('Erro ao carregar transferências');
+    }
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY);
   const [busca, setBusca] = useState('');
@@ -33,10 +38,16 @@ export default function TransferenciasBancarias() {
     return dados.filter((d) => d.descricao?.toLowerCase().includes(q) || d.banco_orig.toLowerCase().includes(q) || d.banco_dest.toLowerCase().includes(q));
   }, [dados, busca]);
 
-  const salvar = () => {
+  const salvar = async () => {
     if (!form.banco_orig || !form.banco_dest || !form.valor_orig) return toast.error('Preencha origem, destino e valor');
-    const nova = { ...form, id: Date.now(), empresa_orig: form.empresa_orig || 'COZINCA INOX LTDA', empresa_dest: form.empresa_dest || 'COZINCA INOX LTDA', valor_dest: form.valor_orig, classif: 'Transferência' };
-    setDados([nova, ...dados]);
+    const payload = { ...form, empresa_orig: form.empresa_orig || 'COZINCA INOX LTDA', empresa_dest: form.empresa_dest || 'COZINCA INOX LTDA', valor_dest: form.valor_orig, classif: 'Transferência' };
+    try {
+      await api.post('/api/financial/transfers', payload);
+      await loadData();
+    } catch {
+      const nova = { ...payload, id: Date.now() };
+      setDados([nova, ...dados]);
+    }
     setShowForm(false);
     setForm(EMPTY);
     toast.success('Transferência registrada!');

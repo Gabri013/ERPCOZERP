@@ -1,4 +1,5 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { api } from '@/services/api';
 import {
   Link2, Upload, Download, CheckCircle, AlertTriangle, RefreshCw,
   FileText, Settings, Package, DollarSign, BookOpen, Plus, Eye,
@@ -78,36 +79,42 @@ const EXPORTACOES = [
   },
 ];
 
-// ─── Histórico de exportações ────────────────────────────────────────────────
-const HISTORICO = [
-  { data: '2026-04-30 18:42', tipo: 'NF-es de Saída',    formato: 'XML Domínio',      usuario: 'Ana Contadora', registros: 48,  status: 'ok' },
-  { data: '2026-04-30 18:40', tipo: 'Lançamentos Contábeis', formato: 'XML Domínio',  usuario: 'Ana Contadora', registros: 214, status: 'ok' },
-  { data: '2026-04-28 09:10', tipo: 'NF-es de Entrada',  formato: 'XML Domínio',      usuario: 'Ana Contadora', registros: 31,  status: 'ok' },
-  { data: '2026-04-01 07:30', tipo: 'SPED Contribuições',formato: 'TXT SPED',         usuario: 'Carlos ERP',    registros: 79,  status: 'ok' },
-  { data: '2026-04-01 07:28', tipo: 'SPED Contábil + ECF',formato: 'TXT SPED',        usuario: 'Carlos ERP',    registros: 214, status: 'ok' },
-  { data: '2026-04-01 07:25', tipo: 'Bloco K',           formato: 'TXT SPED',         usuario: 'Carlos ERP',    registros: 892, status: 'ok' },
-];
-
-// ─── Mapeamento de contas ────────────────────────────────────────────────────
-const MAPEAMENTO_CONTAS = [
-  { evento: 'Receita de Venda (NF-e)',       conta_erp: '4.1', conta_contabil: '3.1.1.01.001', nome_contabil: 'Receita Bruta de Vendas' },
-  { evento: 'Baixa de Estoque (CPV)',        conta_erp: '5.1', conta_contabil: '4.1.1.01.001', nome_contabil: 'CMV — Custo da Mercadoria Vendida' },
-  { evento: 'Contas a Receber',             conta_erp: '1.1.02', conta_contabil: '1.1.2.01.001', nome_contabil: 'Clientes — Duplicatas a Receber' },
-  { evento: 'Fornecedores',                 conta_erp: '2.1.01', conta_contabil: '2.1.1.01.001', nome_contabil: 'Fornecedores Nacionais' },
-  { evento: 'Estoques',                     conta_erp: '1.1.03', conta_contabil: '1.1.3.01.001', nome_contabil: 'Estoques de Matéria-Prima' },
-  { evento: 'Caixa e Bancos',               conta_erp: '1.1.01', conta_contabil: '1.1.1.01.001', nome_contabil: 'Bancos — Conta Corrente' },
-  { evento: 'Despesas Administrativas',     conta_erp: '5.2.02', conta_contabil: '4.2.1.01.001', nome_contabil: 'Despesas Administrativas Gerais' },
-  { evento: 'Impostos sobre Venda (ICMS)',  conta_erp: '5.2.01', conta_contabil: '3.2.1.01.001', nome_contabil: 'ICMS sobre Vendas — Dedução' },
-];
 
 export default function IntegracaoContabil() {
   const [aba, setAba] = useState('visao_geral');
   const [softwareSel, setSoftwareSel] = useState('dominio');
-  const [periodoMes, setPeriodoMes] = useState(3); // Abril (0-indexed)
+  const [periodoMes, setPeriodoMes] = useState(3);
   const [periodoAno, setPeriodoAno] = useState(2026);
   const [exportando, setExportando] = useState(null);
   const [importandoPC, setImportandoPC] = useState(false);
   const fileRef = useRef(null);
+  const [historico, setHistorico] = useState([]);
+  const [mapeamentoContas, setMapeamentoContas] = useState([]);
+
+  const loadHistorico = useCallback(async () => {
+    try {
+      const res = await api.get('/api/accounting/entries?type=export_log&limit=50');
+      const list = Array.isArray(res?.data?.data) ? res.data.data : Array.isArray(res?.data) ? res.data : [];
+      setHistorico(list);
+    } catch {
+      setHistorico([]);
+    }
+  }, []);
+
+  const loadMapeamento = useCallback(async () => {
+    try {
+      const res = await api.get('/api/accounting/account-plan');
+      const list = Array.isArray(res?.data?.data) ? res.data.data : Array.isArray(res?.data) ? res.data : [];
+      setMapeamentoContas(list);
+    } catch {
+      setMapeamentoContas([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadHistorico();
+    loadMapeamento();
+  }, [loadHistorico, loadMapeamento]);
 
   const softwareAtual = SOFTWARES.find((s) => s.id === softwareSel);
   const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
@@ -239,13 +246,16 @@ export default function IntegracaoContabil() {
             <table className="erp-table w-full">
               <thead><tr><th>Data / Hora</th><th>Tipo</th><th>Formato</th><th>Usuário</th><th className="text-right">Registros</th><th>Status</th></tr></thead>
               <tbody>
-                {HISTORICO.map((h, i) => (
+                {historico.length === 0 && (
+                  <tr><td colSpan={6} className="text-center py-6 text-muted-foreground text-sm">Nenhum histórico encontrado</td></tr>
+                )}
+                {historico.map((h, i) => (
                   <tr key={i}>
-                    <td className="font-mono text-xs">{h.data}</td>
-                    <td>{h.tipo}</td>
-                    <td><span className="erp-badge erp-badge-default">{h.formato}</span></td>
-                    <td className="text-muted-foreground">{h.usuario}</td>
-                    <td className="text-right font-semibold">{h.registros.toLocaleString('pt-BR')}</td>
+                    <td className="font-mono text-xs">{h.data || h.createdAt}</td>
+                    <td>{h.tipo || h.type}</td>
+                    <td><span className="erp-badge erp-badge-default">{h.formato || h.format || '—'}</span></td>
+                    <td className="text-muted-foreground">{h.usuario || h.user}</td>
+                    <td className="text-right font-semibold">{Number(h.registros || h.count || 0).toLocaleString('pt-BR')}</td>
                     <td><CheckCircle size={13} className="text-green-500" /></td>
                   </tr>
                 ))}
@@ -342,13 +352,16 @@ export default function IntegracaoContabil() {
                 </tr>
               </thead>
               <tbody>
-                {MAPEAMENTO_CONTAS.map((m, i) => (
+                {mapeamentoContas.length === 0 && (
+                  <tr><td colSpan={5} className="text-center py-6 text-muted-foreground text-sm">Nenhum mapeamento encontrado</td></tr>
+                )}
+                {mapeamentoContas.map((m, i) => (
                   <tr key={i}>
-                    <td className="font-medium text-xs">{m.evento}</td>
-                    <td><span className="font-mono text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">{m.conta_erp}</span></td>
-                    <td><input className="erp-input text-xs w-36 font-mono" defaultValue={m.conta_contabil} /></td>
-                    <td><input className="erp-input text-xs w-52" defaultValue={m.nome_contabil} /></td>
-                    <td><button type="button" onClick={() => toast.success('Mapeamento salvo!')} className="erp-btn-ghost text-xs">Salvar</button></td>
+                    <td className="font-medium text-xs">{m.evento || m.name || m.description}</td>
+                    <td><span className="font-mono text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">{m.conta_erp || m.erp_account}</span></td>
+                    <td><input className="erp-input text-xs w-36 font-mono" defaultValue={m.conta_contabil || m.accounting_code} /></td>
+                    <td><input className="erp-input text-xs w-52" defaultValue={m.nome_contabil || m.accounting_name} /></td>
+                    <td><button type="button" onClick={async () => { try { await api.put(`/api/accounting/account-plan/${m.id}`, m); toast.success('Mapeamento salvo!'); } catch { toast.error('Erro ao salvar mapeamento'); } }} className="erp-btn-ghost text-xs">Salvar</button></td>
                   </tr>
                 ))}
               </tbody>

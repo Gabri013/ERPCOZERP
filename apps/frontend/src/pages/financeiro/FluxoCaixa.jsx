@@ -1,52 +1,41 @@
-﻿import { useState, useMemo } from 'react';
+﻿import { useState, useMemo, useEffect, useCallback } from 'react';
 import { RefreshCw, ChevronDown, ChevronUp, AlertCircle, Calendar, DollarSign } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { toast } from 'sonner';
+import { api } from '@/services/api';
 
 const fmtBRL = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 });
 const fmtD = (v) => v ? new Date(v + 'T00:00').toLocaleDateString('pt-BR') : '—';
 const hoje = new Date().toISOString().split('T')[0];
-const addDias = (d, n) => { const dt = new Date(d); dt.setDate(dt.getDate() + n); return dt.toISOString().split('T')[0]; };
 
-const CONTAS_BANCARIAS = [
-  { id: 1, banco: 'Banco do Brasil', agencia: '0001', conta: '12345-6', saldo: 18432.50, ativa: true },
-  { id: 2, banco: 'SICOOB', agencia: '3012', conta: '000008-8', saldo: -2104.25, ativa: true },
-  { id: 3, banco: 'Itaú', agencia: '1234', conta: '56789-0', saldo: 5000.00, ativa: false },
-];
-
-const saldoTotal = CONTAS_BANCARIAS.filter((c) => c.ativa).reduce((s, c) => s + c.saldo, 0);
-
-const AGENDAMENTOS_ATRASO = [
-  { data_agend: addDias(hoje, -30), data_venc: addDias(hoje, -30), codigo: 29, classif: '10.01 - Receita com produto', empresa: 'COZINCA INOX LTDA', banco: 'Bradesco', pessoa: 'Cliente Exemplo RJ', descricao: 'Documento 19 - Parcela 1 de 1', valor: 10, saldo: saldoTotal },
-  { data_agend: addDias(hoje, -30), data_venc: addDias(hoje, -30), codigo: 30, classif: '10.01 - Receita com produto', empresa: 'COZINCA INOX LTDA', banco: 'Bradesco', pessoa: 'Cliente Exemplo RJ', descricao: 'Documento 20 - Parcela 1 de 1', valor: 100, saldo: saldoTotal + 10 },
-  { data_agend: addDias(hoje, -30), data_venc: addDias(hoje, -30), codigo: 31, classif: '10.01 - Receita com produto', empresa: 'COZINCA INOX LTDA', banco: 'Bradesco', pessoa: 'Cliente Exemplo RJ', descricao: 'Documento 21 - Parcela 1 de 1', valor: 100, saldo: saldoTotal + 110 },
-  { data_agend: addDias(hoje, -30), data_venc: addDias(hoje, -30), codigo: 32, classif: '10.01 - Receita com produto', empresa: 'COZINCA INOX LTDA', banco: 'Bradesco', pessoa: 'Cliente Exemplo RJ', descricao: 'Documento 22 - Parcela 1 de 1', valor: 100, saldo: saldoTotal + 210 },
-];
-
-// Dados para gráfico de projeção
-const gerarProjecao = () => {
-  const dias = 30;
-  let saldo = saldoTotal;
-  return Array.from({ length: dias }, (_, i) => {
-    const entradas = Math.random() * 5000 + 500;
-    const saidas = Math.random() * 4000 + 300;
-    saldo = saldo + entradas - saidas;
-    return {
-      data: addDias(hoje, i + 1).split('-').reverse().slice(0, 2).join('/'),
-      entradas: Math.round(entradas),
-      saidas: Math.round(saidas),
-      saldo: Math.round(saldo),
-    };
-  });
-};
 
 export default function FluxoCaixa() {
   const [aba, setAba] = useState('geral');
   const [showContas, setShowContas] = useState(true);
   const [showAtraso, setShowAtraso] = useState(true);
   const [layout, setLayout] = useState('Detalhado');
+  const [contasBancarias, setContasBancarias] = useState([]);
+  const [agendamentosAtraso, setAgendamentosAtraso] = useState([]);
+  const [projecao, setProjecao] = useState([]);
 
-  const projecao = useMemo(() => gerarProjecao(), []);
+  const loadData = useCallback(async () => {
+    try {
+      const res = await api.get('/api/financial/cash-flow');
+      const body = res?.data?.data ?? res?.data ?? {};
+      setContasBancarias(Array.isArray(body.contas) ? body.contas : []);
+      setAgendamentosAtraso(Array.isArray(body.agendamentos_atraso) ? body.agendamentos_atraso : []);
+      setProjecao(Array.isArray(body.projecao) ? body.projecao : []);
+    } catch {
+      toast.error('Erro ao carregar fluxo de caixa');
+    }
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const saldoTotal = useMemo(
+    () => contasBancarias.filter((c) => c.ativa !== false).reduce((s, c) => s + Number(c.saldo || 0), 0),
+    [contasBancarias],
+  );
 
   const ABAS = [
     { id: 'geral', label: 'Geral' },
@@ -100,7 +89,7 @@ export default function FluxoCaixa() {
             {showContas && (
               <div className="px-4 pb-4">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {CONTAS_BANCARIAS.filter((c) => c.ativa).map((c) => (
+                  {contasBancarias.filter((c) => c.ativa !== false).map((c) => (
                     <div key={c.id} className={`p-3 rounded-lg border ${c.saldo < 0 ? 'border-red-200 bg-red-50' : 'border-border bg-muted/20'}`}>
                       <p className="text-xs font-semibold">{c.banco}</p>
                       <p className="text-[10px] text-muted-foreground">Ag. {c.agencia} | C/C {c.conta}</p>
@@ -120,11 +109,11 @@ export default function FluxoCaixa() {
           </div>
 
           {/* Agendamentos em atraso */}
-          {AGENDAMENTOS_ATRASO.length > 0 && (
+          {agendamentosAtraso.length > 0 && (
             <div className="erp-card border-red-200">
               <button type="button" onClick={() => setShowAtraso(!showAtraso)}
                 className="w-full px-4 py-3 flex items-center justify-between text-sm font-semibold text-red-700 bg-red-50/60 rounded-t-lg hover:bg-red-50 transition-colors">
-                <span className="flex items-center gap-2"><AlertCircle size={15} /> Agendamentos em atraso ({AGENDAMENTOS_ATRASO.length})</span>
+                <span className="flex items-center gap-2"><AlertCircle size={15} /> Agendamentos em atraso ({agendamentosAtraso.length})</span>
                 {showAtraso ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
               </button>
               {showAtraso && (
@@ -138,7 +127,7 @@ export default function FluxoCaixa() {
                       </tr>
                     </thead>
                     <tbody>
-                      {AGENDAMENTOS_ATRASO.map((a, i) => (
+                      {agendamentosAtraso.map((a, i) => (
                         <tr key={i} className="bg-red-50/20 hover:bg-red-50/40">
                           <td className="text-red-600 font-medium">{fmtD(a.data_agend)}</td>
                           <td className="text-red-600 font-bold">{fmtD(a.data_venc)}</td>
@@ -197,7 +186,7 @@ export default function FluxoCaixa() {
           <h3 className="font-semibold">Configuração do período de projeção</h3>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div><label className="erp-label">Data inicial</label><input type="date" className="erp-input w-full" defaultValue={hoje} /></div>
-            <div><label className="erp-label">Data final</label><input type="date" className="erp-input w-full" defaultValue={addDias(hoje, 90)} /></div>
+            <div><label className="erp-label">Data final</label><input type="date" className="erp-input w-full" /></div>
             <div><label className="erp-label">Periodicidade</label>
               <select className="erp-input w-full"><option>Diário</option><option>Semanal</option><option>Mensal</option></select>
             </div>
@@ -212,7 +201,7 @@ export default function FluxoCaixa() {
         <div className="erp-card p-4 space-y-3">
           <h3 className="font-semibold">Configuração do saldo da projeção</h3>
           <div className="space-y-3">
-            {CONTAS_BANCARIAS.filter((c) => c.ativa).map((c) => (
+            {contasBancarias.filter((c) => c.ativa !== false).map((c) => (
               <div key={c.id} className="flex items-center justify-between p-3 border border-border rounded-lg">
                 <div>
                   <p className="text-sm font-medium">{c.banco}</p>

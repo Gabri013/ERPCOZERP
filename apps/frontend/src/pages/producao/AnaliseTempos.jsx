@@ -1,63 +1,46 @@
-import { useState } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from 'recharts';
 import { TrendingUp, Trophy, Cpu, Clock, AlertTriangle, CheckCircle } from 'lucide-react';
+import { api } from '@/services/api';
 
 const fmtMin = (v) => `${Math.floor(v / 60)}h${String(v % 60).padStart(2, '0')}`;
-
-const MOCK_TEMPOS = [
-  { op: 'OP-2025-001', produto: 'Tanque 500L',    operacao: 'Corte Chapa',   centro: 'Corte',     t_padrao: 240, t_real: 255, t_setup: 25, operador: 'Carlos S.',  maquina: 'CNC-01', eficiencia: 94 },
-  { op: 'OP-2025-001', produto: 'Tanque 500L',    operacao: 'Soldagem',      centro: 'Soldagem',  t_padrao: 480, t_real: 462, t_setup: 30, operador: 'Pedro R.',   maquina: 'SOLD-01',eficiencia: 104 },
-  { op: 'OP-2025-001', produto: 'Tanque 500L',    operacao: 'Acabamento',    centro: 'Acabamento',t_padrao: 120, t_real: 145, t_setup: 20, operador: 'Maria L.',   maquina: 'POLL-01',eficiencia: 83 },
-  { op: 'OP-2025-002', produto: 'Reator 200L',    operacao: 'Corte Chapas',  centro: 'Corte',     t_padrao: 180, t_real: 170, t_setup: 15, operador: 'Rafa C.',    maquina: 'CNC-02', eficiencia: 106 },
-  { op: 'OP-2025-002', produto: 'Reator 200L',    operacao: 'Soldagem TIG',  centro: 'Soldagem',  t_padrao: 360, t_real: 420, t_setup: 45, operador: 'Pedro R.',   maquina: 'SOLD-02',eficiencia: 86 },
-  { op: 'OP-2025-003', produto: 'Condensador 50m²',operacao: 'Corte Tubos',  centro: 'Corte',     t_padrao: 300, t_real: 285, t_setup: 20, operador: 'Carlos S.',  maquina: 'CNC-01', eficiencia: 105 },
-];
-
-const MOCK_RANKING_OP = [
-  { nome: 'Pedro R.',   foto: 'PR', setor: 'Soldagem',   eficiencia: 98, ops_concluidas: 18, horas: 142, pontos: 2840 },
-  { nome: 'Rafa C.',    foto: 'RC', setor: 'Corte',      eficiencia: 94, ops_concluidas: 22, horas: 130, pontos: 2680 },
-  { nome: 'Carlos S.',  foto: 'CS', setor: 'Corte',      eficiencia: 92, ops_concluidas: 20, horas: 138, pontos: 2620 },
-  { nome: 'Maria L.',   foto: 'ML', setor: 'Acabamento', eficiencia: 86, ops_concluidas: 15, horas: 118, pontos: 2180 },
-  { nome: 'Ana M.',     foto: 'AM', setor: 'Dobra',      eficiencia: 81, ops_concluidas: 12, horas: 102, pontos: 1890 },
-];
-
-const MOCK_RANKING_MAQ = [
-  { codigo: 'SOLD-01', nome: 'Solda MIG 01',     setor: 'Soldagem',   oee: 91, disponibilidade: 95, performance: 96, qualidade: 99, horas_prod: 155 },
-  { codigo: 'CNC-02',  nome: 'Plasma CNC 2m',    setor: 'Corte',      oee: 87, disponibilidade: 90, performance: 97, qualidade: 99, horas_prod: 148 },
-  { codigo: 'CNC-01',  nome: 'Plasma CNC 3m',    setor: 'Corte',      oee: 82, disponibilidade: 88, performance: 94, qualidade: 98, horas_prod: 138 },
-  { codigo: 'POLL-01', nome: 'Politriz Angular',  setor: 'Acabamento', oee: 78, disponibilidade: 86, performance: 91, qualidade: 98, horas_prod: 128 },
-  { codigo: 'DOBR-01', nome: 'Dobradeira CNC',    setor: 'Dobra',      oee: 71, disponibilidade: 82, performance: 87, qualidade: 99, horas_prod: 118 },
-];
-
-const MOCK_UTILIZACAO = [
-  { centro: 'Corte',      capacidade: 160, utilizado: 138, setup: 15, manutencao: 5, parada: 2 },
-  { centro: 'Dobra',      capacidade: 160, utilizado: 118, setup: 22, manutencao: 12, parada: 8 },
-  { centro: 'Soldagem',   capacidade: 160, utilizado: 155, setup: 3,  manutencao: 2,  parada: 0 },
-  { centro: 'Acabamento', capacidade: 160, utilizado: 128, setup: 18, manutencao: 8,  parada: 6 },
-  { centro: 'Montagem',   capacidade: 160, utilizado: 95,  setup: 30, manutencao: 20, parada: 15 },
-];
-
-const MOCK_TENDENCIA = [
-  { semana: 'Sem 18', Corte: 86, Soldagem: 92, Acabamento: 80, Dobra: 74 },
-  { semana: 'Sem 19', Corte: 89, Soldagem: 88, Acabamento: 82, Dobra: 71 },
-  { semana: 'Sem 20', Corte: 91, Soldagem: 90, Acabamento: 79, Dobra: 76 },
-  { semana: 'Sem 21', Corte: 87, Soldagem: 93, Acabamento: 83, Dobra: 73 },
-  { semana: 'Sem 22', Corte: 92, Soldagem: 91, Acabamento: 86, Dobra: 78 },
-];
 
 const MEDALHA = ['🥇', '🥈', '🥉'];
 const COR_CENTROS = { Corte: '#2563eb', Soldagem: '#f59e0b', Acabamento: '#10b981', Dobra: '#8b5cf6', Montagem: '#ef4444' };
 
 export default function AnaliseTempos() {
   const [aba, setAba] = useState('tempos');
-  const [maqSel, setMaqSel] = useState(MOCK_RANKING_MAQ[0]);
+  const [tempos, setTempos] = useState([]);
+  const [rankingOp, setRankingOp] = useState([]);
+  const [rankingMaq, setRankingMaq] = useState([]);
+  const [utilizacao, setUtilizacao] = useState([]);
+  const [tendencia, setTendencia] = useState([]);
+  const [maqSel, setMaqSel] = useState(null);
 
-  const radarData = [
+  const loadData = useCallback(async () => {
+    try {
+      const res = await api.get('/api/production/time-analysis');
+      const d = res.data?.data ?? res.data ?? {};
+      setTempos(d.tempos ?? []);
+      setRankingOp(d.ranking_operadores ?? d.rankingOp ?? []);
+      const maqData = d.ranking_maquinas ?? d.rankingMaq ?? [];
+      setRankingMaq(maqData);
+      if (maqData.length > 0) setMaqSel(maqData[0]);
+      setUtilizacao(d.utilizacao ?? []);
+      setTendencia(d.tendencia ?? []);
+    } catch {
+      setTempos([]); setRankingOp([]); setRankingMaq([]); setUtilizacao([]); setTendencia([]);
+    }
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const radarData = maqSel ? [
     { subject: 'Disponib.', A: maqSel.disponibilidade },
     { subject: 'Performance', A: maqSel.performance },
     { subject: 'Qualidade', A: maqSel.qualidade },
     { subject: 'OEE',      A: maqSel.oee },
-  ];
+  ] : [];
 
   return (
     <div className="space-y-3">
@@ -91,7 +74,7 @@ export default function AnaliseTempos() {
             <table className="erp-table w-full min-w-[800px]">
               <thead><tr><th>OP</th><th>Produto</th><th>Operação</th><th>Centro</th><th>Operador</th><th>Máquina</th><th className="text-right">T. Padrão</th><th className="text-right">T. Real</th><th className="text-right">Setup</th><th className="text-right">Eficiência</th></tr></thead>
               <tbody>
-                {MOCK_TEMPOS.map((r, i) => (
+                {tempos.map((r, i) => (
                   <tr key={i}>
                     <td className="font-mono font-semibold text-primary">{r.op}</td>
                     <td className="text-muted-foreground">{r.produto}</td>
@@ -116,7 +99,7 @@ export default function AnaliseTempos() {
           <div className="erp-card p-4" style={{ height: 260 }}>
             <p className="text-xs font-semibold mb-2">Tempo Padrão × Real por Operação (min)</p>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={MOCK_TEMPOS.map((r) => ({ name: r.operacao, Padrão: r.t_padrao, Real: r.t_real }))}>
+              <BarChart data={tempos.map((r) => ({ name: r.operacao, Padrão: r.t_padrao, Real: r.t_real }))}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="name" tick={{ fontSize: 9 }} />
                 <YAxis tick={{ fontSize: 9 }} />
@@ -134,7 +117,7 @@ export default function AnaliseTempos() {
       {aba === 'ranking_op' && (
         <div className="space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {MOCK_RANKING_OP.slice(0, 3).map((op, i) => (
+            {rankingOp.slice(0, 3).map((op, i) => (
               <div key={op.nome} className={`erp-card p-4 text-center border-2 ${i === 0 ? 'border-yellow-400 bg-yellow-50/40' : i === 1 ? 'border-gray-300 bg-gray-50/40' : 'border-orange-300 bg-orange-50/40'}`}>
                 <div className="text-2xl mb-1">{MEDALHA[i]}</div>
                 <div className="w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center text-sm font-bold mx-auto mb-1">{op.foto}</div>
@@ -153,7 +136,7 @@ export default function AnaliseTempos() {
             <table className="erp-table w-full">
               <thead><tr><th>#</th><th>Operador</th><th>Setor</th><th className="text-right">Eficiência</th><th className="text-right">OPs</th><th className="text-right">Horas</th><th className="text-right">Pontuação</th></tr></thead>
               <tbody>
-                {MOCK_RANKING_OP.map((op, i) => (
+                {rankingOp.map((op, i) => (
                   <tr key={op.nome}>
                     <td className="text-center font-bold">{MEDALHA[i] || `${i+1}º`}</td>
                     <td><div className="flex items-center gap-2"><div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-[9px] font-bold">{op.foto}</div>{op.nome}</div></td>
@@ -178,7 +161,7 @@ export default function AnaliseTempos() {
               <table className="erp-table w-full">
                 <thead><tr><th>#</th><th>Máquina</th><th>Centro</th><th className="text-right">OEE</th><th className="text-right">Disponib.</th><th className="text-right">Perf.</th><th className="text-right">Qualidade</th><th className="text-right">Horas Prod.</th></tr></thead>
                 <tbody>
-                  {MOCK_RANKING_MAQ.map((maq, i) => (
+                  {rankingMaq.map((maq, i) => (
                     <tr key={maq.codigo} className={`cursor-pointer ${maqSel.codigo === maq.codigo ? 'bg-primary/5' : ''}`} onClick={() => setMaqSel(maq)}>
                       <td className="text-center font-bold">{MEDALHA[i] || `${i+1}º`}</td>
                       <td><div className="font-mono font-semibold text-primary">{maq.codigo}</div><div className="text-muted-foreground text-[10px]">{maq.nome}</div></td>
@@ -195,8 +178,8 @@ export default function AnaliseTempos() {
             </div>
             {/* Radar OEE */}
             <div className="w-full lg:w-64 erp-card p-4 flex flex-col items-center">
-              <p className="text-xs font-semibold mb-1">{maqSel.nome}</p>
-              <p className="text-2xl font-bold text-primary mb-1">{maqSel.oee}%</p>
+              <p className="text-xs font-semibold mb-1">{maqSel?.nome ?? '—'}</p>
+              <p className="text-2xl font-bold text-primary mb-1">{maqSel?.oee ?? 0}%</p>
               <p className="text-[10px] text-muted-foreground mb-3">OEE</p>
               <ResponsiveContainer width="100%" height={180}>
                 <RadarChart data={radarData}>
@@ -212,7 +195,7 @@ export default function AnaliseTempos() {
           <div className="erp-card p-4" style={{ height: 220 }}>
             <p className="text-xs font-semibold mb-2">Tendência OEE por Centro (últimas 5 semanas)</p>
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={MOCK_TENDENCIA}>
+              <LineChart data={tendencia}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="semana" tick={{ fontSize: 9 }} />
                 <YAxis domain={[60, 100]} tick={{ fontSize: 9 }} />
@@ -233,7 +216,7 @@ export default function AnaliseTempos() {
           <div className="erp-card p-4" style={{ height: 280 }}>
             <p className="text-xs font-semibold mb-2">Composição das Horas por Centro de Trabalho (h/mês)</p>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={MOCK_UTILIZACAO} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+              <BarChart data={utilizacao} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="centro" tick={{ fontSize: 10 }} />
                 <YAxis tick={{ fontSize: 10 }} domain={[0, 200]} />
@@ -247,7 +230,7 @@ export default function AnaliseTempos() {
             </ResponsiveContainer>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {MOCK_UTILIZACAO.map((ct) => {
+            {utilizacao.map((ct) => {
               const total = ct.utilizado + ct.setup + ct.manutencao + ct.parada;
               const pct_prod = Math.round((ct.utilizado / ct.capacidade) * 100);
               const pct_total = Math.round((total / ct.capacidade) * 100);

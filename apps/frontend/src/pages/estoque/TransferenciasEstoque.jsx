@@ -1,41 +1,26 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Plus, Search, CheckCircle, XCircle, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '@/services/api';
 
 const fmtD = (v) => v ? new Date(v + 'T00:00').toLocaleDateString('pt-BR') : '—';
 const fmtDT = (v) => v ? new Date(v).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
-const hoje = new Date().toISOString().split('T')[0];
-const addDias = (d, n) => { const dt = new Date(d); dt.setDate(dt.getDate() + n); return dt.toISOString().split('T')[0]; };
 
 const SETORES = ['Almoxarifado Geral', 'Estoque Produção', 'Expedição', 'Qualidade', 'Manutenção', 'Mat. de Terceiros', 'Mat. em Poder Terc.'];
 
-const MOCK = [
-  {
-    id: 'TE-2025-001', data: addDias(hoje, -5) + 'T09:30:00', origem: 'Almoxarifado Geral', destino: 'Estoque Produção',
-    status: 'Concluída', responsavel: 'João S.', obs: 'Separação para OPs da semana',
-    itens: [
-      { id: 1, codigo: 'MP-CHAPA-316L-3MM', descricao: 'Chapa Inox 316L 3mm', qtd: 120, unidade: 'kg', lote: 'LT-2025-0042' },
-      { id: 2, codigo: 'MP-TUBO-1.5',       descricao: 'Tubo Inox 1.5"',       qtd: 12,  unidade: 'm',  lote: 'LT-2025-0039' },
-    ],
-  },
-  {
-    id: 'TE-2025-002', data: addDias(hoje, -2) + 'T14:00:00', origem: 'Estoque Produção', destino: 'Qualidade',
-    status: 'Concluída', responsavel: 'Maria L.', obs: 'Produtos para inspeção',
-    itens: [
-      { id: 1, codigo: 'TANK-500L', descricao: 'Tanque Inox 500L', qtd: 2, unidade: 'pc', lote: 'LT-2025-0051' },
-    ],
-  },
-  {
-    id: 'TE-2025-003', data: hoje + 'T08:00:00', origem: 'Qualidade', destino: 'Expedição',
-    status: 'Pendente', responsavel: 'Ana P.', obs: 'Produtos aprovados na inspeção',
-    itens: [
-      { id: 1, codigo: 'TANK-500L', descricao: 'Tanque Inox 500L', qtd: 2, unidade: 'pc', lote: 'LT-2025-0051' },
-    ],
-  },
-];
-
 export default function TransferenciasEstoque() {
-  const [transferencias, setTransferencias] = useState(MOCK);
+  const [transferencias, setTransferencias] = useState([]);
+
+  const carregar = useCallback(async () => {
+    try {
+      const res = await api.get('/api/stock/transfers');
+      setTransferencias(res.data ?? []);
+    } catch {
+      toast.error('Erro ao carregar transferências de estoque');
+    }
+  }, []);
+
+  useEffect(() => { carregar(); }, [carregar]);
   const [busca, setBusca] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [detalhe, setDetalhe] = useState(null);

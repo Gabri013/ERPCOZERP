@@ -1,6 +1,7 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Upload, FileText, CheckCircle, XCircle, AlertCircle, Eye, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '@/services/api';
 
 const fmtBRL = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 });
 const fmtD = (v) => v ? new Date(v + 'T00:00').toLocaleDateString('pt-BR') : '—';
@@ -14,15 +15,19 @@ const STATUS_XML = {
   'Erro':            { color: 'bg-red-100 text-red-700', icon: XCircle },
 };
 
-const MOCK_XMLS = [
-  { id: 1, arquivo: 'NFe_35250462137272000155_123456.xml', chave: '35250462137272000155550010001234561982341234', fornecedor: 'Fornecedor Inox SP', nfe_num: '000.123', data_emissao: addDias(hoje, -3), valor: 13500, status: 'Doc. Gerado', doc_entrada: 'DE-2025-0038', erros: [] },
-  { id: 2, arquivo: 'NFe_35250412345678000195_089.xml', chave: '35250412345678000195550010000897651234567890', fornecedor: 'Metalúrgica Brasil', nfe_num: '000.089', data_emissao: addDias(hoje, -11), valor: 9725, status: 'Doc. Gerado', doc_entrada: 'DE-2025-0037', erros: [] },
-  { id: 3, arquivo: 'NFe_35250499887766000100_456.xml', chave: '35250499887766000100550010004567891357924680', fornecedor: 'Distribuidora Aço Sul', nfe_num: '000.456', data_emissao: addDias(hoje, -1), valor: 4800, status: 'Processado', doc_entrada: null, erros: [] },
-  { id: 4, arquivo: 'NFe_corrompida.xml', chave: '', fornecedor: '—', nfe_num: '—', data_emissao: null, valor: 0, status: 'Erro', doc_entrada: null, erros: ['Arquivo XML inválido ou corrompido', 'Não foi possível ler a chave de acesso'] },
-];
-
 export default function ImportacaoXML() {
-  const [xmls, setXmls] = useState(MOCK_XMLS);
+  const [xmls, setXmls] = useState([]);
+
+  const carregar = useCallback(async () => {
+    try {
+      const res = await api.get('/api/purchases/xml-import');
+      setXmls(res.data ?? []);
+    } catch {
+      toast.error('Erro ao carregar XMLs importados');
+    }
+  }, []);
+
+  useEffect(() => { carregar(); }, [carregar]);
   const [dragging, setDragging] = useState(false);
   const [detalhe, setDetalhe] = useState(null);
   const [preview, setPreview] = useState(null);

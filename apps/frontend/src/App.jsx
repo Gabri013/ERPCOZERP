@@ -46,6 +46,12 @@ const Contabilidade = lazy(() => import('@/pages/contabilidade/Contabilidade'));
 const IntegracaoContabil = lazy(() => import('@/pages/contabilidade/IntegracaoContabil'));
 const ControleQualidade = lazy(() => import('@/pages/qualidade/ControleQualidade'));
 const GestaoDocumentos = lazy(() => import('@/pages/qualidade/GestaoDocumentos'));
+const Databooks = lazy(() => import('@/pages/qualidade/Databooks'));
+const ControleExpedicao = lazy(() => import('@/pages/expedicao/ControleExpedicao'));
+const GestaoProjetos = lazy(() => import('@/pages/projetos/GestaoProjetos'));
+const CRM = lazy(() => import('@/pages/crm/CRM'));
+const BaseConhecimento = lazy(() => import('@/pages/conhecimento/BaseConhecimento'));
+const SobreERP = lazy(() => import('@/pages/sobre/SobreERP'));
 const ProgramacaoProducao = lazy(() => import('@/pages/producao/ProgramacaoProducao'));
 const MonitoramentoTempoReal = lazy(() => import('@/pages/producao/MonitoramentoTempoReal'));
 const AnaliseTempos = lazy(() => import('@/pages/producao/AnaliseTempos'));
@@ -315,6 +321,12 @@ const AuthenticatedApp = () => {
           <Route path="/contabilidade/integracao" element={<PermissaoRoute acao="ver_financeiro"><IntegracaoContabil /></PermissaoRoute>} />
           <Route path="/qualidade" element={<PermissaoRoute acao="ver_producao"><ControleQualidade /></PermissaoRoute>} />
           <Route path="/qualidade/documentos" element={<PermissaoRoute acao="ver_producao"><GestaoDocumentos /></PermissaoRoute>} />
+          <Route path="/qualidade/databooks" element={<PermissaoRoute acao="ver_producao"><Databooks /></PermissaoRoute>} />
+          <Route path="/expedicao" element={<PermissaoRoute acao="ver_vendas"><ControleExpedicao /></PermissaoRoute>} />
+          <Route path="/projetos" element={<PermissaoRoute acao="ver_vendas"><GestaoProjetos /></PermissaoRoute>} />
+          <Route path="/crm" element={<PermissaoRoute acao="ver_vendas"><CRM /></PermissaoRoute>} />
+          <Route path="/conhecimento" element={<PermissaoRoute acao="ver_vendas"><BaseConhecimento /></PermissaoRoute>} />
+          <Route path="/sobre" element={<SobreERP />} />
 
           <Route path="/configuracoes/empresa" element={<PermissaoRoute acao="editar_config"><Empresa /></PermissaoRoute>} />
           <Route path="/configuracoes/usuarios" element={<PermissaoRoute acao="gerenciar_usuarios"><Usuarios /></PermissaoRoute>} />

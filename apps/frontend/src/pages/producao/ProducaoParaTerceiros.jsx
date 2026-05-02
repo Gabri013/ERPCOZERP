@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Plus, Search, Eye, CheckCircle, AlertTriangle, Users, Package, FileText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { api } from '@/services/api';
 
 const fmtBRL = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 });
 const fmtD = (v) => v ? new Date(v + 'T00:00').toLocaleDateString('pt-BR') : '—';
@@ -20,61 +21,26 @@ const STATUS_COR = {
 
 const PASSOS = ['Aberta', 'Mat. Recebidos', 'Em Produção', 'Produção Concluída', 'NF-e Emitida', 'Encerrada'];
 
-const MOCK = [
-  {
-    id: 'OPPT-2025-001', cliente: 'Indústria Química Alfa S/A', cnpj: '11.222.333/0001-44',
-    produto: 'Caldeirão inox 300L c/ tampa', codigo: 'SV-CALDEIRAO',
-    pedido_venda: 'PV-2025-0020', data_abertura: addDias(hoje, -10),
-    prazo: addDias(hoje, 15), status: 'Em Produção',
-    valor_servico: 8500, descricao_servico: 'Fabricação de caldeirão sob encomenda',
-    materiais: [
-      { id: 1, codigo: 'MP-CHAPA-316L-3MM', descricao: 'Chapa Inox 316L 3mm', qtd_recebida: 85, qtd_consumida: 60, qtd_sobra: 0, unidade: 'kg', valor_unit: 0 },
-      { id: 2, codigo: 'MP-TUBO-2',         descricao: 'Tubo Inox 2" SCH10',   qtd_recebida: 12, qtd_consumida: 8,  qtd_sobra: 0, unidade: 'm',  valor_unit: 0 },
-    ],
-    nfe_entrada: [{ id: 1, num: 'A-00445', data: addDias(hoje, -9), cfop: '5901', valor: 0, status: 'Entrada Gerada', emitente: 'Ind. Química Alfa S/A' }],
-    nfe_saida: [],
-    producao: [{ id: 1, data: addDias(hoje, -2) + 'T10:00:00', qtd: 1, lote: 'LT-PT-001', obs: 'Produção em andamento' }],
-  },
-  {
-    id: 'OPPT-2025-002', cliente: 'Laticínios Serra Verde Ltda', cnpj: '22.333.444/0001-55',
-    produto: 'Pasteurizador 500L', codigo: 'SV-PASTEUR',
-    pedido_venda: 'PV-2025-0017', data_abertura: addDias(hoje, -25),
-    prazo: addDias(hoje, -5), status: 'Produção Concluída',
-    valor_servico: 14200, descricao_servico: 'Fabricação de pasteurizador completo',
-    materiais: [
-      { id: 1, codigo: 'MP-CHAPA-316L-2MM', descricao: 'Chapa Inox 316L 2mm', qtd_recebida: 150, qtd_consumida: 142, qtd_sobra: 8, unidade: 'kg', valor_unit: 0 },
-      { id: 2, codigo: 'CP-MOTOR-1CV',      descricao: 'Motor elétrico 1CV',   qtd_recebida: 2,   qtd_consumida: 2,   qtd_sobra: 0, unidade: 'pc', valor_unit: 0 },
-    ],
-    nfe_entrada: [{ id: 1, num: 'B-00312', data: addDias(hoje, -24), cfop: '5901', valor: 0, status: 'Entrada Gerada', emitente: 'Laticínios Serra Verde' }],
-    nfe_saida: [{ id: 1, num: '002345', data: addDias(hoje, -6), cfop: '5902', tipo: 'Retorno Produto', valor: 14200, status: 'Autorizada' }],
-    producao: [{ id: 1, data: addDias(hoje, -6) + 'T08:00:00', qtd: 1, lote: 'LT-PT-002', obs: '' }],
-  },
-  {
-    id: 'OPPT-2025-003', cliente: 'Destilaria do Norte S/A', cnpj: '33.444.555/0001-66',
-    produto: 'Coluna de destilação 6m', codigo: 'SV-COLUNA',
-    pedido_venda: 'PV-2025-0022', data_abertura: addDias(hoje, -3),
-    prazo: addDias(hoje, 30), status: 'Aberta',
-    valor_servico: 32000, descricao_servico: 'Fabricação e montagem de coluna',
-    materiais: [],
-    nfe_entrada: [],
-    nfe_saida: [],
-    producao: [],
-  },
-];
-
-const MOCK_MAT_EM_PODER = [
-  { cliente: 'Indústria Química Alfa S/A', codigo: 'MP-CHAPA-316L-3MM', descricao: 'Chapa Inox 316L 3mm', qtd: 25, unidade: 'kg', oppt: 'OPPT-2025-001', data_recebimento: addDias(hoje, -9), dias_posse: 9 },
-  { cliente: 'Indústria Química Alfa S/A', codigo: 'MP-TUBO-2',         descricao: 'Tubo Inox 2"',        qtd: 4,  unidade: 'm',  oppt: 'OPPT-2025-001', data_recebimento: addDias(hoje, -9), dias_posse: 9 },
-  { cliente: 'Laticínios Serra Verde',     codigo: 'MP-CHAPA-316L-2MM', descricao: 'Chapa Inox 316L 2mm', qtd: 8,  unidade: 'kg', oppt: 'OPPT-2025-002', data_recebimento: addDias(hoje, -24), dias_posse: 24 },
-];
 
 export default function ProducaoParaTerceiros() {
   const navigate = useNavigate();
-  const [ordens, setOrdens] = useState(MOCK);
+  const [ordens, setOrdens] = useState([]);
+  const [matEmPoder, setMatEmPoder] = useState([]);
   const [aba, setAba] = useState('ordens');
   const [busca, setBusca] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('Todos');
   const [showForm, setShowForm] = useState(false);
+
+  const loadOrdens = useCallback(async () => {
+    try {
+      const res = await api.get('/api/production/for-third-parties');
+      const d = res.data?.data ?? res.data ?? {};
+      setOrdens(Array.isArray(d) ? d : (d.ordens ?? []));
+      setMatEmPoder(Array.isArray(d) ? [] : (d.materiais_em_poder ?? []));
+    } catch { setOrdens([]); setMatEmPoder([]); }
+  }, []);
+
+  useEffect(() => { loadOrdens(); }, [loadOrdens]);
 
   const lista = useMemo(() => {
     let d = ordens;
@@ -87,7 +53,7 @@ export default function ProducaoParaTerceiros() {
     abertas:        ordens.filter((o) => !['Encerrada', 'Cancelada'].includes(o.status)).length,
     em_producao:    ordens.filter((o) => o.status === 'Em Produção').length,
     atrasadas:      ordens.filter((o) => o.prazo < hoje && !['Encerrada', 'Cancelada'].includes(o.status)).length,
-    mat_em_poder:   MOCK_MAT_EM_PODER.length,
+    mat_em_poder:   matEmPoder.length,
   }), [ordens]);
 
   const avancarStatus = (id) => {
@@ -253,7 +219,7 @@ export default function ProducaoParaTerceiros() {
           <div className="erp-card overflow-x-auto">
             <div className="px-4 py-2 bg-muted/20 border-b border-border flex items-center justify-between">
               <span className="text-xs font-semibold">Estoque de Materiais de Terceiros em Nosso Poder</span>
-              <span className="text-[10px] text-muted-foreground">{MOCK_MAT_EM_PODER.length} registro(s)</span>
+              <span className="text-[10px] text-muted-foreground">{matEmPoder.length} registro(s)</span>
             </div>
             <table className="erp-table w-full min-w-[700px]">
               <thead>
@@ -264,7 +230,7 @@ export default function ProducaoParaTerceiros() {
                 </tr>
               </thead>
               <tbody>
-                {MOCK_MAT_EM_PODER.map((m, i) => (
+                {matEmPoder.map((m, i) => (
                   <tr key={i} className={m.dias_posse > 30 ? 'bg-red-50/40' : ''}>
                     <td className="font-medium text-xs">{m.cliente}</td>
                     <td className="font-mono text-xs">{m.codigo}</td>

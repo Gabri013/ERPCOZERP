@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Activity, Cpu, User, AlertTriangle, CheckCircle, Clock, Pause, Wrench, Search, RefreshCw, Eye, QrCode, Paperclip } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '@/services/api';
 
 const AGORA = () => new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
@@ -14,41 +15,27 @@ const STATUS_MAQUINA = {
 
 const SETORES = ['Todos', 'Corte', 'Dobra', 'Soldagem', 'Acabamento', 'Montagem'];
 
-const MOCK_MAQUINAS = [
-  { id: 1, codigo: 'CNC-01', nome: 'Plasma CNC 3m',    setor: 'Corte',      status: 'Produzindo', op: 'OP-2025-001', produto: 'Chapa Tanque 500L', operador: 'Carlos S.', inicio: '08:12', oee: 82, pct_op: 65, motivo_parada: null, anexos: 3 },
-  { id: 2, codigo: 'DOBR-01',nome: 'Dobradeira CNC',   setor: 'Dobra',      status: 'Setup',      op: 'OP-2025-002', produto: 'Flange Reator',     operador: 'Ana M.',    inicio: '09:45', oee: 71, pct_op: 0,  motivo_parada: null, anexos: 1 },
-  { id: 3, codigo: 'SOLD-01',nome: 'Solda MIG 01',     setor: 'Soldagem',   status: 'Produzindo', op: 'OP-2025-001', produto: 'Corpo Tanque',      operador: 'Pedro R.',  inicio: '07:30', oee: 91, pct_op: 80, motivo_parada: null, anexos: 2 },
-  { id: 4, codigo: 'SOLD-02',nome: 'Solda TIG 01',     setor: 'Soldagem',   status: 'Parada',     op: null,          produto: null,                operador: null,        inicio: null,    oee: 45, pct_op: 0,  motivo_parada: 'Espera por matéria prima', anexos: 0 },
-  { id: 5, codigo: 'POLL-01',nome: 'Politriz Angular', setor: 'Acabamento', status: 'Produzindo', op: 'OP-2025-003', produto: 'Reator 200L',       operador: 'Maria L.',  inicio: '08:00', oee: 78, pct_op: 55, motivo_parada: null, anexos: 4 },
-  { id: 6, codigo: 'MONT-01',nome: 'Bancada Montagem', setor: 'Montagem',   status: 'Manutenção', op: null,          produto: null,                operador: 'Técnico J.',inicio: '10:00', oee: 0,  pct_op: 0,  motivo_parada: 'Manutenção preventiva', anexos: 0 },
-  { id: 7, codigo: 'TORN-01',nome: 'Torno CNC',        setor: 'Corte',      status: 'Disponível', op: null,          produto: null,                operador: null,        inicio: null,    oee: 65, pct_op: 0,  motivo_parada: null, anexos: 0 },
-  { id: 8, codigo: 'CNC-02', nome: 'Plasma CNC 2m',    setor: 'Corte',      status: 'Produzindo', op: 'OP-2025-004', produto: 'Condensador 50m²',  operador: 'Rafa C.',   inicio: '08:45', oee: 87, pct_op: 40, motivo_parada: null, anexos: 1 },
-];
-
-const MOCK_OPERADORES = [
-  { id: 1, nome: 'Carlos S.', foto: 'CS', setor: 'Corte',     status: 'Trabalhando', op: 'OP-2025-001', operacao: 'Corte Plasma',   inicio: '08:12', eficiencia: 94 },
-  { id: 2, nome: 'Ana M.',    foto: 'AM', setor: 'Dobra',     status: 'Setup',       op: 'OP-2025-002', operacao: 'Setup Dobra',    inicio: '09:45', eficiencia: 87 },
-  { id: 3, nome: 'Pedro R.',  foto: 'PR', setor: 'Soldagem',  status: 'Trabalhando', op: 'OP-2025-001', operacao: 'Soldagem MIG',   inicio: '07:30', eficiencia: 98 },
-  { id: 4, nome: 'Maria L.',  foto: 'ML', setor: 'Acabamento',status: 'Trabalhando', op: 'OP-2025-003', operacao: 'Polimento',      inicio: '08:00', eficiencia: 82 },
-  { id: 5, nome: 'Rafa C.',   foto: 'RC', setor: 'Corte',     status: 'Trabalhando', op: 'OP-2025-004', operacao: 'Corte Plasma',   inicio: '08:45', eficiencia: 90 },
-  { id: 6, nome: 'João T.',   foto: 'JT', setor: 'Manutenção',status: 'Manutenção',  op: null,          operacao: 'Prev. Bancada',  inicio: '10:00', eficiencia: null },
-  { id: 7, nome: 'Luiz P.',   foto: 'LP', setor: 'Soldagem',  status: 'Intervalo',   op: null,          operacao: null,             inicio: '10:15', eficiencia: null },
-];
-
-const MOCK_OPS_FLOOR = [
-  { id: 'OP-2025-001', produto: 'Tanque Inox 316L 500L',    qtd: 2, operacao_atual: 'Corte Chapa',   setor: 'Corte',      pct: 65, status: 'Em Andamento', pedido: 'PV-2025-020', prazo: '2026-05-10', urgente: false },
-  { id: 'OP-2025-002', produto: 'Reator Inox 316L 200L',    qtd: 1, operacao_atual: 'Dobra Flanges', setor: 'Dobra',      pct: 30, status: 'Em Andamento', pedido: 'PV-2025-021', prazo: '2026-05-08', urgente: true  },
-  { id: 'OP-2025-003', produto: 'Condensador Tubular 50m²', qtd: 1, operacao_atual: 'Acabamento',    setor: 'Acabamento', pct: 80, status: 'Em Andamento', pedido: 'PV-2025-019', prazo: '2026-05-12', urgente: false },
-  { id: 'OP-2025-004', produto: 'Condensador Tubular 50m²', qtd: 2, operacao_atual: 'Corte Tubos',   setor: 'Corte',      pct: 40, status: 'Em Andamento', pedido: 'PV-2025-022', prazo: '2026-05-15', urgente: false },
-];
-
-const INSPECOES_PENDENTES = [
-  { id: 1, op: 'OP-2025-001', produto: 'Tanque Inox 316L 500L', tipo: 'Inspeção Dimensional', setor: 'Soldagem', responsavel: 'Inspetor A.' },
-  { id: 2, op: 'OP-2025-003', produto: 'Condensador 50m²', tipo: 'Inspeção Final',            setor: 'Acabamento', responsavel: 'Inspetor B.' },
-];
-
 export default function MonitoramentoTempoReal() {
+  const [maquinas, setMaquinas] = useState([]);
+  const [operadores, setOperadores] = useState([]);
+  const [opsFloor, setOpsFloor] = useState([]);
+  const [inspecoesPendentes, setInspecoesPendentes] = useState([]);
   const [aba, setAba] = useState('maquinas');
+
+  const loadMonitoramento = useCallback(async () => {
+    try {
+      const res = await api.get('/api/production/monitoring');
+      const d = res.data?.data ?? res.data ?? {};
+      setMaquinas(d.maquinas ?? d ?? []);
+      setOperadores(d.operadores ?? []);
+      setOpsFloor(d.ordens ?? d.ops ?? []);
+      setInspecoesPendentes(d.inspecoes ?? []);
+    } catch {
+      setMaquinas([]); setOperadores([]); setOpsFloor([]); setInspecoesPendentes([]);
+    }
+  }, []);
+
+  useEffect(() => { loadMonitoramento(); }, [loadMonitoramento]);
   const [setor, setSetor] = useState('Todos');
   const [busca, setBusca] = useState('');
   const [hora, setHora] = useState(AGORA());
@@ -63,28 +50,29 @@ export default function MonitoramentoTempoReal() {
     return () => clearInterval(t);
   }, []);
 
-  const maquinasFiltradas = MOCK_MAQUINAS.filter((m) => {
+  const maquinasFiltradas = maquinas.filter((m) => {
     const okSetor = setor === 'Todos' || m.setor === setor;
     const okBusca = !busca || m.codigo.toLowerCase().includes(busca.toLowerCase()) || m.nome.toLowerCase().includes(busca.toLowerCase()) || m.op?.toLowerCase().includes(busca.toLowerCase()) || m.operador?.toLowerCase().includes(busca.toLowerCase());
     return okSetor && okBusca;
   });
 
+  const oeeArr = maquinas.filter((m) => m.oee > 0);
   const kpis = {
-    produzindo: MOCK_MAQUINAS.filter((m) => m.status === 'Produzindo').length,
-    paradas: MOCK_MAQUINAS.filter((m) => m.status === 'Parada').length,
-    manut: MOCK_MAQUINAS.filter((m) => m.status === 'Manutenção').length,
-    disponiveis: MOCK_MAQUINAS.filter((m) => m.status === 'Disponível').length,
-    setup: MOCK_MAQUINAS.filter((m) => m.status === 'Setup').length,
-    oee_medio: Math.round(MOCK_MAQUINAS.filter((m) => m.oee > 0).reduce((s, m) => s + m.oee, 0) / MOCK_MAQUINAS.filter((m) => m.oee > 0).length),
-    operadores_ativos: MOCK_OPERADORES.filter((o) => o.status === 'Trabalhando').length,
-    ops_ativas: MOCK_OPS_FLOOR.length,
+    produzindo: maquinas.filter((m) => m.status === 'Produzindo').length,
+    paradas: maquinas.filter((m) => m.status === 'Parada').length,
+    manut: maquinas.filter((m) => m.status === 'Manutenção').length,
+    disponiveis: maquinas.filter((m) => m.status === 'Disponível').length,
+    setup: maquinas.filter((m) => m.status === 'Setup').length,
+    oee_medio: oeeArr.length ? Math.round(oeeArr.reduce((s, m) => s + m.oee, 0) / oeeArr.length) : 0,
+    operadores_ativos: operadores.filter((o) => o.status === 'Trabalhando').length,
+    ops_ativas: opsFloor.length,
   };
 
   const ABAS = [
-    { id: 'maquinas',   label: 'Máquinas',   qtd: MOCK_MAQUINAS.length },
-    { id: 'operadores', label: 'Operadores', qtd: MOCK_OPERADORES.length },
-    { id: 'ordens',     label: 'Ordens em Andamento', qtd: MOCK_OPS_FLOOR.length },
-    { id: 'inspecoes',  label: 'Inspeções Pendentes', qtd: INSPECOES_PENDENTES.length },
+    { id: 'maquinas',   label: 'Máquinas',   qtd: maquinas.length },
+    { id: 'operadores', label: 'Operadores', qtd: operadores.length },
+    { id: 'ordens',     label: 'Ordens em Andamento', qtd: opsFloor.length },
+    { id: 'inspecoes',  label: 'Inspeções Pendentes', qtd: inspecoesPendentes.length },
   ];
 
   return (
@@ -113,7 +101,7 @@ export default function MonitoramentoTempoReal() {
           { label: 'Manutenção',   value: kpis.manut,            color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200' },
           { label: 'Disponível',   value: kpis.disponiveis,      color: 'text-gray-500',   bg: 'bg-gray-50',   border: 'border-gray-200' },
           { label: 'OEE Médio',    value: `${kpis.oee_medio}%`,  color: 'text-primary',    bg: 'bg-primary/5', border: 'border-primary/20' },
-          { label: 'Operadores',   value: `${kpis.operadores_ativos}/${MOCK_OPERADORES.length}`, color: 'text-teal-600', bg: 'bg-teal-50', border: 'border-teal-200' },
+          { label: 'Operadores',   value: `${kpis.operadores_ativos}/${operadores.length}`, color: 'text-teal-600', bg: 'bg-teal-50', border: 'border-teal-200' },
           { label: 'OPs Ativas',   value: kpis.ops_ativas,       color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-200' },
         ].map((k) => (
           <div key={k.label} className={`${k.bg} border ${k.border} rounded-lg px-2 py-2 text-center`}>
@@ -210,7 +198,7 @@ export default function MonitoramentoTempoReal() {
       {/* ── OPERADORES ──────────────────────────────────────────────────────── */}
       {aba === 'operadores' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-          {MOCK_OPERADORES.map((op) => {
+          {operadores.map((op) => {
             const statusCor = op.status === 'Trabalhando' ? 'bg-green-500' : op.status === 'Setup' ? 'bg-yellow-500' : op.status === 'Intervalo' ? 'bg-blue-400' : 'bg-orange-500';
             const statusBg = op.status === 'Trabalhando' ? 'border-green-300 bg-green-50' : op.status === 'Setup' ? 'border-yellow-300 bg-yellow-50' : op.status === 'Intervalo' ? 'border-blue-300 bg-blue-50' : 'border-orange-300 bg-orange-50';
             return (
@@ -246,7 +234,7 @@ export default function MonitoramentoTempoReal() {
       {/* ── ORDENS ──────────────────────────────────────────────────────────── */}
       {aba === 'ordens' && (
         <div className="space-y-2">
-          {MOCK_OPS_FLOOR.map((op) => (
+          {opsFloor.map((op) => (
             <div key={op.id} className={`erp-card p-4 ${op.urgente ? 'border-red-300' : ''}`}>
               <div className="flex items-start gap-3 justify-between">
                 <div className="flex-1">
@@ -296,7 +284,7 @@ export default function MonitoramentoTempoReal() {
       {/* ── INSPEÇÕES ───────────────────────────────────────────────────────── */}
       {aba === 'inspecoes' && (
         <div className="space-y-2">
-          {INSPECOES_PENDENTES.map((insp) => (
+          {inspecoesPendentes.map((insp) => (
             <div key={insp.id} className="erp-card p-4 border-yellow-300">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -314,7 +302,7 @@ export default function MonitoramentoTempoReal() {
               </div>
             </div>
           ))}
-          {!INSPECOES_PENDENTES.length && <div className="erp-card p-8 text-center text-muted-foreground">Nenhuma inspeção pendente</div>}
+          {!inspecoesPendentes.length && <div className="erp-card p-8 text-center text-muted-foreground">Nenhuma inspeção pendente</div>}
         </div>
       )}
     </div>

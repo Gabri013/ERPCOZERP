@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Plus, Search, RefreshCw, Eye, DollarSign, Calendar, CheckCircle, XCircle, Clock, AlertCircle, ArrowRight, ChevronDown, Repeat } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '@/services/api';
 
 const STATUS_CONTRATO = {
   Ativo:      { color: 'bg-green-100 text-green-700' },
@@ -18,50 +19,31 @@ const STATUS_PARCELA = {
 
 const PERIODICIDADES = ['Mensal', 'Bimestral', 'Trimestral', 'Semestral', 'Anual'];
 
-const MOCK_CONTRATOS = [
-  {
-    id: 1, numero: 'CR-0001', cliente: 'Restaurante Sabor & Arte', servico: 'Manutenção preventiva câmara fria',
-    periodicidade: 'Mensal', valor_parcela: 850, inicio: '2026-01-01', fim: '2026-12-31',
-    status: 'Ativo', proxima_cobranca: '2026-05-01', total_parcelas: 12, parcelas_pagas: 4,
-    responsavel: 'João Técnico', desc: 'Revisão mensal completa + reposição de consumíveis',
-  },
-  {
-    id: 2, numero: 'CR-0002', cliente: 'Hotel Beira Mar', servico: 'Contrato de manutenção anual',
-    periodicidade: 'Mensal', valor_parcela: 2200, inicio: '2026-02-01', fim: '2027-01-31',
-    status: 'Ativo', proxima_cobranca: '2026-05-01', total_parcelas: 12, parcelas_pagas: 3,
-    responsavel: 'Pedro Instalador', desc: 'Manutenção preventiva + corretiva ilimitada',
-  },
-  {
-    id: 3, numero: 'CR-0003', cliente: 'Cozinha Industrial LTDA', servico: 'Contrato de assistência técnica',
-    periodicidade: 'Trimestral', valor_parcela: 1800, inicio: '2026-01-01', fim: '2026-12-31',
-    status: 'Inadimplente', proxima_cobranca: '2026-04-01', total_parcelas: 4, parcelas_pagas: 0,
-    responsavel: 'Ana Técnica', desc: 'Visita trimestral preventiva + suporte remoto',
-  },
-  {
-    id: 4, numero: 'CR-0004', cliente: 'Padaria São João', servico: 'Plano básico de manutenção',
-    periodicidade: 'Mensal', valor_parcela: 450, inicio: '2025-06-01', fim: '2026-05-31',
-    status: 'Ativo', proxima_cobranca: '2026-05-01', total_parcelas: 12, parcelas_pagas: 11,
-    responsavel: 'João Técnico', desc: 'Revisão básica mensal',
-  },
-];
-
-const MOCK_CONTAS = [
-  { id: 1, contrato: 'CR-0001', cliente: 'Restaurante Sabor & Arte', competencia: '2026-05-01', vencimento: '2026-05-10', valor: 850, status: 'Pendente', nfse: '' },
-  { id: 2, contrato: 'CR-0002', cliente: 'Hotel Beira Mar', competencia: '2026-05-01', vencimento: '2026-05-10', valor: 2200, status: 'Pendente', nfse: '' },
-  { id: 3, contrato: 'CR-0001', cliente: 'Restaurante Sabor & Arte', competencia: '2026-04-01', vencimento: '2026-04-10', valor: 850, status: 'Pago', nfse: 'NFS-100120' },
-  { id: 4, contrato: 'CR-0002', cliente: 'Hotel Beira Mar', competencia: '2026-04-01', vencimento: '2026-04-10', valor: 2200, status: 'Pago', nfse: 'NFS-100121' },
-  { id: 5, contrato: 'CR-0003', cliente: 'Cozinha Industrial LTDA', competencia: '2026-04-01', vencimento: '2026-04-01', valor: 1800, status: 'Atrasado', nfse: '' },
-  { id: 6, contrato: 'CR-0004', cliente: 'Padaria São João', competencia: '2026-05-01', vencimento: '2026-05-10', valor: 450, status: 'Pendente', nfse: '' },
-];
-
 export default function ServicosRecorrentes() {
-  const [contas, setContas] = useState(MOCK_CONTAS);
-  const [contratos] = useState(MOCK_CONTRATOS);
+  const [contas, setContas] = useState([]);
+  const [contratos, setContratos] = useState([]);
   const [aba, setAba] = useState('contratos');
   const [busca, setBusca] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('Todos');
   const [detalhe, setDetalhe] = useState(null);
   const [showActionsMenu, setShowActionsMenu] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await api.get('/api/sales/recurring-services');
+      const data = res?.data?.data ?? res?.data ?? {};
+      setContratos(Array.isArray(data.contratos) ? data.contratos : Array.isArray(data) ? data : []);
+      setContas(Array.isArray(data.contas) ? data.contas : []);
+    } catch {
+      toast.error('Erro ao carregar serviços recorrentes');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
 
   const kpis = useMemo(() => ({
     contratos_ativos: contratos.filter((c) => c.status === 'Ativo').length,
@@ -79,10 +61,17 @@ export default function ServicosRecorrentes() {
     return d;
   }, [contas, filtroStatus, busca]);
 
-  const registrarPagamento = (conta) => {
-    setContas(contas.map((c) => c.id === conta.id ? { ...c, status: 'Pago', nfse: `NFS-${Math.floor(Math.random() * 900000 + 100000)}` } : c));
+  const registrarPagamento = async (conta) => {
+    setContas((prev) => prev.map((c) => c.id === conta.id ? { ...c, status: 'Pago' } : c));
     setShowActionsMenu(null);
-    toast.success('Pagamento registrado e NFS-e gerada!');
+    toast.success('Pagamento registrado!');
+    try {
+      await api.put(`/api/sales/recurring-services/contas/${conta.id}`, { status: 'Pago' });
+      await load();
+    } catch {
+      toast.error('Erro ao registrar pagamento');
+      load();
+    }
   };
 
   const fmtBRL = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -227,7 +216,7 @@ export default function ServicosRecorrentes() {
                             )}
                             <button type="button" onClick={() => toast.info('Exportando extrato...')} className="flex w-full px-3 py-2 text-xs hover:bg-muted">Exportar extrato</button>
                             <button type="button" onClick={() => toast.info('Cobrar coletivamente')} className="flex w-full px-3 py-2 text-xs hover:bg-muted">Cobrar coletivamente</button>
-                            <button type="button" onClick={() => { setContas(contas.map((cc) => cc.id === c.id ? { ...cc, status: 'Cancelado' } : cc)); setShowActionsMenu(null); toast.info('Parcela cancelada'); }}
+                            <button type="button" onClick={async () => { setContas((prev) => prev.map((cc) => cc.id === c.id ? { ...cc, status: 'Cancelado' } : cc)); setShowActionsMenu(null); toast.info('Parcela cancelada'); try { await api.put(`/api/sales/recurring-services/contas/${c.id}`, { status: 'Cancelado' }); } catch { load(); } }}
                               className="flex w-full px-3 py-2 text-xs hover:bg-red-50 text-red-600">Deletar</button>
                           </div>
                         )}
