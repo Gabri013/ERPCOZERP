@@ -42,19 +42,20 @@ function intersect(ids) {
  */
 export function deriveSectorLabelFromRole(roleCode) {
   const map = {
-    master: 'Diretoria',
-    gerente: 'Gerência',
-    gerente_producao: 'Produção',
+    master:              'Diretoria',
+    gerente:             'Gerência',
+    gerente_producao:    'Produção',
     orcamentista_vendas: 'Vendas',
-    projetista: 'Engenharia',
-    corte_laser: 'Corte Laser',
-    dobra_montagem: 'Dobra/Montagem',
-    solda: 'Solda',
-    expedicao: 'Expedição',
-    qualidade: 'Qualidade',
-    financeiro: 'Financeiro',
-    rh: 'RH',
-    user: 'Geral',
+    projetista:          'Engenharia',
+    compras:             'Compras',
+    corte_laser:         'Corte Laser',
+    dobra_montagem:      'Dobra/Montagem',
+    solda:               'Solda',
+    expedicao:           'Expedição',
+    qualidade:           'Qualidade',
+    financeiro:          'Financeiro',
+    rh:                  'RH',
+    user:                'Geral',
   };
   return map[roleCode] || 'Geral';
 }
@@ -126,12 +127,25 @@ export function getDefaultWidgetsByRole(roleCode, sectorName) {
     case 'projetista':
       base = ['kpi_projetos', 'chart_projetos_mes', 'alertas_aprovacao', 'chart_carga_trabalho'];
       break;
+    // Compras / Suprimentos: foco em estoque crítico, pedidos e materiais
+    case 'compras':
+      base = [
+        'kpi_producao',
+        'alertas_estoque',
+        'top_produtos',
+        'pedidos_recentes',
+      ];
+      break;
     case 'corte_laser':
     case 'dobra_montagem':
     case 'solda':
-    case 'qualidade':
-    case 'expedicao':
       base = ['kpi_producao', 'chart_ops_hoje', 'alertas_estoque'];
+      break;
+    case 'qualidade':
+      base = ['kpi_producao', 'chart_ops_hoje', 'chart_qualidade', 'alertas_estoque'];
+      break;
+    case 'expedicao':
+      base = ['kpi_producao', 'chart_ops_hoje', 'pedidos_recentes', 'alertas_estoque'];
       break;
     case 'financeiro':
       base = [

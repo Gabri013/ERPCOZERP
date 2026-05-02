@@ -1,7 +1,7 @@
 ﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { Menu, Bell, Search, ChevronDown, Settings, LogOut, HelpCircle, Users, Eye } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Menu, Bell, Search, ChevronDown, Settings, LogOut, HelpCircle, Users, Eye, ChevronRight } from 'lucide-react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 
 import { useAuth } from '@/lib/AuthContext';
 import { useRealtimeNotifications } from '@/lib/RealtimeContext';
@@ -20,6 +20,132 @@ import {
   CommandSeparator,
   CommandShortcut,
 } from '@/components/ui/command';
+
+// ─── Breadcrumb ────────────────────────────────────────────────────────────
+const BREADCRUMB_MAP = {
+  '/': ['Dashboard'],
+  '/relatorios': ['Relatórios'],
+  '/ajuda': ['Ajuda'],
+  // Vendas
+  '/vendas/pedidos': ['Vendas', 'Pedidos de Venda'],
+  '/vendas/clientes': ['Vendas', 'Clientes'],
+  '/vendas/orcamentos': ['Vendas', 'Orçamentos'],
+  '/vendas/tabela-precos': ['Vendas', 'Tabela de Preços'],
+  '/vendas/relatorios': ['Vendas', 'Relatórios'],
+  '/vendas/solicitacoes-cotacao': ['Vendas', 'Solicitações de Cotação'],
+  '/vendas/comissoes': ['Vendas', 'Comissões'],
+  '/paineis-gestao': ['Painéis de Gestão'],
+  '/servicos/solicitacoes':  ['Serviços', 'Solicitações de Cotação'],
+  '/servicos/propostas':     ['Serviços', 'Propostas Comerciais'],
+  '/servicos/pedidos':       ['Serviços', 'Pedidos de Serviço'],
+  '/servicos/nfse':          ['Serviços', 'Emissão de NFS-e'],
+  '/servicos/recorrentes':   ['Serviços', 'Serviços Recorrentes'],
+  '/servicos/tabela-precos': ['Serviços', 'Tabela de Preços'],
+  '/compras/solicitacoes':        ['Compras', 'Solicitações de Compra'],
+  '/compras/cotacoes-compra':     ['Compras', 'Cotações de Compra'],
+  '/compras/pedidos':             ['Compras', 'Pedidos de Compra'],
+  '/compras/documento-entrada':   ['Compras', 'Documento de Entrada'],
+  '/compras/importacao-xml':      ['Compras', 'Importação de XML NF-e'],
+  '/compras/manifestacao-nfe':    ['Compras', 'Manifestação de NF-e'],
+  '/compras/regras-tributacao':   ['Compras', 'Regras de Tributação'],
+  '/importacao':                  ['Importação', 'Processos de Importação'],
+  '/importacao/di':               ['Importação', 'Declaração de Importação'],
+  '/importacao/xml-di':           ['Importação', 'Importar XML da DI'],
+  '/financeiro/painel':           ['Financeiro', 'Painel Financeiro'],
+  '/financeiro/boletos':        ['Financeiro', 'Boletos Bancários'],
+  '/financeiro/transferencias': ['Financeiro', 'Transferências Bancárias'],
+  '/financeiro/crm':            ['Financeiro', 'CRM Financeiro'],
+  '/financeiro/regua-cobranca': ['Financeiro', 'Régua de Cobrança'],
+  // Estoque
+  '/estoque/produtos': ['Estoque', 'Produtos'],
+  '/estoque/movimentacoes': ['Estoque', 'Movimentações'],
+  '/estoque/inventario': ['Estoque', 'Inventário'],
+  '/estoque/projetado': ['Estoque', 'Estoque Projetado'],
+  '/estoque/lotes-series': ['Estoque', 'Lotes e Séries'],
+  '/estoque/requisicao-consumo': ['Estoque', 'Req. de Consumo'],
+  '/estoque/transferencias': ['Estoque', 'Transferências'],
+  '/estoque/enderecamento': ['Estoque', 'Endereçamento'],
+  // Compras
+  '/compras/fornecedores': ['Compras', 'Fornecedores'],
+  '/compras/ordens-compra': ['Compras', 'Ordens de Compra'],
+  '/compras/cotacoes': ['Compras', 'Cotações'],
+  '/compras/recebimentos': ['Compras', 'Recebimentos'],
+  // Produção
+  '/producao/ordens': ['Produção', 'Ordens de Produção'],
+  '/producao/pcp': ['Produção', 'PCP'],
+  '/producao/programacao': ['Produção', 'Programação da Produção'],
+  '/producao/monitoramento': ['Produção', 'Monitoramento em Tempo Real'],
+  '/producao/analise-tempos': ['Produção', 'Análise de Tempos'],
+  '/producao/paradas': ['Produção', 'Paradas e Esperas'],
+  '/producao/previsao-vendas': ['Produção', 'Previsão de Vendas'],
+  '/producao/plano-producao': ['Produção', 'Plano de Produção'],
+  '/producao/mrp': ['Produção', 'MRP / CRP'],
+  '/producao/custeio-padrao': ['Produção', 'Custeio Padrão'],
+  '/producao/kanban': ['Produção', 'Kanban'],
+  '/producao/chao-fabrica': ['Produção', 'Chão de Fábrica'],
+  '/producao/roteiros': ['Produção', 'Roteiros'],
+  '/producao/maquinas': ['Produção', 'Máquinas'],
+  '/producao/apontamento':     ['Produção', 'Apontamento'],
+  '/producao/lista-materiais': ['Produção', 'Lista de Materiais'],
+  '/producao/requisicao':      ['Produção', 'Requisição de Materiais'],
+  '/producao/reporte':         ['Produção', 'Reporte de Produção'],
+  '/producao/terceiros':       ['Produção', 'Produção em Terceiros'],
+  '/producao/para-terceiros':  ['Produção', 'Produção para Terceiros'],
+  // Engenharia
+  '/engenharia': ['Engenharia', 'BOM e 3D'],
+  '/engenharia/projetos': ['Engenharia', 'Projetos'],
+  '/engenharia/pendentes-bom': ['Engenharia', 'Pendentes BOM'],
+  // CRM
+  '/crm/dashboard': ['CRM', 'Dashboard'],
+  '/crm/leads': ['CRM', 'Leads'],
+  '/crm/oportunidades': ['CRM', 'Oportunidades'],
+  '/crm/pipeline': ['CRM', 'Pipeline'],
+  '/crm/atividades': ['CRM', 'Atividades'],
+  // RH
+  '/rh/funcionarios': ['RH', 'Funcionários'],
+  '/rh/ponto': ['RH', 'Ponto'],
+  '/rh/folha-pagamento': ['RH', 'Folha de Pagamento'],
+  '/rh/ferias': ['RH', 'Férias'],
+  // Fiscal
+  '/fiscal/nfe': ['Fiscal', 'NF-e'],
+  '/fiscal/nfe-consulta': ['Fiscal', 'Consulta NF-e'],
+  '/fiscal/sped': ['Fiscal', 'SPED'],
+  '/fiscal/bloco-k': ['Fiscal', 'Bloco K'],
+  // Financeiro
+  '/financeiro/receber': ['Financeiro', 'Contas a Receber'],
+  '/financeiro/pagar': ['Financeiro', 'Contas a Pagar'],
+  '/financeiro/fluxo-caixa': ['Financeiro', 'Fluxo de Caixa'],
+  '/financeiro/dre': ['Financeiro', 'DRE'],
+  '/financeiro/conciliacao-bancaria': ['Financeiro', 'Conciliação Bancária'],
+  '/financeiro/relatorio': ['Financeiro', 'Relatório Financeiro'],
+  '/financeiro/aprovacao-pedidos': ['Financeiro', 'Aprovação de Pedidos'],
+  // Configurações
+  '/configuracoes/empresa': ['Configurações', 'Empresa'],
+  '/configuracoes/usuarios': ['Configurações', 'Usuários'],
+  '/configuracoes/parametros': ['Configurações', 'Parâmetros'],
+  '/configuracoes/modelo-op': ['Configurações', 'Modelo OP'],
+  '/configuracoes/metadata-studio': ['Configurações', 'Metadata Studio'],
+  '/configuracoes/workflows': ['Configurações', 'Workflows'],
+  '/configuracoes/fluxo-pedido': ['Configurações', 'Fluxo do Pedido'],
+};
+
+function useBreadcrumb() {
+  const location = useLocation();
+  const path = location.pathname;
+  // Exact match first
+  if (BREADCRUMB_MAP[path]) return BREADCRUMB_MAP[path];
+  // Prefix match (e.g. /producao/ordens/123 → /producao/ordens)
+  const prefix = Object.keys(BREADCRUMB_MAP)
+    .filter((k) => k !== '/' && path.startsWith(k + '/'))
+    .sort((a, b) => b.length - a.length)[0];
+  if (prefix) return BREADCRUMB_MAP[prefix];
+  // Dynamic entity pages
+  if (path.startsWith('/entidades/')) {
+    const code = path.split('/')[2] || '';
+    return ['Entidades', code.replace(/_/g, ' ')];
+  }
+  return ['Dashboard'];
+}
 
 function getAvatarFromName(name) {
   const initials = String(name || 'US')
@@ -53,6 +179,7 @@ function timeAgo(dateValue) {
 }
 
 export default function Header({ onMenuToggle }) {
+  const breadcrumbs = useBreadcrumb();
   const [userOpen, setUserOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [switchOpen, setSwitchOpen] = useState(false);
@@ -234,11 +361,23 @@ export default function Header({ onMenuToggle }) {
       <button
         type="button"
         onClick={onMenuToggle}
-        className="text-muted-foreground hover:text-foreground transition-colors p-1 -ml-0.5"
+        className="text-muted-foreground hover:text-foreground transition-colors p-1 -ml-0.5 shrink-0"
         aria-label="Alternar menu lateral"
       >
         <Menu size={18} />
       </button>
+
+      {/* Breadcrumb */}
+      <nav className="hidden sm:flex items-center gap-1 text-xs text-muted-foreground shrink-0">
+        {breadcrumbs.map((crumb, i) => (
+          <span key={i} className="flex items-center gap-1">
+            {i > 0 && <ChevronRight size={11} className="opacity-40" />}
+            <span className={i === breadcrumbs.length - 1 ? 'text-foreground font-medium' : ''}>
+              {crumb}
+            </span>
+          </span>
+        ))}
+      </nav>
 
       {/* Search (desktop) */}
       <button

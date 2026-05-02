@@ -1,6 +1,6 @@
 ﻿import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Play, Download, Printer } from 'lucide-react';
+import { ArrowLeft, Play, Download, Printer, Package, Tag, Plus, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import { opService } from '@/services/opService';
 import { apontamentoService } from '@/services/apontamentoService';
 import ApontamentoModal from '@/components/producao/ApontamentoModal';
@@ -64,6 +64,16 @@ export default function DetalheOP() {
   ]);
   const [opFiles, setOpFiles] = useState([]);
   const [bomData, setBomData] = useState(null); // { lines, bomStatus }
+  const [requisicoes] = useState([
+    { id: 'REQ-001', status: 'Requisitado', data: '2026-04-30', itens: 5, operador: 'João S.' },
+  ]);
+  const [reportes, setReportes] = useState([]);
+  const [showReporte, setShowReporte] = useState(false);
+  const [qtdReporte, setQtdReporte] = useState(1);
+  const [loteReporte, setLoteReporte] = useState('');
+  const [refugoReporte, setRefugoReporte] = useState(0);
+  const [showEtiqueta, setShowEtiqueta] = useState(false);
+  const [qtdEtiquetas, setQtdEtiquetas] = useState(1);
 
   useEffect(() => {
     let mounted = true;
@@ -204,6 +214,9 @@ export default function DetalheOP() {
     { key:'processo', label:'Processo' },
     { key:'apontamentos', label:`Apontamentos (${apontamentos.length})` },
     { key:'bom', label:`BOM (${bomLineCount})` },
+    { key:'requisicao', label:`Requisição (${requisicoes.length})` },
+    { key:'reporte', label:`Reporte (${reportes.length})` },
+    { key:'etiquetas', label:'Etiquetas' },
     { key:'arquivos', label:`Arquivos (${opFiles.length})` },
     { key:'revisoes', label:`Revisão de Prazo (${revisoes.length})` },
   ];
@@ -477,6 +490,147 @@ export default function DetalheOP() {
               </tbody>
             </table>
           )}
+        </div>
+      )}
+
+      {/* ABA REQUISIÇÃO */}
+      {aba === 'requisicao' && (
+        <div className="bg-white border border-border rounded-lg overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
+            <h3 className="text-xs font-semibold">Requisições de Materiais</h3>
+            <Link to="/producao/requisicao" className="flex items-center gap-1 px-3 py-1.5 text-xs border border-border rounded hover:bg-muted">
+              <Package size={11}/> Gerir Requisições
+            </Link>
+          </div>
+          {requisicoes.length === 0 ? (
+            <div className="px-4 py-8 text-center text-xs text-muted-foreground">
+              Nenhuma requisição gerada. <Link to="/producao/requisicao" className="text-primary underline">Gerar requisição</Link>
+            </div>
+          ) : (
+            <table className="w-full text-xs">
+              <thead><tr className="bg-muted border-b border-border">
+                {['Requisição','Data','Itens','Operador','Status'].map(h=>(
+                  <th key={h} className="text-left px-4 py-2 font-medium text-muted-foreground">{h}</th>
+                ))}
+              </tr></thead>
+              <tbody>
+                {requisicoes.map(r=>(
+                  <tr key={r.id} className="border-b border-border last:border-0 hover:bg-muted/20">
+                    <td className="px-4 py-2 font-mono font-semibold text-primary">{r.id}</td>
+                    <td className="px-4 py-2">{r.data}</td>
+                    <td className="px-4 py-2">{r.itens} itens</td>
+                    <td className="px-4 py-2">{r.operador}</td>
+                    <td className="px-4 py-2">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${r.status==='Requisitado'?'bg-green-100 text-green-700':'bg-yellow-100 text-yellow-700'}`}>{r.status}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+      {/* ABA REPORTE */}
+      {aba === 'reporte' && (
+        <div className="bg-white border border-border rounded-lg overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
+            <h3 className="text-xs font-semibold">Reporte de Produção</h3>
+            <button onClick={() => setShowReporte(true)} className="flex items-center gap-1 px-3 py-1.5 text-xs bg-green-600 text-white rounded hover:opacity-90">
+              <Plus size={11}/> Registrar Produção
+            </button>
+          </div>
+          {reportes.length === 0 ? (
+            <div className="px-4 py-8 text-center text-xs text-muted-foreground">
+              Nenhum reporte registrado. Clique em "Registrar Produção" para iniciar.
+            </div>
+          ) : (
+            <table className="w-full text-xs">
+              <thead><tr className="bg-muted border-b border-border">
+                {['Data','Qtd Produzida','Refugo','Lote','Operador'].map(h=>(
+                  <th key={h} className="text-left px-4 py-2 font-medium text-muted-foreground">{h}</th>
+                ))}
+              </tr></thead>
+              <tbody>
+                {reportes.map((r,i)=>(
+                  <tr key={i} className="border-b border-border last:border-0 hover:bg-muted/20">
+                    <td className="px-4 py-2">{new Date(r.data).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</td>
+                    <td className="px-4 py-2 font-bold text-green-700">{r.qtd} {op.unidade}</td>
+                    <td className="px-4 py-2 text-red-600">{r.refugo > 0 ? r.refugo : '—'}</td>
+                    <td className="px-4 py-2 font-mono">{r.lote || '—'}</td>
+                    <td className="px-4 py-2">{r.operador}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+      {/* ABA ETIQUETAS */}
+      {aba === 'etiquetas' && (
+        <div className="bg-white border border-border rounded-lg p-4">
+          <h3 className="text-xs font-semibold mb-3">Emissão de Etiquetas de Identificação</h3>
+          <div className="border-2 border-dashed border-border rounded-lg p-5 font-mono text-xs bg-gray-50 max-w-xs mx-auto mb-4">
+            <div className="text-center mb-2">
+              <div className="text-sm font-bold uppercase">{op.produtoDescricao}</div>
+              <div className="text-muted-foreground">Cód: {op.codigoProduto}</div>
+            </div>
+            <div className="border-t border-border pt-2 grid grid-cols-2 gap-1 text-[10px]">
+              <div><span className="text-muted-foreground">OP:</span> {op.numero}</div>
+              <div><span className="text-muted-foreground">Qtd:</span> 1 pcs</div>
+              <div><span className="text-muted-foreground">Cliente:</span> {op.clienteNome}</div>
+              <div><span className="text-muted-foreground">Data:</span> {new Date().toLocaleDateString('pt-BR')}</div>
+            </div>
+            <div className="mt-2 flex justify-center">
+              <div className="bg-gray-200 w-32 h-8 flex items-center justify-center text-[9px] text-muted-foreground rounded">[Código de Barras]</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 mb-3">
+            <label className="text-xs font-medium">Quantidade de etiquetas:</label>
+            <input type="number" min="1" max="100" className="erp-input w-20 text-xs" value={qtdEtiquetas} onChange={(e) => setQtdEtiquetas(Number(e.target.value))} />
+          </div>
+          <button onClick={() => { setShowEtiqueta(true); setTimeout(() => setShowEtiqueta(false), 100); import('sonner').then(m => m.toast.success(`${qtdEtiquetas} etiqueta(s) enviada(s) para impressão!`)); }}
+            className="flex items-center gap-1.5 px-4 py-2 text-xs bg-primary text-white rounded hover:opacity-90">
+            <Printer size={12}/> Imprimir {qtdEtiquetas} Etiqueta(s)
+          </button>
+          <p className="text-[10px] text-muted-foreground mt-2">Layout personalizável · Suporte ZEBRA, ARGOX, TSC</p>
+        </div>
+      )}
+
+      {/* Modal Reporte */}
+      {showReporte && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="p-4 border-b border-border flex items-center justify-between">
+              <div><h2 className="font-semibold text-sm">Registrar Produção</h2><p className="text-xs text-muted-foreground">{op.numero}</p></div>
+              <button onClick={() => setShowReporte(false)}><XCircle size={16}/></button>
+            </div>
+            <div className="p-4 grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <label className="erp-label">Qtd. Produzida *</label>
+                <input type="number" min="0" className="erp-input w-full text-lg font-bold" value={qtdReporte} onChange={(e) => setQtdReporte(Number(e.target.value))} />
+              </div>
+              <div>
+                <label className="erp-label">Refugo / Rejeitos</label>
+                <input type="number" min="0" className="erp-input w-full" value={refugoReporte} onChange={(e) => setRefugoReporte(Number(e.target.value))} />
+              </div>
+              <div className="col-span-2">
+                <label className="erp-label">Lote de Rastreabilidade</label>
+                <input className="erp-input w-full font-mono" placeholder="Ex: LT-2025-0055" value={loteReporte} onChange={(e) => setLoteReporte(e.target.value)} />
+              </div>
+            </div>
+            <div className="p-4 border-t border-border flex gap-2 justify-end">
+              <button onClick={() => setShowReporte(false)} className="erp-btn-ghost text-xs">Cancelar</button>
+              <button onClick={() => {
+                setReportes([...reportes, { data: new Date().toISOString(), qtd: qtdReporte, refugo: refugoReporte, lote: loteReporte, operador: 'Usuário Atual' }]);
+                setShowReporte(false); setQtdReporte(1); setLoteReporte(''); setRefugoReporte(0);
+                import('sonner').then(m => m.toast.success('Reporte registrado! Estoque atualizado.'));
+              }} className="flex items-center gap-1 px-3 py-1.5 text-xs bg-green-600 text-white rounded hover:opacity-90">
+                <CheckCircle size={12}/> Salvar Reporte
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

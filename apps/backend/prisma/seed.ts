@@ -42,19 +42,20 @@ async function main() {
   // Obs: o frontend usa "perfis" e permissões legadas (ex: ver_op, apontar).
   // Aqui garantimos que as roles existam e que tenham um conjunto padrão de permissões.
   const rolesToEnsure = [
-    { code: 'master', name: 'Dono', description: 'Acesso total ao sistema' },
-    { code: 'gerente', name: 'Gerente', description: 'Gerência geral do sistema' },
-    { code: 'gerente_producao', name: 'Gerente de Produção', description: 'Gerência do chão de fábrica/PCP' },
+    { code: 'master',            name: 'Dono',                  description: 'Acesso total ao sistema' },
+    { code: 'gerente',           name: 'Gerente',               description: 'Gerência geral do sistema' },
+    { code: 'gerente_producao',  name: 'Gerente de Produção',   description: 'Gerência do chão de fábrica/PCP' },
     { code: 'orcamentista_vendas', name: 'Orçamentista e Vendas', description: 'Comercial e orçamento' },
-    { code: 'projetista', name: 'Projetista', description: 'Engenharia/Projetos' },
-    { code: 'corte_laser', name: 'Corte a Laser', description: 'Operação de corte a laser' },
-    { code: 'dobra_montagem', name: 'Dobra e Montagem', description: 'Operação de dobra e montagem' },
-    { code: 'solda', name: 'Solda', description: 'Operação de solda' },
-    { code: 'expedicao', name: 'Expedição', description: 'Expedição e logística' },
-    { code: 'qualidade', name: 'Qualidade', description: 'Qualidade e inspeção' },
-    { code: 'financeiro', name: 'Financeiro', description: 'Contas e tesouraria' },
-    { code: 'rh', name: 'RH', description: 'Recursos humanos' },
-    { code: 'user', name: 'Usuário', description: 'Usuário operacional (genérico)' },
+    { code: 'projetista',        name: 'Projetista',            description: 'Engenharia/Projetos/BOM' },
+    { code: 'compras',           name: 'Compras',               description: 'Suprimentos e ordens de compra' },
+    { code: 'corte_laser',       name: 'Corte a Laser',         description: 'Operação de corte a laser' },
+    { code: 'dobra_montagem',    name: 'Dobra e Montagem',      description: 'Operação de dobra e montagem' },
+    { code: 'solda',             name: 'Solda',                 description: 'Operação de solda' },
+    { code: 'expedicao',         name: 'Expedição',             description: 'Expedição e logística' },
+    { code: 'qualidade',         name: 'Qualidade',             description: 'Qualidade e inspeção' },
+    { code: 'financeiro',        name: 'Financeiro',            description: 'Contas, tesouraria e fiscal' },
+    { code: 'rh',                name: 'RH',                    description: 'Recursos humanos' },
+    { code: 'user',              name: 'Usuário',               description: 'Usuário operacional (genérico)' },
   ];
 
   const rolesByCode = new Map<string, { id: string; code: string }>();
@@ -193,52 +194,133 @@ async function main() {
     });
   }
 
-  // === Permissões padrão por role ===
+  // === Permissões padrão por role (Fluxo: Orçamento → Pedido → Engenharia → Compras → Produção → Qualidade → Expedição → Fiscal → Financeiro) ===
   const permsByRoleCode: Record<string, string[]> = {
-    // gerente: quase tudo operacional (sem gerenciar usuários)
+
+    // ── Gerente: visão completa operacional + aprovações ─────────────────────
     gerente: [
       'record.manage','entity.manage',
-      'ver_pedidos','criar_pedidos','editar_pedidos','aprovar_pedidos','ver_clientes','editar_clientes','ver_orcamentos','criar_orcamentos',
+      'ver_pedidos','criar_pedidos','editar_pedidos','aprovar_pedidos',
+      'ver_clientes','editar_clientes','ver_orcamentos','criar_orcamentos',
       'ver_estoque','movimentar_estoque','editar_produtos',
       'produto.view','produto.create','produto.update','produto.delete',
       'movimentacao.view','movimentacao.create',
       'inventario.view','inventario.create','inventario.approve',
       'enderecamento.view','enderecamento.manage',
       'ver_compras','criar_oc','editar_fornecedores',
-      'ver_op','criar_op','editar_op','apontar','ver_kanban','ver_pcp','ver_roteiros','ver_maquinas','ver_chao_fabrica',
+      'ver_op','criar_op','editar_op','apontar',
+      'ver_kanban','ver_pcp','ver_roteiros','ver_maquinas','ver_chao_fabrica',
       'ver_financeiro','editar_financeiro','aprovar_financeiro','ver_relatorio_financeiro',
       'ver_rh','editar_funcionarios','ver_folha',
       'ver_relatorios','relatorios:view','editar_config',
-      'ver_crm','ver_fiscal',
+      'ver_crm','crm.view','crm.pipeline','crm.dashboard',
+      'ver_fiscal','impersonate',
       ...allGranularCodes,
     ],
+
+    // ── Gerente de Produção: PCP + chão de fábrica + estoque + compras de material ──
     gerente_producao: [
-      'record.manage','entity.manage','ver_op','criar_op','editar_op','apontar','ver_kanban','ver_pcp','ver_roteiros','ver_maquinas','ver_chao_fabrica','ver_estoque','ver_compras','ver_relatorios','relatorios:view',
-      'produto.view','movimentacao.view','movimentacao.create','inventario.view','inventario.create','inventario.approve','enderecamento.view','enderecamento.manage',
+      'record.manage','entity.manage',
+      'ver_op','criar_op','editar_op','apontar',
+      'ver_kanban','ver_pcp','ver_roteiros','ver_maquinas','ver_chao_fabrica',
+      'ver_estoque','movimentar_estoque','editar_produtos',
+      'produto.view','produto.create','produto.update',
+      'movimentacao.view','movimentacao.create',
+      'inventario.view','inventario.create','inventario.approve',
+      'enderecamento.view','enderecamento.manage',
+      'ver_compras','criar_oc',           // Pode abrir OCs de material para produção
+      'ver_pedidos',                        // Contexto do pedido que gerou a OP
+      'ver_relatorios','relatorios:view',
       ...producaoGranularCodes,
     ],
+
+    // ── Vendas / Orçamentista: do orçamento ao pedido + CRM ──────────────────
     orcamentista_vendas: [
-      'record.manage','entity.manage','ver_pedidos','criar_pedidos','editar_pedidos','ver_clientes','editar_clientes','ver_orcamentos','criar_orcamentos','ver_relatorios','relatorios:view','ver_crm',
+      'record.manage','entity.manage',
+      'ver_pedidos','criar_pedidos','editar_pedidos',
+      'ver_clientes','editar_clientes',
+      'ver_orcamentos','criar_orcamentos',
+      'ver_estoque','produto.view',         // Verificar disponibilidade para cotar
+      'ver_crm','crm.view','crm.pipeline','crm.dashboard',
+      'ver_relatorios','relatorios:view',
       ...vendasGranularCodes,
     ],
-    projetista: ['record.manage','entity.manage','ver_op','ver_pcp','ver_roteiros','ver_estoque','editar_produtos','ver_relatorios','relatorios:view', ...producaoGranularCodes.filter((c) => c.startsWith('produto.'))],
-    // Operadores (chão): sem acesso ao "no-code" (record.manage/entity.manage)
-    corte_laser: ['ver_op', 'apontar', 'ver_chao_fabrica'],
-    dobra_montagem: ['ver_op', 'apontar', 'ver_chao_fabrica'],
-    solda: ['ver_op', 'apontar', 'ver_chao_fabrica'],
-    /** Expedição: foco em pedidos / expedição (QA industrial). */
-    expedicao: ['ver_pedidos', 'ver_relatorios', 'relatorios:view'],
-    financeiro: [
-      'ver_financeiro',
-      'editar_financeiro',
-      'aprovar_financeiro',
-      'ver_relatorio_financeiro',
-      'ver_relatorios',
-      'relatorios:view',
+
+    // ── Projetista / Engenharia: BOM, roteiros, produtos ─────────────────────
+    projetista: [
+      'record.manage','entity.manage',
+      'ver_op','criar_op','editar_op',      // Criar OPs de engenharia / protótipo
+      'ver_pcp','ver_roteiros','ver_kanban','ver_chao_fabrica',
+      'ver_estoque','editar_produtos',
+      'produto.view','produto.create','produto.update',
+      'movimentacao.view',
+      'inventario.view','enderecamento.view',
+      'ver_compras',                         // Ver o que foi pedido para o projeto
+      'ver_pedidos',                         // Contexto do pedido
+      'ver_relatorios','relatorios:view',
+      ...producaoGranularCodes.filter((c) => c.startsWith('produto.') || c.startsWith('ordem_producao.')),
     ],
-    rh: ['ver_rh', 'editar_funcionarios', 'ver_folha', 'ver_relatorios', 'relatorios:view'],
-    qualidade: ['ver_op', 'apontar', 'ver_chao_fabrica', 'ver_relatorios', 'relatorios:view'],
-    // Usuário básico (visualização): sem CRUD genérico
+
+    // ── Compras / Suprimentos: OCs, fornecedores, recebimento ────────────────
+    compras: [
+      'record.manage','entity.manage',
+      'ver_compras','criar_oc','editar_fornecedores',
+      'ver_estoque','produto.view',
+      'movimentacao.view','movimentacao.create', // Recebimento de materiais
+      'inventario.view','enderecamento.view',
+      'ver_pedidos',                             // Para saber o que comprar
+      'ver_op',                                  // Contexto das OPs (necessidade de material)
+      'ver_relatorios','relatorios:view',
+    ],
+
+    // ── Operadores de chão de fábrica ─────────────────────────────────────────
+    corte_laser: [
+      'ver_op','apontar','ver_chao_fabrica','ver_kanban',
+      'ver_estoque','produto.view',              // Ver disponibilidade de matéria-prima
+    ],
+    dobra_montagem: [
+      'ver_op','apontar','ver_chao_fabrica','ver_kanban',
+      'ver_estoque','produto.view',
+    ],
+    solda: [
+      'ver_op','apontar','ver_chao_fabrica','ver_kanban',
+      'ver_estoque','produto.view',
+    ],
+
+    // ── Qualidade: inspeção + apontamento + relatórios ───────────────────────
+    qualidade: [
+      'ver_op','apontar','ver_chao_fabrica','ver_kanban',
+      'ver_estoque','produto.view',
+      'ver_pedidos',                             // Verificar especificações do pedido
+      'ver_relatorios','relatorios:view',
+    ],
+
+    // ── Expedição: envio + baixa de estoque + pedido ─────────────────────────
+    expedicao: [
+      'ver_op','apontar','ver_chao_fabrica',
+      'ver_pedidos',                             // Ver o pedido que está sendo expedido
+      'ver_estoque','movimentar_estoque',        // Saída de estoque (expedição)
+      'movimentacao.view','movimentacao.create',
+      'produto.view',
+      'ver_relatorios','relatorios:view',
+    ],
+
+    // ── Financeiro: contas + fiscal + faturamento ────────────────────────────
+    financeiro: [
+      'ver_financeiro','editar_financeiro',
+      'aprovar_financeiro','ver_relatorio_financeiro',
+      'ver_fiscal',                              // NF-e e obrigações
+      'ver_pedidos',                             // Para faturamento
+      'ver_relatorios','relatorios:view',
+    ],
+
+    // ── RH: gestão de pessoas ────────────────────────────────────────────────
+    rh: [
+      'ver_rh','editar_funcionarios','ver_folha',
+      'ver_relatorios','relatorios:view',
+    ],
+
+    // ── Usuário básico ────────────────────────────────────────────────────────
     user: ['ver_relatorios', 'relatorios:view'],
   };
 
@@ -300,17 +382,18 @@ async function main() {
     return created;
   }
 
-  await ensureDemoUser('gerente@cozinha.com', 'Gerente Geral', 'gerente');
-  await ensureDemoUser('gerente.producao@cozinha.com', 'Gerente Produção', 'gerente_producao');
-  await ensureDemoUser('vendas@cozinha.com', 'Vendas / Orçamento', 'orcamentista_vendas');
-  await ensureDemoUser('engenharia@cozinha.com', 'Engenharia / Projetos', 'projetista');
-  await ensureDemoUser('laser@cozinha.com', 'Operador Laser', 'corte_laser');
-  await ensureDemoUser('dobra@cozinha.com', 'Operador Dobra/Montagem', 'dobra_montagem');
-  await ensureDemoUser('solda@cozinha.com', 'Operador Solda', 'solda');
-  await ensureDemoUser('qualidade@cozinha.com', 'Qualidade', 'qualidade');
-  await ensureDemoUser('expedicao@cozinha.com', 'Expedição', 'expedicao');
-  await ensureDemoUser('financeiro@cozinha.com', 'Financeiro', 'financeiro');
-  await ensureDemoUser('rh@cozinha.com', 'RH Departamento', 'rh');
+  await ensureDemoUser('gerente@cozinha.com',          'Gerente Geral',          'gerente');
+  await ensureDemoUser('gerente.producao@cozinha.com', 'Gerente Produção',        'gerente_producao');
+  await ensureDemoUser('vendas@cozinha.com',           'Vendas / Orçamento',      'orcamentista_vendas');
+  await ensureDemoUser('engenharia@cozinha.com',       'Engenharia / Projetos',   'projetista');
+  await ensureDemoUser('compras@cozinha.com',          'Compras / Suprimentos',   'compras');
+  await ensureDemoUser('laser@cozinha.com',            'Operador Laser',          'corte_laser');
+  await ensureDemoUser('dobra@cozinha.com',            'Operador Dobra/Montagem', 'dobra_montagem');
+  await ensureDemoUser('solda@cozinha.com',            'Operador Solda',          'solda');
+  await ensureDemoUser('qualidade@cozinha.com',        'Qualidade',               'qualidade');
+  await ensureDemoUser('expedicao@cozinha.com',        'Expedição',               'expedicao');
+  await ensureDemoUser('financeiro@cozinha.com',       'Financeiro',              'financeiro');
+  await ensureDemoUser('rh@cozinha.com',               'RH Departamento',         'rh');
 
   // Notificações iniciais (somente se não existir nenhuma ainda)
   const notifCount = await prisma.userNotification.count({ where: { userId: master.id } });

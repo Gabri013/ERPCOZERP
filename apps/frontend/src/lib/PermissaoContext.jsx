@@ -91,6 +91,7 @@ export const PermissaoProvider = ({ children }) => {
       iniciarImpersonate,
       pararImpersonate,
       permissoes,
+      permissions: permissoes,   // alias em inglês para compatibilidade
       modules,
       isLoadingPermissions,
       reloadPermissions: loadPermissionsFromBackend,

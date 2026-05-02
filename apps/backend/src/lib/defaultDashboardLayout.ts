@@ -7,6 +7,7 @@ function intersectAllowed(ids: string[], allowed: Set<string>): string[] {
 }
 
 /** IDs válidos (frontend ALL_WIDGETS + legado). */
+// Adicionar KNOWN_WIDGET_IDS
 export const KNOWN_WIDGET_IDS = new Set([
   // Novos (por perfil)
   'kpi_vendas',
@@ -36,6 +37,9 @@ export const KNOWN_WIDGET_IDS = new Set([
   'chart_ponto',
   'alertas_ferias',
   'chart_custos_folha',
+  // Tabelas
+  'pedidos_recentes',
+  'estoque_critico',
   // Legado (layouts antigos)
   'kpi_faturamento',
   'kpi_pedidos',
@@ -94,12 +98,19 @@ export function getDefaultDashboardWidgets(roleCode: string, _sectorName?: strin
     case 'projetista':
       base = ['kpi_projetos', 'chart_projetos_mes', 'alertas_aprovacao', 'chart_carga_trabalho'];
       break;
+    case 'compras':
+      base = ['kpi_producao', 'alertas_estoque', 'top_produtos', 'pedidos_recentes'];
+      break;
     case 'corte_laser':
     case 'dobra_montagem':
     case 'solda':
-    case 'qualidade':
-    case 'expedicao':
       base = ['kpi_producao', 'chart_ops_hoje', 'alertas_estoque'];
+      break;
+    case 'qualidade':
+      base = ['kpi_producao', 'chart_ops_hoje', 'chart_qualidade', 'alertas_estoque'];
+      break;
+    case 'expedicao':
+      base = ['kpi_producao', 'chart_ops_hoje', 'pedidos_recentes', 'alertas_estoque'];
       break;
     case 'financeiro':
       base = [

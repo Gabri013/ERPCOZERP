@@ -91,6 +91,99 @@ function inferSectorFromRole(roleCode: string) {
   return map[roleCode] || 'Geral';
 }
 
+const fmtBRL = (val: number) =>
+  `R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+async function getSaleOrdersKpis() {
+  try {
+    const [totalAtivos, sumResult] = await Promise.all([
+      prisma.saleOrder.count({ where: { status: { in: ['APPROVED', 'IN_PRODUCTION', 'DELIVERED', 'INVOICED'] } } }),
+      prisma.saleOrder.aggregate({ _sum: { totalAmount: true }, where: { status: { notIn: ['DRAFT', 'CANCELLED'] } } }),
+    ]);
+    const total = Number(sumResult._sum.totalAmount || 0);
+    return { count: totalAtivos, totalVendas: fmtBRL(total) };
+  } catch {
+    return { count: 0, totalVendas: 'R$ 0' };
+  }
+}
+
+async function getWorkOrdersKpis() {
+  try {
+    const [emAndamento, atrasadas] = await Promise.all([
+      prisma.workOrder.count({ where: { status: { in: ['RELEASED', 'IN_PROGRESS', 'PAUSED'] } } }),
+      prisma.workOrder.count({
+        where: {
+          status: { in: ['RELEASED', 'IN_PROGRESS'] },
+          scheduledEnd: { lt: new Date() },
+        },
+      }),
+    ]);
+    return { emAndamento, atrasadas };
+  } catch {
+    return { emAndamento: 0, atrasadas: 0 };
+  }
+}
+
+async function getPurchaseOrdersKpis() {
+  try {
+    const pendentes = await prisma.purchaseOrder.count({
+      where: { status: { in: ['RASCUNHO', 'ENVIADO', 'PARCIALMENTE_RECEBIDO'] as any } },
+    });
+    return { pendentes };
+  } catch {
+    return { pendentes: 0 };
+  }
+}
+
+async function getEmployeesKpis() {
+  try {
+    const total = await prisma.employee.count({ where: { active: true } });
+    return { total };
+  } catch {
+    return { total: 0 };
+  }
+}
+
+async function getWorkOrdersByMonth(monthsBack = 6) {
+  try {
+    const months = lastNMonths(monthsBack);
+    const from = months[0]?.start ?? new Date();
+    const rows = await prisma.$queryRaw<Array<{ ym: string; count: bigint }>>`
+      SELECT to_char(date_trunc('month', created_at), 'YYYY-MM') AS ym,
+             COUNT(*)::bigint AS count
+      FROM work_orders
+      WHERE created_at >= ${from}
+      GROUP BY ym
+      ORDER BY ym ASC;
+    `;
+    const map = new Map(rows.map((r) => [r.ym, Number(r.count)]));
+    return months.map((m) => ({ ym: m.key, count: map.get(m.key) || 0 }));
+  } catch {
+    return [];
+  }
+}
+
+async function getSaleOrdersByMonth(monthsBack = 6) {
+  try {
+    const months = lastNMonths(monthsBack);
+    const from = months[0]?.start ?? new Date();
+    const rows = await prisma.$queryRaw<Array<{ ym: string; count: bigint; total: number }>>`
+      SELECT to_char(date_trunc('month', created_at), 'YYYY-MM') AS ym,
+             COUNT(*)::bigint AS count,
+             COALESCE(SUM(total_amount), 0)::float AS total
+      FROM sale_orders
+      WHERE created_at >= ${from}
+        AND status NOT IN ('DRAFT','CANCELLED')
+      GROUP BY ym
+      ORDER BY ym ASC;
+    `;
+    const map = new Map(rows.map((r) => [r.ym, { count: Number(r.count), total: Number(r.total) }]));
+    return months.map((m) => ({ ym: m.key, count: map.get(m.key)?.count || 0, total: map.get(m.key)?.total || 0 }));
+  } catch {
+    return [];
+  }
+}
+
 dashboardRouter.get('/', async (req, res) => {
   const userId = req.user?.userId;
   if (!userId) return res.status(401).json({ error: 'Authentication required' });
@@ -102,29 +195,30 @@ dashboardRouter.get('/', async (req, res) => {
     : [];
   const roleCodesForNotifs = jwtRoles.length > 0 ? jwtRoles : roleCode ? [roleCode] : [];
 
-  const [totalClientes, totalProdutos, totalOPs, totalOCs] = await Promise.all([
+  // Dados em paralelo (tolerante a falhas individuais)
+  const [
+    totalClientes,
+    totalProdutos,
+    salesKpis,
+    workOrdersKpis,
+    purchaseKpis,
+    employeesKpis,
+    clienteId,
+    opsPorMes,
+    vendasPorMes,
+  ] = await Promise.all([
     countClientesAtivos(),
     countEntity('produto'),
-    countEntity('ordem_producao'),
-    countEntity('ordem_compra'),
-  ]);
-
-  // Vendas ainda não modelado no core novo (por enquanto 0)
-  const totalVendas = 'R$ 0';
-
-  const layout = await prisma.dashboardLayout.findUnique({ where: { userId } });
-
-  const [produtoId, clienteId, opId] = await Promise.all([
-    getEntityId('produto'),
+    getSaleOrdersKpis(),
+    getWorkOrdersKpis(),
+    getPurchaseOrdersKpis(),
+    getEmployeesKpis(),
     getEntityId('cliente'),
-    getEntityId('ordem_producao'),
+    getWorkOrdersByMonth(6),
+    getSaleOrdersByMonth(6),
   ]);
 
-  const [produtosPorMes, clientesPorMes, opsPorMes] = await Promise.all([
-    produtoId ? countRecordsByMonth(produtoId, 6) : Promise.resolve([]),
-    clienteId ? countRecordsByMonth(clienteId, 6) : Promise.resolve([]),
-    opId ? countRecordsByMonth(opId, 6) : Promise.resolve([]),
-  ]);
+  const clientesPorMes = clienteId ? await countRecordsByMonth(clienteId, 6) : [];
 
   const unreadNotifRows = await prisma.userNotification.findMany({
     where: { userId, readAt: null },
@@ -135,21 +229,26 @@ dashboardRouter.get('/', async (req, res) => {
     rolesCanSeeNotificationSector(r.sector, roleCodesForNotifs)
   ).length;
 
+  const layout = await prisma.dashboardLayout.findUnique({ where: { userId } });
+
   res.json({
     success: true,
     data: {
-      totalVendas,
-      totalOPs: String(totalOPs),
-      totalProdutos: String(totalProdutos),
-      totalClientes: String(totalClientes),
-      totalOCs: String(totalOCs),
+      totalVendas:       salesKpis.totalVendas,
+      totalOPs:          String(workOrdersKpis.emAndamento),
+      totalOPsAtrasadas: String(workOrdersKpis.atrasadas),
+      totalProdutos:     String(totalProdutos),
+      totalClientes:     String(totalClientes),
+      totalOCs:          String(purchaseKpis.pendentes),
+      totalFuncionarios: String(employeesKpis.total),
+      saldoFinanceiro:   salesKpis.totalVendas, // fallback; financeiro usa businessLogicApi diretamente
       roleCode,
       sector,
       unreadNotifs: String(unreadNotifs),
       series: {
-        produtosPorMes,
         clientesPorMes,
         opsPorMes,
+        vendasPorMes,
       },
     },
     layout: {
