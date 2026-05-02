@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, ShoppingCart, Truck, Factory,
   DollarSign, ChevronDown, ChevronRight,
-  FileText, Boxes, Database, Users
+  FileText, Boxes, Database, Users, X, Wrench,
 } from 'lucide-react';
 import { usePermissao } from '@/lib/PermissaoContext';
 import { useMetadataStore } from '@/stores/metadataStore';
@@ -29,7 +29,7 @@ const staticMenuItems = [
   },
   {
     label: 'Estoque', icon: Boxes, children: [
-      { label: 'Produtos', path: '/entidades/produto', required: 'ver_estoque' },
+      { label: 'Produtos', path: '/estoque/produtos', required: 'ver_estoque' },
       { label: 'Movimentacoes', path: '/estoque/movimentacoes', required: 'ver_estoque' },
       { label: 'Inventario', path: '/estoque/inventario', required: 'ver_estoque' },
       { label: 'Enderecamento', path: '/estoque/enderecamento', required: 'ver_estoque' },
@@ -43,6 +43,12 @@ const staticMenuItems = [
       { label: 'Chao de Fabrica', path: '/producao/chao-fabrica', required: 'ver_chao_fabrica' },
       { label: 'Roteiros', path: '/producao/roteiros', required: 'ver_roteiros' },
       { label: 'Maquinas', path: '/producao/maquinas', required: 'ver_maquinas' },
+    ]
+  },
+  {
+    label: 'Engenharia', icon: Wrench, children: [
+      { label: 'BOM e 3D', path: '/engenharia', required: ['ver_roteiros', 'editar_produtos', 'ver_estoque'] },
+      { label: 'Pendentes BOM', path: '/engenharia/pendentes-bom', required: 'ver_roteiros' },
     ]
   },
   {
@@ -92,7 +98,7 @@ const staticMenuItems = [
   },
 ];
 
-export default function Sidebar({ collapsed, onToggle, onNavigate }) {
+export default function Sidebar({ collapsed, onToggle, onNavigate, mobileDrawer }) {
   const location = useLocation();
   const { pode } = usePermissao();
   const { entities, loadEntities } = useMetadataStore();
@@ -224,14 +230,14 @@ export default function Sidebar({ collapsed, onToggle, onNavigate }) {
 
   return (
     <div className={`sidebar-bg flex flex-col h-full transition-all duration-300 ${collapsed ? 'w-14' : 'w-56'}`}>
-      <div className="flex items-center justify-between px-3 py-3 border-b border-white/10">
+      <div className="flex items-center justify-between px-3 py-3 border-b border-white/10 gap-2">
         {!collapsed && (
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 cozinha-blue-bg rounded flex items-center justify-center">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-7 h-7 cozinha-blue-bg rounded flex items-center justify-center shrink-0">
               <Factory size={14} className="text-white" />
             </div>
-            <div>
-              <div className="text-white font-bold text-sm leading-tight">COZINHA</div>
+            <div className="min-w-0">
+              <div className="text-white font-bold text-sm leading-tight truncate">COZINHA</div>
               <div className="sidebar-text-muted text-[10px]">ERP Industrial</div>
             </div>
           </div>
@@ -241,8 +247,18 @@ export default function Sidebar({ collapsed, onToggle, onNavigate }) {
             <Factory size={14} className="text-white" />
           </div>
         )}
-        {!collapsed && (
-          <button onClick={onToggle} className="sidebar-text-muted hover:text-white transition-colors">
+        {mobileDrawer && (
+          <button
+            type="button"
+            onClick={onToggle}
+            className="sidebar-text-muted hover:text-white transition-colors p-1.5 rounded-md hover:bg-white/10 shrink-0"
+            aria-label="Fechar menu"
+          >
+            <X size={18} />
+          </button>
+        )}
+        {!mobileDrawer && !collapsed && (
+          <button type="button" onClick={onToggle} className="sidebar-text-muted hover:text-white transition-colors shrink-0">
             <ChevronDown size={14} className="rotate-180" />
           </button>
         )}

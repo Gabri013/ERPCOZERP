@@ -191,7 +191,7 @@ export default function WorkflowBuilder() {
 
       {/* === Modal Workflow === */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{selectedWorkflow ? 'Editar' : 'Novo'} Workflow</DialogTitle>
           </DialogHeader>
@@ -209,7 +209,7 @@ export default function WorkflowBuilder() {
                 ))}
               </select>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>Código</Label>
                 <Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
@@ -223,7 +223,7 @@ export default function WorkflowBuilder() {
               <Label>Descrição</Label>
               <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
             </div>
-            <div className="flex items-center gap-6">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
               <div className="flex items-center gap-2">
                 <Switch checked={form.is_active} onCheckedChange={(c) => setForm({ ...form, is_active: c })} />
                 <Label>Ativo</Label>

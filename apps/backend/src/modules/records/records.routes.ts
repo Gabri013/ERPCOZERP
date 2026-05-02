@@ -102,6 +102,11 @@ recordsRouter.post('/', async (req, res) => {
     record: { id: created.id, data: created.data },
   });
 
+  if (parsed.data.entity === 'produto') {
+    const { onProdutoRecordCreated } = await import('../products/products.service.js');
+    void onProdutoRecordCreated(created.id, userId);
+  }
+
   res.status(201).json({ success: true, data: { id: created.id, data: created.data } });
 });
 

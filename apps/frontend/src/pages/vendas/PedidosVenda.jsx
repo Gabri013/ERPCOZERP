@@ -8,6 +8,9 @@ import DetalheModal from '@/components/common/DetalheModal';
 import { Plus, Download, Printer, AlertTriangle } from 'lucide-react';
 import { pedidosVendaServiceApi } from '@/services/pedidosVendaServiceApi';
 import { exportPdfReport } from '@/services/pdfExport';
+import { CONFIG } from '@/services/businessLogicApi';
+import { cozincaApi } from '@/services/cozincaApi';
+import { toast } from 'sonner';
 
 const fmtR = v => `R$ ${Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
 const fmtD = v => v ? new Date(v+'T00:00').toLocaleDateString('pt-BR') : '—';
@@ -92,8 +95,8 @@ export default function PedidosVenda() {
   const resumo = useMemo(() => ({
     total: data.length,
     orcamento: data.filter(p=>p.status==='Orçamento').length,
-    aprovado: data.filter(p=>p.status==='Aprovado').length,
-    emProducao: data.filter(p=>p.status==='Em Produção').length,
+    aprovado: data.filter(p=>p.status==='Aprovado' || p.status==='Em aprovação').length,
+    emProducao: data.filter(p=>p.status==='Em Produção' || p.status==='Produção').length,
     faturado: data.filter(p=>p.status==='Faturado').length,
     entregue: data.filter(p=>p.status==='Entregue').length,
   }), [data]);
@@ -102,14 +105,14 @@ export default function PedidosVenda() {
     <div>
       <PageHeader title="Pedidos de Venda" breadcrumbs={['Início','Vendas','Pedidos de Venda']}
         actions={
-          <div className="flex items-center gap-2">
-            <button onClick={()=>window.print()} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded hover:bg-muted"><Printer size={13}/> Imprimir</button>
-            <button onClick={handleExportar} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded hover:bg-muted"><Download size={13}/> Exportar</button>
-            <button onClick={()=>setShowModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90"><Plus size={13}/> Novo Pedido</button>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+            <button type="button" onClick={()=>window.print()} className="flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 text-xs border border-border rounded hover:bg-muted"><Printer size={13}/> Imprimir</button>
+            <button type="button" onClick={handleExportar} className="flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 text-xs border border-border rounded hover:bg-muted"><Download size={13}/> Exportar</button>
+            <button type="button" onClick={()=>setShowModal(true)} className="flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90"><Plus size={13}/> Novo Pedido</button>
           </div>
         }
       />
-      <div className="grid grid-cols-3 lg:grid-cols-6 gap-2 mb-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-3">
         {[
           {label:'Total',val:resumo.total,color:'text-foreground'},
           {label:'Orçamento',val:resumo.orcamento,color:'text-muted-foreground'},
@@ -126,8 +129,8 @@ export default function PedidosVenda() {
       </div>
       <div className="bg-white border border-border rounded-lg overflow-hidden">
         <FilterBar search={search} onSearch={setSearch}
-          filters={[
-            {key:'status',label:'Status',options:['Orçamento','Aprovado','Em Produção','Faturado','Entregue','Cancelado'].map(s=>({value:s,label:s}))},
+            filters={[
+            {key:'status',label:'Status',options:['Orçamento','Aguardando Aprovação','Em aprovação','Aprovado','Produção','Em Produção','Faturado','Entregue','Cancelado'].map(s=>({value:s,label:s}))},
             {key:'vendedor',label:'Vendedor',options:vendedores.map(v=>({value:v,label:v}))},
           ]}
           activeFilters={filters} onFilterChange={(k,v)=>setFilters(f=>({...f,[k]:v}))} onClear={()=>{setSearch('');setFilters({});}}
@@ -158,7 +161,7 @@ export default function PedidosVenda() {
             sections: detalhe.observacoes ? [{ title: 'Observações', fields: [{ label: 'Observação', value: detalhe.observacoes }] }] : [],
             preview: true,
           })}>
-          <div className="grid grid-cols-2 gap-6 text-xs">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 text-xs">
             <div className="space-y-2">
               {[['Número',detalhe.numero],['Cliente',detalhe.cliente_nome],['Vendedor',detalhe.vendedor],['Forma Pagamento',detalhe.forma_pagamento||'—']].map(([k,v])=>(
                 <div key={k} className="flex justify-between border-b border-border pb-1"><span className="text-muted-foreground">{k}</span><span className="font-medium">{v}</span></div>
@@ -176,8 +179,39 @@ export default function PedidosVenda() {
               <AlertTriangle size={12}/> Valor acima de {fmtR(CONFIG.LIMITE_APROVACAO)} — requer aprovação gerencial
             </div>
           )}
-          <div className="mt-3 flex justify-end gap-2">
-            <button onClick={()=>{setEditando(detalhe);setDetalhe(null);}} className="px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90">Editar</button>
+          <div className="mt-3 flex flex-col sm:flex-row flex-wrap justify-end gap-2">
+            <button type="button" onClick={async () => {
+              try {
+                await cozincaApi.reservarEstoquePedido(detalhe.id);
+                toast.success('Estoque reservado (movimentações geradas).');
+                await reload();
+                setDetalhe(null);
+              } catch (e) { toast.error(e?.message || 'Falha na reserva.'); }
+            }} className="px-3 py-1.5 text-xs border border-border rounded hover:bg-muted">Reservar estoque</button>
+            <button type="button" onClick={async () => {
+              try {
+                const ops = await cozincaApi.gerarOpPedido(detalhe.id);
+                toast.success(`OPs geradas: ${(ops||[]).map(o=>o.numero).filter(Boolean).join(', ') || 'ok'}`);
+                await reload();
+                setDetalhe(null);
+              } catch (e) { toast.error(e?.message || 'Falha ao gerar OP.'); }
+            }} className="px-3 py-1.5 text-xs border border-border rounded hover:bg-muted">Gerar OP</button>
+            <button type="button" onClick={async () => {
+              try {
+                await cozincaApi.gerarContasReceberPedido(detalhe.id);
+                toast.success('Contas a receber geradas.');
+                await reload();
+              } catch (e) { toast.error(e?.message || 'Falha financeiro.'); }
+            }} className="px-3 py-1.5 text-xs border border-border rounded hover:bg-muted">Gerar contas a receber</button>
+            <button type="button" onClick={async () => {
+              try {
+                await cozincaApi.fluxoPedidoVenda(detalhe.id);
+                toast.success('Fluxo integrado executado (reserva + OP + financeiro).');
+                await reload();
+                setDetalhe(null);
+              } catch (e) { toast.error(e?.message || 'Falha no fluxo.'); }
+            }} className="px-3 py-1.5 text-xs bg-slate-800 text-white rounded hover:opacity-90">Fluxo completo</button>
+            <button type="button" onClick={()=>{setEditando(detalhe);setDetalhe(null);}} className="px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90">Editar</button>
           </div>
         </DetalheModal>
       )}

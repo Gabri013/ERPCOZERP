@@ -261,7 +261,7 @@ export default function DynamicFormModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-auto">
+      <DialogContent className="w-[95vw] sm:max-w-lg md:max-w-xl lg:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {record ? 'Editar' : 'Novo'} {entity.name}
@@ -273,17 +273,19 @@ export default function DynamicFormModal({
 
         <FormProvider {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {entity.fields
-              ?.filter((field) => !field.readonly || record)
-              .map((field) => (
-                <DynamicField
-                  key={field.id}
-                  fieldConfig={field}
-                  disabled={field.readonly && !record}
-                />
-              ))}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 [&_input]:w-full [&_select]:w-full [&_textarea]:w-full">
+              {entity.fields
+                ?.filter((field) => !field.readonly || record)
+                .map((field) => (
+                  <DynamicField
+                    key={field.id}
+                    fieldConfig={field}
+                    disabled={field.readonly && !record}
+                  />
+                ))}
+            </div>
 
-            <DialogFooter>
+            <DialogFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancelar
               </Button>

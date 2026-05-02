@@ -21,6 +21,7 @@ export const GRANULAR_ENTITY_CODES = [
   'fiscal_nfe',
   'crm_lead',
   'crm_oportunidade',
+  'crm_atividade',
   'cotacao_compra',
   'historico_op',
   'workflow',
@@ -130,6 +131,12 @@ const LEGACY: Partial<Record<string, Partial<Record<EntityVerb, readonly string[
     delete: ['criar_orcamentos'],
   },
   crm_oportunidade: {
+    view: ['ver_crm'],
+    create: ['ver_crm', 'record.manage'],
+    edit: ['ver_crm', 'record.manage'],
+    delete: ['ver_crm', 'record.manage'],
+  },
+  crm_atividade: {
     view: ['ver_crm'],
     create: ['ver_crm', 'record.manage'],
     edit: ['ver_crm', 'record.manage'],

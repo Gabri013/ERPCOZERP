@@ -60,6 +60,9 @@ import RelatorioFinanceiro from '@/pages/financeiro/RelatorioFinanceiro'
 import AprovacaoPedidos from '@/pages/financeiro/AprovacaoPedidos'
 import Relatorios from '@/pages/Relatorios'
 import Ajuda from '@/pages/Ajuda'
+import Engenharia from '@/pages/engenharia/Engenharia'
+import PendentesBom from '@/pages/engenharia/PendentesBom'
+import ProdutoDetalhe from '@/pages/estoque/ProdutoDetalhe'
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -111,6 +114,15 @@ const AuthenticatedApp = () => {
         <Route path="/producao/kanban" element={<PermissaoRoute acao="ver_kanban"><KanbanProducao /></PermissaoRoute>} />
         <Route path="/producao/chao-fabrica" element={<PermissaoRoute acao="ver_chao_fabrica"><ChaoDeFabrica /></PermissaoRoute>} />
         <Route path="/producao/roteiros" element={<PermissaoRoute acao="ver_roteiros"><Roteiros /></PermissaoRoute>} />
+        <Route
+          path="/engenharia"
+          element={(
+            <PermissaoRoute anyOf={['ver_roteiros', 'editar_produtos', 'ver_estoque']}>
+              <Engenharia />
+            </PermissaoRoute>
+          )}
+        />
+        <Route path="/engenharia/pendentes-bom" element={<PermissaoRoute acao="ver_roteiros"><PendentesBom /></PermissaoRoute>} />
         <Route path="/producao/maquinas" element={<PermissaoRoute acao="ver_maquinas"><Maquinas /></PermissaoRoute>} />
         <Route path="/producao/ordens/:id" element={<PermissaoRoute acao="ver_op"><DetalheOP /></PermissaoRoute>} />
         <Route path="/producao/apontamento/:opId?" element={<PermissaoRoute acao="apontar"><Apontamento /></PermissaoRoute>} />

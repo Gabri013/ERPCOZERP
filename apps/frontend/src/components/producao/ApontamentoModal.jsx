@@ -1,14 +1,17 @@
-﻿import { useState } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { X, Play } from 'lucide-react';
+import { useAuth } from '@/lib/AuthContext';
 
 const ETAPAS = ['Programação','Engenharia','Corte a Laser','Retirada','Rebarbação','Dobra','Solda','Montagem','Acabamento','Qualidade','Embalagem','Expedição'];
-const OPERADORES = ['José Pereira','Marcos Lima','Carlos Silva','Ana Souza','Roberto F.'];
+const OPERADORES_FALLBACK = ['José Pereira','Marcos Lima','Carlos Silva','Ana Souza','Roberto F.'];
 const SETORES = ['Laser','Rebarbação','Dobra','Solda','Montagem','Acabamento','Qualidade','Expedição'];
 
 const inp = 'w-full border border-border rounded px-2.5 py-1.5 text-xs bg-white outline-none focus:border-primary';
 const lbl = 'block text-[11px] text-muted-foreground mb-0.5';
 
 export default function ApontamentoModal({ op, onClose, onSave, defaultSetor = '', setores = null }) {
+  const { user } = useAuth();
+  const operadorLogado = user?.full_name || user?.email || '';
   const setoresLista = Array.isArray(setores) && setores.length ? setores : SETORES;
   const setorInicial = defaultSetor && setoresLista.includes(defaultSetor) ? defaultSetor : setoresLista[0];
   const etapaInicialPorSetor = {
@@ -27,7 +30,7 @@ export default function ApontamentoModal({ op, onClose, onSave, defaultSetor = '
     : ETAPAS[0];
   const [form, setForm] = useState({
     etapa: etapaInicial,
-    operador: OPERADORES[0],
+    operador: operadorLogado || OPERADORES_FALLBACK[0],
     setor: setorInicial,
     quantidade: '',
     refugo: 0,
@@ -35,6 +38,12 @@ export default function ApontamentoModal({ op, onClose, onSave, defaultSetor = '
   });
   const [saving, setSaving] = useState(false);
   const upd = (k, v) => setForm(f => ({ ...f, [k]: v ?? '' }));
+
+  useEffect(() => {
+    if (operadorLogado) {
+      setForm((f) => ({ ...f, operador: f.operador || operadorLogado }));
+    }
+  }, [operadorLogado]);
 
   const handleIniciar = async () => {
     setSaving(true);
@@ -70,7 +79,9 @@ export default function ApontamentoModal({ op, onClose, onSave, defaultSetor = '
             <div>
               <label className={lbl}>Operador</label>
               <select className={inp} value={form.operador} onChange={e=>upd('operador',e.target.value)}>
-                {OPERADORES.map(o=><option key={o}>{o}</option>)}
+                {[operadorLogado, ...OPERADORES_FALLBACK].filter((o, i, a) => o && a.indexOf(o) === i).map((o) => (
+                  <option key={o} value={o}>{o}</option>
+                ))}
               </select>
             </div>
             <div>

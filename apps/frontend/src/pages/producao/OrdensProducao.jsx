@@ -19,14 +19,14 @@ const columns = [
   { key: 'clienteNome', label: 'Cliente', width: 180 },
   { key: 'produtoDescricao', label: 'Produto' },
   { key: 'quantidade', label: 'Qtd', width: 60 },
-  { key: 'unidade', label: 'UN', width: 50 },
-  { key: 'dataEmissao', label: 'Abertura', width: 90, render: v => v ? new Date(v).toLocaleDateString('pt-BR') : '—' },
+  { key: 'unidade', label: 'UN', width: 50, mobileHidden: true },
+  { key: 'dataEmissao', label: 'Abertura', width: 90, render: v => v ? new Date(v).toLocaleDateString('pt-BR') : '—', mobileHidden: true },
   { key: 'prazo', label: 'Prazo', width: 90, render: (v, row) => {
     const atrasada = v && new Date(v) < new Date() && row.status !== 'concluida';
     return <span className={atrasada ? 'text-red-600 font-medium' : ''}>{v ? new Date(v).toLocaleDateString('pt-BR') : '—'}</span>;
   }},
-  { key: 'responsavel', label: 'Responsável', width: 100 },
-  { key: 'prioridade', label: 'Prioridade', width: 90, render: v => <StatusBadge status={v} />, sortable: false },
+  { key: 'responsavel', label: 'Responsável', width: 100, mobileHidden: true },
+  { key: 'prioridade', label: 'Prioridade', width: 90, render: v => <StatusBadge status={v} />, sortable: false, mobileHidden: true },
   { key: 'status', label: 'Status', width: 120, render: v => <StatusBadge status={STATUS_LABEL[v] || v} />, sortable: false },
 ];
 
@@ -78,8 +78,8 @@ export default function OrdensProducao() {
         title="Ordens de Produção"
         breadcrumbs={['Início', 'Produção', 'Ordens de Produção']}
         actions={
-          <div className="flex gap-2">
-            <Link to="/producao/kanban" className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded hover:bg-muted">
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <Link to="/producao/kanban" className="flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 text-xs border border-border rounded hover:bg-muted">
               <Kanban size={13} /> Kanban
             </Link>
             <button
@@ -103,18 +103,18 @@ export default function OrdensProducao() {
                   ]),
                 },
               })}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded hover:bg-muted"
+              className="flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 text-xs border border-border rounded hover:bg-muted"
             >
               <Download size={13} /> Exportar PDF
             </button>
-            <button onClick={() => setShowModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90">
+            <button type="button" onClick={() => setShowModal(true)} className="flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90">
               <Plus size={13} /> Nova OP
             </button>
           </div>
         }
       />
       <FluxoProducao />
-      <div className="grid grid-cols-4 gap-2 mb-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
         {[
           { label: 'Total', val: counts.total, color: 'text-foreground' },
           { label: 'Abertas', val: counts.abertas, color: 'text-blue-600' },

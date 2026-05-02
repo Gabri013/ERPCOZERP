@@ -8,6 +8,8 @@ import DetalheModal from '@/components/common/DetalheModal';
 import { Plus, Download } from 'lucide-react';
 import { exportPdfReport } from '@/services/pdfExport';
 import { orcamentosServiceApi } from '@/services/orcamentosServiceApi';
+import { cozincaApi } from '@/services/cozincaApi';
+import { toast } from 'sonner';
 
 const fmtR = v => `R$ ${Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
 const fmtD = v => v ? new Date(v+'T00:00').toLocaleDateString('pt-BR') : '—';
@@ -50,6 +52,18 @@ export default function Orcamentos() {
     await orcamentosServiceApi.update(row.id, { ...row, status: 'Aprovado' });
     await load();
     setDetalhe(null);
+  };
+
+  const gerarPedido = async (row) => {
+    if (!row?.id) return;
+    try {
+      const pedido = await cozincaApi.gerarPedidoDeOrcamento(row.id);
+      toast.success(`Pedido ${pedido?.numero || ''} gerado e CRM atualizado quando aplicável.`);
+      await load();
+      setDetalhe(null);
+    } catch (e) {
+      toast.error(e?.message || 'Falha ao gerar pedido.');
+    }
   };
 
   const filtered = useMemo(() => {
@@ -129,9 +143,10 @@ export default function Orcamentos() {
               <div key={k} className="flex justify-between border-b border-border pb-1"><span className="text-muted-foreground">{k}</span><span className="font-medium">{v}</span></div>
             ))}
           </div>
-          <div className="mt-3 flex justify-end gap-2">
-            {detalhe.status === 'Orçamento' && <button onClick={()=>aprovar(detalhe)} className="px-3 py-1.5 text-xs bg-green-600 text-white rounded hover:opacity-90">✓ Aprovar</button>}
-            <button onClick={()=>{setEditando(detalhe);setDetalhe(null);}} className="px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90">Editar</button>
+          <div className="mt-3 flex flex-wrap justify-end gap-2">
+            {detalhe.status === 'Orçamento' && <button type="button" onClick={()=>aprovar(detalhe)} className="px-3 py-1.5 text-xs bg-green-600 text-white rounded hover:opacity-90">✓ Aprovar</button>}
+            <button type="button" onClick={()=>gerarPedido(detalhe)} className="px-3 py-1.5 text-xs border border-border rounded hover:bg-muted">Gerar pedido de venda</button>
+            <button type="button" onClick={()=>{setEditando(detalhe);setDetalhe(null);}} className="px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90">Editar</button>
           </div>
         </DetalheModal>
       )}

@@ -78,13 +78,13 @@ export default function Clientes() {
 
   const columns = [
     { key:'codigo', label:'Código', width:80 },
-    { key:'razao_social', label:'Razão Social', render:(v,row)=><button className="text-primary hover:underline text-left font-medium" onClick={e=>{e.stopPropagation();setDetalhe(row)}}>{v}</button> },
-    { key:'nome_fantasia', label:'Fantasia', width:130 },
+    { key:'razao_social', label:'Razão Social', render:(v,row)=><button type="button" className="text-primary hover:underline text-left font-medium" onClick={e=>{e.stopPropagation();setDetalhe(row)}}>{v}</button> },
+    { key:'nome_fantasia', label:'Fantasia', width:130, mobileHidden: true },
     { key:'cnpj_cpf', label:'CNPJ/CPF', width:150 },
-    { key:'cidade', label:'Cidade', width:110 },
-    { key:'estado', label:'UF', width:50 },
+    { key:'cidade', label:'Cidade', width:110, mobileHidden: true },
+    { key:'estado', label:'UF', width:50, mobileHidden: true },
     { key:'telefone', label:'Telefone', width:120 },
-    { key:'limite_credito', label:'Limite Crédito', width:120, render:fmtR },
+    { key:'limite_credito', label:'Limite Crédito', width:120, render:fmtR, mobileHidden: true },
     { key:'status', label:'Status', width:80, render:v=><StatusBadge status={v}/>, sortable:false },
   ];
 
@@ -92,9 +92,9 @@ export default function Clientes() {
     <div>
       <PageHeader title="Clientes" breadcrumbs={['Início','Vendas','Clientes']}
         actions={
-          <div className="flex gap-2">
-            <button onClick={handleExportar} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded hover:bg-muted"><Download size={13}/> Exportar PDF</button>
-            <button onClick={()=>setShowModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90"><Plus size={13}/> Novo Cliente</button>
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <button type="button" onClick={handleExportar} className="flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 text-xs border border-border rounded hover:bg-muted"><Download size={13}/> Exportar PDF</button>
+            <button type="button" onClick={()=>setShowModal(true)} className="flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90"><Plus size={13}/> Novo Cliente</button>
           </div>
         }
       />
@@ -114,12 +114,12 @@ export default function Clientes() {
 
       {detalhe && (
         <DetalheModal title={detalhe.razao_social} subtitle={`Código: ${detalhe.codigo}`} onClose={()=>setDetalhe(null)}>
-          <div className="grid grid-cols-2 gap-4 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
             {[['Razão Social',detalhe.razao_social],['Nome Fantasia',detalhe.nome_fantasia],['CNPJ/CPF',detalhe.cnpj_cpf],['Status',detalhe.status],['Cidade/UF',`${detalhe.cidade||'—'}/${detalhe.estado||'—'}`],['Telefone',detalhe.telefone],['E-mail',detalhe.email||'—'],['Contato',detalhe.contato||'—'],['Limite Crédito',fmtR(detalhe.limite_credito)]].map(([k,v])=>(
               <div key={k} className="flex justify-between border-b border-border pb-1"><span className="text-muted-foreground">{k}</span><span className="font-medium">{v}</span></div>
             ))}
           </div>
-          <div className="mt-3 flex justify-end gap-2">
+          <div className="mt-3 flex flex-col sm:flex-row justify-end gap-2">
             <button
               onClick={async () => {
                 if (!confirm('Excluir este cliente?')) return;

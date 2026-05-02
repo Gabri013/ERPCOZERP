@@ -19,6 +19,7 @@ const GRANULAR_ENTITY_CODES = [
   'fiscal_nfe',
   'crm_lead',
   'crm_oportunidade',
+  'crm_atividade',
   'cotacao_compra',
   'historico_op',
   'workflow',
@@ -50,6 +51,8 @@ async function main() {
     { code: 'solda', name: 'Solda', description: 'Operação de solda' },
     { code: 'expedicao', name: 'Expedição', description: 'Expedição e logística' },
     { code: 'qualidade', name: 'Qualidade', description: 'Qualidade e inspeção' },
+    { code: 'financeiro', name: 'Financeiro', description: 'Contas e tesouraria' },
+    { code: 'rh', name: 'RH', description: 'Recursos humanos' },
     { code: 'user', name: 'Usuário', description: 'Usuário operacional (genérico)' },
   ];
 
@@ -157,6 +160,7 @@ async function main() {
     'tabela_preco',
     'crm_lead',
     'crm_oportunidade',
+    'crm_atividade',
   ].flatMap((e) => [`${e}.view`, `${e}.create`, `${e}.edit`, `${e}.delete`]);
 
   const producaoGranularCodes = ['ordem_producao', 'apontamento_producao', 'historico_op', 'produto', 'movimentacao_estoque'].flatMap((e) =>
@@ -189,19 +193,29 @@ async function main() {
       ...allGranularCodes,
     ],
     gerente_producao: [
-      'record.manage','entity.manage','ver_op','criar_op','editar_op','apontar','ver_kanban','ver_pcp','ver_roteiros','ver_maquinas','ver_chao_fabrica','ver_estoque','ver_relatorios','relatorios:view',
+      'record.manage','entity.manage','ver_op','criar_op','editar_op','apontar','ver_kanban','ver_pcp','ver_roteiros','ver_maquinas','ver_chao_fabrica','ver_estoque','ver_compras','ver_relatorios','relatorios:view',
       ...producaoGranularCodes,
     ],
     orcamentista_vendas: [
       'record.manage','entity.manage','ver_pedidos','criar_pedidos','editar_pedidos','ver_clientes','editar_clientes','ver_orcamentos','criar_orcamentos','ver_relatorios','relatorios:view','ver_crm',
       ...vendasGranularCodes,
     ],
-    projetista: ['record.manage','entity.manage','ver_op','ver_pcp','ver_roteiros','ver_relatorios','relatorios:view'],
+    projetista: ['record.manage','entity.manage','ver_op','ver_pcp','ver_roteiros','ver_estoque','editar_produtos','ver_relatorios','relatorios:view', ...producaoGranularCodes.filter((c) => c.startsWith('produto.'))],
     // Operadores (chão): sem acesso ao "no-code" (record.manage/entity.manage)
     corte_laser: ['ver_op', 'apontar', 'ver_chao_fabrica'],
     dobra_montagem: ['ver_op', 'apontar', 'ver_chao_fabrica'],
     solda: ['ver_op', 'apontar', 'ver_chao_fabrica'],
-    expedicao: ['ver_op', 'apontar', 'ver_chao_fabrica'],
+    /** Expedição: foco em pedidos / expedição (QA industrial). */
+    expedicao: ['ver_pedidos', 'ver_relatorios', 'relatorios:view'],
+    financeiro: [
+      'ver_financeiro',
+      'editar_financeiro',
+      'aprovar_financeiro',
+      'ver_relatorio_financeiro',
+      'ver_relatorios',
+      'relatorios:view',
+    ],
+    rh: ['ver_rh', 'editar_funcionarios', 'ver_folha', 'ver_relatorios', 'relatorios:view'],
     qualidade: ['ver_op', 'apontar', 'ver_chao_fabrica', 'ver_relatorios', 'relatorios:view'],
     // Usuário básico (visualização): sem CRUD genérico
     user: ['ver_relatorios', 'relatorios:view'],
@@ -274,6 +288,8 @@ async function main() {
   await ensureDemoUser('solda@cozinha.com', 'Operador Solda', 'solda');
   await ensureDemoUser('qualidade@cozinha.com', 'Qualidade', 'qualidade');
   await ensureDemoUser('expedicao@cozinha.com', 'Expedição', 'expedicao');
+  await ensureDemoUser('financeiro@cozinha.com', 'Financeiro', 'financeiro');
+  await ensureDemoUser('rh@cozinha.com', 'RH Departamento', 'rh');
 
   // Notificações iniciais (somente se não existir nenhuma ainda)
   const notifCount = await prisma.userNotification.count({ where: { userId: master.id } });
@@ -384,6 +400,11 @@ async function main() {
         { id: 'produto.estoque_atual', code: 'estoque_atual', label: 'Estoque Atual', data_type: 'number' },
         { id: 'produto.estoque_minimo', code: 'estoque_minimo', label: 'Estoque Mínimo', data_type: 'number' },
         { id: 'produto.status', code: 'status', label: 'Status', data_type: 'select', data_type_params: { options: ['Ativo', 'Inativo'] } },
+        { id: 'produto.bom_json', code: 'bom_json', label: 'BOM (JSON)', data_type: 'json' },
+        { id: 'produto.roteiro_json', code: 'roteiro_json', label: 'Roteiro (JSON)', data_type: 'json' },
+        { id: 'produto.ficha_tecnica_json', code: 'ficha_tecnica_json', label: 'Ficha técnica (JSON)', data_type: 'json' },
+        { id: 'produto.custo_mao_obra', code: 'custo_mao_obra', label: 'Custo mão de obra (R$)', data_type: 'currency' },
+        { id: 'produto.bom_status', code: 'bom_status', label: 'Status BOM (engenharia)', data_type: 'text', readonly: true },
       ],
     },
     movimentacao_estoque: {
@@ -408,7 +429,7 @@ async function main() {
         { id: 'pv.data_entrega', code: 'data_entrega', label: 'Data Entrega', data_type: 'date' },
         { id: 'pv.vendedor', code: 'vendedor', label: 'Vendedor', data_type: 'text' },
         { id: 'pv.valor_total', code: 'valor_total', label: 'Valor Total', data_type: 'currency' },
-        { id: 'pv.status', code: 'status', label: 'Status', data_type: 'select', data_type_params: { options: ['Orçamento', 'Aguardando Aprovação', 'Aprovado', 'Cancelado'] } },
+        { id: 'pv.status', code: 'status', label: 'Status', data_type: 'select', data_type_params: { options: ['Orçamento', 'Aguardando Aprovação', 'Em aprovação', 'Aprovado', 'Produção', 'Expedição', 'Entregue', 'Faturado', 'Cancelado'] } },
         { id: 'pv.forma_pagamento', code: 'forma_pagamento', label: 'Forma Pagamento', data_type: 'text' },
         { id: 'pv.observacoes', code: 'observacoes', label: 'Observações', data_type: 'textarea' },
       ],
@@ -476,6 +497,15 @@ async function main() {
         { id: 'op.responsavel', code: 'responsavel', label: 'Responsável', data_type: 'text' },
         { id: 'op.observacao', code: 'observacao', label: 'Observação', data_type: 'textarea' },
         { id: 'op.informacaoComplementar', code: 'informacaoComplementar', label: 'Informação complementar', data_type: 'textarea' },
+        {
+          id: 'op.etapaKanban',
+          code: 'etapaKanban',
+          label: 'Etapa Kanban',
+          data_type: 'select',
+          data_type_params: {
+            options: ['a_fazer', 'corte', 'dobra', 'solda', 'acabamento', 'qc', 'concluido'],
+          },
+        },
       ],
     },
     conta_receber: {
@@ -566,11 +596,37 @@ async function main() {
           code: 'estagio',
           label: 'Estágio',
           data_type: 'select',
-          data_type_params: { options: ['Prospecção', 'Qualificação', 'Proposta', 'Negociação', 'Fechamento', 'Ganho', 'Perdido'] },
+          data_type_params: { options: ['Lead', 'Qualificação', 'Proposta', 'Negociação', 'Fechado', 'Ganho', 'Perdido'] },
         },
         { id: 'op2.probabilidade', code: 'probabilidade', label: 'Probabilidade (%)', data_type: 'number' },
         { id: 'op2.fechamento', code: 'fechamento', label: 'Data prev. fechamento', data_type: 'date' },
         { id: 'op2.responsavel', code: 'responsavel', label: 'Responsável', data_type: 'text' },
+        { id: 'op2.orcamento_id', code: 'orcamento_id', label: 'Orçamento (ID)', data_type: 'text' },
+        { id: 'op2.pedido_id', code: 'pedido_id', label: 'Pedido (ID)', data_type: 'text' },
+      ],
+    },
+    crm_atividade: {
+      fields: [
+        { id: 'ca.titulo', code: 'titulo', label: 'Título', data_type: 'text', required: true },
+        {
+          id: 'ca.tipo',
+          code: 'tipo',
+          label: 'Tipo',
+          data_type: 'select',
+          required: true,
+          data_type_params: { options: ['Tarefa', 'Ligação', 'E-mail', 'Visita', 'Outro'] },
+        },
+        { id: 'ca.data', code: 'data', label: 'Data/Hora', data_type: 'text' },
+        { id: 'ca.responsavel', code: 'responsavel', label: 'Responsável', data_type: 'text' },
+        { id: 'ca.relacionamento', code: 'relacionamento', label: 'Lead/Oportunidade', data_type: 'text' },
+        { id: 'ca.observacao', code: 'observacao', label: 'Observação', data_type: 'textarea' },
+        {
+          id: 'ca.status',
+          code: 'status',
+          label: 'Status',
+          data_type: 'select',
+          data_type_params: { options: ['Pendente', 'Concluída', 'Cancelada'] },
+        },
       ],
     },
     cotacao_compra: {
@@ -783,7 +839,21 @@ async function main() {
   ]);
 
   await seedEntityRecordsIfEmpty('produto', 'Produtos', [
-    { codigo: 'EIX-025', descricao: 'Eixo Transmissão 25mm', unidade: 'UN', tipo: 'Produto', preco_custo: 185.0, preco_venda: 310.0, estoque_atual: 40, estoque_minimo: 20 },
+    {
+      codigo: 'EIX-025',
+      descricao: 'Eixo Transmissão 25mm',
+      unidade: 'UN',
+      tipo: 'Produto',
+      preco_custo: 185.0,
+      preco_venda: 310.0,
+      estoque_atual: 40,
+      estoque_minimo: 20,
+      custo_mao_obra: 42.0,
+      bom_json: [
+        { codigo: 'CHA-003', qtd: 0.02, perda_pct: 8 },
+        { codigo: 'ROL-6205', qtd: 2, perda_pct: 0 },
+      ],
+    },
     { codigo: 'ROL-6205', descricao: 'Rolamento 6205-ZZ', unidade: 'UN', tipo: 'Produto', preco_custo: 8.2, preco_venda: 18.9, estoque_atual: 12, estoque_minimo: 30 },
     { codigo: 'CHA-003', descricao: 'Chapa Aço 3mm', unidade: 'PC', tipo: 'Insumo', preco_custo: 320.0, preco_venda: 0, estoque_atual: 20, estoque_minimo: 10 },
   ]);
@@ -801,7 +871,7 @@ async function main() {
 
   await seedEntityRecordsIfEmpty('pedido_venda', 'Pedidos de Venda', [
     { numero: 'PV-00542', cliente_nome: 'Metalúrgica ABC Ltda', data_emissao: '2026-04-18', data_entrega: '2026-04-30', vendedor: 'Carlos Silva', valor_total: 45200, status: 'Orçamento', forma_pagamento: 'Boleto 30 dias', itens: [], observacoes: '' },
-    { numero: 'PV-00541', cliente_nome: 'TechParts Ltda', data_emissao: '2026-04-17', data_entrega: '2026-04-28', vendedor: 'Ana Paula', valor_total: 12800, status: 'Aprovado', forma_pagamento: 'À Vista', itens: [], observacoes: '' },
+    { numero: 'PV-00541', cliente_nome: 'TechParts Ltda', data_emissao: '2026-04-17', data_entrega: '2026-04-28', vendedor: 'Ana Paula', valor_total: 12800, status: 'Aprovado', forma_pagamento: 'À Vista', itens: [{ codigo: 'EIX-025', quantidade: 8 }], observacoes: '' },
   ]);
 
   await seedEntityRecordsIfEmpty('orcamento', 'Orçamentos', [
@@ -830,8 +900,13 @@ async function main() {
   ]);
 
   await seedEntityRecordsIfEmpty('crm_oportunidade', 'CRM Oportunidades', [
-    { titulo:'Fornecimento anual rolamentos', empresa:'Metalúrgica ABC', contato:'Márcio Lima', valor:180000, estagio:'Proposta', probabilidade:70, fechamento:'2026-05-30', responsavel:'Carlos Silva' },
-    { titulo:'Projeto eixos transmissão lote', empresa:'SiderTech S/A', contato:'Ana Ramos', valor:95000, estagio:'Negociação', probabilidade:85, fechamento:'2026-04-30', responsavel:'Rafael Costa' },
+    { titulo:'Fornecimento anual rolamentos', empresa:'Metalúrgica ABC', contato:'Márcio Lima', valor:180000, estagio:'Proposta', probabilidade:70, fechamento:'2026-05-30', responsavel:'Carlos Silva', orcamento_id: '' },
+    { titulo:'Projeto eixos transmissão lote', empresa:'SiderTech S/A', contato:'Ana Ramos', valor:95000, estagio:'Negociação', probabilidade:85, fechamento:'2026-04-30', responsavel:'Rafael Costa', orcamento_id: '' },
+  ]);
+
+  await seedEntityRecordsIfEmpty('crm_atividade', 'CRM Atividades', [
+    { titulo: 'Retornar lead Metal ABC', tipo: 'Ligação', data: '2026-05-02T10:00:00Z', responsavel: 'Carlos Silva', relacionamento: 'Lead Fabricio', observacao: '', status: 'Pendente' },
+    { titulo: 'Enviar proposta revisada', tipo: 'E-mail', data: '2026-05-03T14:00:00Z', responsavel: 'Ana Paula', relacionamento: 'Opp. SiderTech', observacao: '', status: 'Pendente' },
   ]);
 
   await seedEntityRecordsIfEmpty('cotacao_compra', 'Cotações de Compra', [
@@ -904,7 +979,7 @@ async function main() {
   ]);
 
   await seedEntityRecordsIfEmpty('ordem_producao', 'Ordens de Produção', [
-    { numero:'OP-00542', pedidoId: 10, clienteId: 5, clienteNome: 'Metalúrgica ABC Ltda', codigoProduto: 'EIX-025', produtoDescricao: 'Eixo Transmissão 25mm', quantidade: 50, unidade: 'UN', dataEmissao: '2026-04-17T00:00:00Z', prazo: '2026-04-25T00:00:00Z', status: 'em_andamento', prioridade: 'Alta', responsavel: 'João M.', observacao: 'Acabamento polido', informacaoComplementar: 'ITEM 01 do PV-00541' },
+    { numero:'OP-00542', pedidoId: 10, clienteId: 5, clienteNome: 'Metalúrgica ABC Ltda', codigoProduto: 'EIX-025', produtoDescricao: 'Eixo Transmissão 25mm', quantidade: 50, unidade: 'UN', dataEmissao: '2026-04-17T00:00:00Z', prazo: '2026-04-25T00:00:00Z', status: 'em_andamento', prioridade: 'Alta', responsavel: 'João M.', observacao: 'Acabamento polido', informacaoComplementar: 'ITEM 01 do PV-00541', etapaKanban: 'dobra' },
     { numero:'OP-00541', pedidoId: 9, clienteId: 3, clienteNome: 'SiderTech S/A', codigoProduto: 'ROL-ESP-01', produtoDescricao: 'Conjunto Rolamento Especial', quantidade: 20, unidade: 'UN', dataEmissao: '2026-04-16T00:00:00Z', prazo: '2026-04-28T00:00:00Z', status: 'aberta', prioridade: 'Normal', responsavel: 'Pedro A.', observacao: '', informacaoComplementar: '' },
     { numero:'OP-00540', pedidoId: 8, clienteId: 2, clienteNome: 'TechParts Ltda', codigoProduto: 'FLA-INOX-3', produtoDescricao: 'Flange Aço Inox 3\"', quantidade: 100, unidade: 'UN', dataEmissao: '2026-04-15T00:00:00Z', prazo: '2026-04-22T00:00:00Z', status: 'em_andamento', prioridade: 'Urgente', responsavel: 'João M.', observacao: 'Urgente - cliente aguardando', informacaoComplementar: '' },
   ]);

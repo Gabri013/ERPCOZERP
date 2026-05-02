@@ -170,9 +170,79 @@ model EntityRecord {
   deletedAt DateTime? @map("deleted_at")
 
   entity Entity @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  industrialMeta ProductIndustrialMeta?
+  bomLines     BillOfMaterialLine[]
 
   @@index([entityId], map: "idx_entity_records_entity")
   @@map("entity_records")
+}
+
+/// Metadados industriais (BOM status, modelo 3D) ligados ao registro de produto (entidade `produto`).
+model ProductIndustrialMeta {
+  entityRecordId String   @id @map("entity_record_id") @db.Uuid
+  entityRecord   EntityRecord @relation(fields: [entityRecordId], references: [id], onDelete: Cascade)
+  bomStatus      String   @default("EMPTY") @map("bom_status")
+  model3dPath    String?  @map("model3d_path")
+  model3dOriginalName String? @map("model3d_original_name")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("product_industrial_meta")
+}
+
+/// Linhas de lista de materiais (produto pai = registro entity `produto`).
+model BillOfMaterialLine {
+  id              String   @id @default(uuid()) @db.Uuid
+  productRecordId String   @map("product_record_id") @db.Uuid
+  productRecord   EntityRecord @relation(fields: [productRecordId], references: [id], onDelete: Cascade)
+  lineOrder       Int      @default(0) @map("line_order")
+  componentCode   String   @map("component_code")
+  description     String?  @db.Text
+  materialSpec    String?  @map("material_spec") @db.Text
+  xMm             Float?   @map("x_mm")
+  yMm             Float?   @map("y_mm")
+  thicknessMm     Float?   @map("thickness_mm")
+  weightKg        Float?   @map("weight_kg")
+  quantity        Float    @default(1)
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([productRecordId], map: "idx_bom_lines_product")
+  @@map("bill_of_material_lines")
+}
+
+/// Matérias-primas / blanks criados automaticamente ou cadastrados (catálogo industrial).
+model RawMaterial {
+  id                   String   @id @default(uuid()) @db.Uuid
+  code                 String   @unique
+  name                 String
+  materialCode         String?  @map("material_code") @db.Text
+  materialType         String?  @map("material_type")
+  unit                 String?  @default("un")
+  dimensionsX          Float?   @map("dimensions_x")
+  dimensionsY          Float?   @map("dimensions_y")
+  thickness            Float?
+  weightKg             Float?   @map("weight_kg")
+  supplierDefault      String   @default("A definir") @map("supplier_default")
+  linkedEntityRecordId String?  @unique @map("linked_entity_record_id") @db.Uuid
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  @@map("raw_materials")
+}
+
+model TechnicalFile {
+  id              String   @id @default(uuid()) @db.Uuid
+  productRecordId String?  @map("product_record_id") @db.Uuid
+  opRecordId      String?  @map("op_record_id") @db.Uuid
+  tipo            String
+  nomeOriginal    String   @map("nome_original")
+  caminhoArquivo  String   @map("caminho_arquivo")
+  uploadedBy      String?  @map("uploaded_by") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([productRecordId], map: "idx_technical_files_product")
+  @@index([opRecordId], map: "idx_technical_files_op")
+  @@map("technical_files")
 }
 
 model DashboardLayout {

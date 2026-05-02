@@ -6,6 +6,7 @@ import StatusBadge from '@/components/common/StatusBadge';
 import ModalProduto from '@/components/estoque/ModalProduto';
 import DetalheModal from '@/components/common/DetalheModal';
 import { Plus, Download, AlertTriangle } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { exportPdfReport } from '@/services/pdfExport';
 import { api } from '@/services/api';
 
@@ -77,18 +78,18 @@ export default function Produtos() {
 
   const columns = [
     { key:'codigo', label:'Código', width:90 },
-    { key:'descricao', label:'Descrição', render:(v,row)=><button className="text-primary hover:underline text-left" onClick={e=>{e.stopPropagation();setDetalhe(row)}}>{v}</button> },
-    { key:'grupo', label:'Grupo', width:100 },
-    { key:'tipo', label:'Tipo', width:100 },
-    { key:'unidade', label:'UN', width:50 },
-    { key:'preco_custo', label:'Custo', width:90, render:fmtR },
+    { key:'descricao', label:'Descrição', render:(v,row)=><button type="button" className="text-primary hover:underline text-left" onClick={e=>{e.stopPropagation();setDetalhe(row)}}>{v}</button> },
+    { key:'grupo', label:'Grupo', width:100, mobileHidden: true },
+    { key:'tipo', label:'Tipo', width:100, mobileHidden: true },
+    { key:'unidade', label:'UN', width:50, mobileHidden: true },
+    { key:'preco_custo', label:'Custo', width:90, render:fmtR, mobileHidden: true },
     { key:'preco_venda', label:'Venda', width:90, render:fmtR },
     { key:'estoque_atual', label:'Estoque', width:80, render:(v,row)=>(
       <span className={Number(v)<Number(row.estoque_minimo)?'text-destructive font-semibold flex items-center gap-1':''}>
         {Number(v)<Number(row.estoque_minimo)&&<AlertTriangle size={11}/>}{v}
       </span>
     )},
-    { key:'estoque_minimo', label:'Mín.', width:60 },
+    { key:'estoque_minimo', label:'Mín.', width:60, mobileHidden: true },
     { key:'status', label:'Status', width:70, render:v=><StatusBadge status={v}/>, sortable:false },
   ];
 
@@ -96,7 +97,7 @@ export default function Produtos() {
     <div>
       <PageHeader title="Produtos" breadcrumbs={['Início','Estoque','Produtos']}
         actions={
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
             <button onClick={()=>exportPdfReport({
               title: 'Produtos',
               subtitle: 'Catálogo de itens, serviços e matérias-primas',
@@ -116,8 +117,8 @@ export default function Produtos() {
                   produto.status,
                 ]),
               },
-            })} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded hover:bg-muted"><Download size={13}/> Exportar PDF</button>
-            <button onClick={()=>setShowModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90"><Plus size={13}/> Novo Produto</button>
+            })} className="flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 text-xs border border-border rounded hover:bg-muted"><Download size={13}/> Exportar PDF</button>
+            <button type="button" onClick={()=>setShowModal(true)} className="flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90"><Plus size={13}/> Novo Produto</button>
           </div>
         }
       />
@@ -170,14 +171,24 @@ export default function Produtos() {
           ],
           preview: true,
         })}>
-          <div className="grid grid-cols-2 gap-3 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
             {[['Código',detalhe.codigo],['Grupo',detalhe.grupo],['Unidade',detalhe.unidade],['Status',detalhe.status],['Custo',fmtR(detalhe.preco_custo)],['Venda',fmtR(detalhe.preco_venda)],['Estoque Atual',detalhe.estoque_atual],['Estoque Mín.',detalhe.estoque_minimo],['Localização',detalhe.localizacao||'—'],['NCM',detalhe.ncm||'—']].map(([k,v])=>(
               <div key={k} className="flex justify-between border-b border-border pb-1"><span className="text-muted-foreground">{k}</span><span className="font-medium">{v}</span></div>
             ))}
           </div>
-          <div className="mt-3 flex justify-end gap-2">
-            <button onClick={()=>handleDelete(detalhe)} className="px-3 py-1.5 text-xs border border-destructive text-destructive rounded hover:bg-destructive/5">Excluir</button>
-            <button onClick={()=>{setEditando(detalhe);setDetalhe(null);}} className="px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90">Editar</button>
+          {detalhe.id && (
+            <div className="mt-3">
+              <Link
+                to={`/estoque/produtos/${detalhe.id}`}
+                className="text-xs font-medium text-primary hover:underline"
+              >
+                Ficha industrial — BOM SolidWorks, DXF/PDF, modelo 3D
+              </Link>
+            </div>
+          )}
+          <div className="mt-3 flex flex-col sm:flex-row justify-end gap-2">
+            <button type="button" onClick={()=>handleDelete(detalhe)} className="px-3 py-2 sm:py-1.5 text-xs border border-destructive text-destructive rounded hover:bg-destructive/5">Excluir</button>
+            <button type="button" onClick={()=>{setEditando(detalhe);setDetalhe(null);}} className="px-3 py-2 sm:py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90">Editar</button>
           </div>
         </DetalheModal>
       )}

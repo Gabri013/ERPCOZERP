@@ -55,6 +55,20 @@ docker compose down
 npm run docker:seed
 ```
 
+### Migração de dados legados (MySQL / MariaDB)
+
+O dump phpMyAdmin do sistema antigo (por exemplo `127_0_0_1.sql` na raiz do repositório) pode ser importado para o PostgreSQL atual. O ERP persiste cadastros em **Entity / EntityRecord** (JSON); usuários legados recebem `users.legacy_id`.
+
+Pré-requisitos: `DATABASE_URL` apontando para o Postgres (por exemplo `.env` na raiz ou `apps/backend/.env`), dependências instaladas em `apps/backend` (`@prisma/client`, `bcryptjs`).
+
+```bash
+# Opcional: caminho do dump (padrão: ./127_0_0_1.sql na raiz)
+set LEGACY_SQL_PATH=127_0_0_1.sql
+npm run migrate:legacy
+```
+
+O relatório é gravado em **`docs/archive/reports/MIGRATION_REPORT.md`** (contagens, notas e tempo). O seed normal de desenvolvimento (`SEED_ENABLED`, `npm run docker:seed`) **não** é executado por este comando; rode o seed antes ou depois conforme o ambiente.
+
 ## Desenvolvimento local (sem Docker da API)
 
 Dois terminais ou um comando:
@@ -80,12 +94,15 @@ Scripts úteis na raiz:
 | `npm run test` | Smoke HTTP (`tests/smoke/test-all-endpoints.cjs`) |
 | `npm run test:e2e` | Playwright (`tests/e2e`) |
 | `npm run docker:up` / `docker:down` / `docker:logs` | Compose |
+| `npm run migrate:legacy` | Importa dump SQL legado (`scripts/migrate-legacy-data.js`) |
 
 ## Credenciais de demonstração
 
 | Papel | E-mail | Senha típica (dev) |
 |-------|--------|---------------------|
 | Master | master@Cozinha.com | `master123_dev` (override: `DEFAULT_MASTER_PASSWORD`) |
+| Financeiro (demo) | financeiro@cozinha.com | `demo123_dev` (seed) |
+| RH (demo) | rh@cozinha.com | `demo123_dev` (seed) |
 
 Perfis demo documentados no seed (`demo123_dev`, etc.) — ver `apps/backend/prisma/seed.ts`.
 

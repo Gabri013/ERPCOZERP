@@ -4,6 +4,9 @@ import { env } from './config/env.js';
 import { logInfo } from './infra/logger.js';
 import { initSocketIOServer } from './realtime/io.js';
 import { scheduleOverdueProductionScan } from './realtime/op-delay-scan.js';
+import { ensureUploadDirs } from './modules/products/products.service.js';
+
+void ensureUploadDirs();
 
 const app = createApp();
 const httpServer = http.createServer(app);

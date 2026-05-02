@@ -214,18 +214,18 @@ function UsuarioModal({ usuario, onClose, onSave, saving }) {
 
   return (
     <FormModal title={usuario ? `Editar — ${usuario.nome}` : 'Novo Usuário'} onClose={onClose} onSave={() => onSave(form)} saving={saving} size="md">
-      <div className="space-y-3">
-        <div><label className={lbl}>Nome {req}</label><input className={inp} value={form.nome} onChange={e => upd('nome', e.target.value)} /></div>
-        <div><label className={lbl}>E-mail {req}</label><input type="email" className={inp} value={form.email} onChange={e => upd('email', e.target.value)} /></div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="sm:col-span-2"><label className={lbl}>Nome {req}</label><input className={inp} value={form.nome} onChange={e => upd('nome', e.target.value)} /></div>
+        <div className="sm:col-span-2"><label className={lbl}>E-mail {req}</label><input type="email" className={inp} value={form.email} onChange={e => upd('email', e.target.value)} /></div>
         {!usuario && (
-          <div><label className={lbl}>Senha {req}</label><input type="password" className={inp} value={form.password || ''} onChange={e => upd('password', e.target.value)} /></div>
+          <div className="sm:col-span-2"><label className={lbl}>Senha {req}</label><input type="password" className={inp} value={form.password || ''} onChange={e => upd('password', e.target.value)} /></div>
         )}
-        <div><label className={lbl}>Perfil</label>
+        <div className="sm:col-span-2"><label className={lbl}>Perfil</label>
           <select className={inp} value={form.perfil} onChange={e => upd('perfil', e.target.value)}>
             {Object.entries(PERFIS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 sm:col-span-2">
           <input type="checkbox" id="ativo" checked={form.ativo} onChange={e => upd('ativo', e.target.checked)} />
           <label htmlFor="ativo" className="text-xs">Usuário ativo</label>
         </div>
@@ -240,8 +240,8 @@ function PermissoesModal({ usuario, onClose, onToggle }) {
   const readOnly = appConfig.isApi;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-4">
+      <div className="bg-white rounded-lg shadow-2xl w-[95vw] sm:max-w-lg md:max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
         <div className="flex items-center justify-between px-5 py-3 border-b border-border">
           <div>
             <h2 className="text-sm font-semibold flex items-center gap-2"><Shield size={14} className="text-primary" /> Permissões — {usuario.nome}</h2>
@@ -252,7 +252,7 @@ function PermissoesModal({ usuario, onClose, onToggle }) {
           {modulosUnicos.map(modulo => (
             <div key={modulo}>
               <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">{modulo}</div>
-              <div className="grid grid-cols-2 gap-1.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                 {TODAS_PERMISSOES.filter(p => p.modulo === modulo).map(perm => {
                   const naBase = perfsBase.includes(perm.key);
                   const isCustom = usuario.permissoesCustom?.includes(perm.key);

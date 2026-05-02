@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import ApontamentoModal from '@/components/producao/ApontamentoModal';
 import { useAuth } from '@/lib/AuthContext';
 import { recordsServiceApi } from '@/services/recordsServiceApi';
+import { cozincaApi } from '@/services/cozincaApi';
 import { toast } from 'sonner';
 
 const ROLE_TO_SETOR = {
@@ -59,11 +60,24 @@ export default function Apontamento() {
 
   async function handleSaveApontamento(data) {
     try {
-      await recordsServiceApi.create('apontamento_producao', { ...data, opId: op?.numero || String(opId) });
+      const qtd = Number(data.quantidade || 0);
+      await cozincaApi.registrarApontamento({
+        opId: op?.id || opId,
+        etapa: data.etapa,
+        setor: data.setor,
+        operador: data.operador,
+        quantidade: qtd,
+        refugo: Number(data.refugo || 0),
+        observacao: data.observacao || '',
+        status: qtd > 0 ? 'Finalizado' : 'Em Andamento',
+        consumir_bom: qtd > 0,
+        finalizar_etapa: true,
+      });
+      toast.success('Apontamento registrado — estoque e OP atualizados quando aplicável.');
       setModalOpen(false);
-      loadData(); // recarrega
+      loadData();
     } catch (err) {
-      alert('Erro ao registrar apontamento: ' + err.message);
+      toast.error(err?.message || 'Erro ao registrar apontamento.');
     }
   }
 

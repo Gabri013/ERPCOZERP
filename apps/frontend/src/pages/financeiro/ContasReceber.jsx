@@ -64,10 +64,10 @@ export default function ContasReceber() {
   const totalPago = data.filter(c=>c.status==='Pago').reduce((s,c)=>s+(c.valor||0),0);
 
   const columns = [
-    { key:'numero', label:'Número', width:90, render:(v,row)=><button className="text-primary hover:underline font-medium" onClick={e=>{e.stopPropagation();setDetalhe(row)}}>{v}</button> },
+    { key:'numero', label:'Número', width:90, render:(v,row)=><button type="button" className="text-primary hover:underline font-medium" onClick={e=>{e.stopPropagation();setDetalhe(row)}}>{v}</button> },
     { key:'descricao', label:'Descrição' },
-    { key:'cliente_fornecedor', label:'Cliente', width:150 },
-    { key:'categoria', label:'Categoria', width:90 },
+    { key:'cliente_fornecedor', label:'Cliente', width:150, mobileHidden: true },
+    { key:'categoria', label:'Categoria', width:90, mobileHidden: true },
     { key:'valor', label:'Valor', width:110, render:fmtR },
     { key:'data_vencimento', label:'Vencimento', width:100, render:fmtD },
     { key:'status', label:'Status', width:80, render:v=><StatusBadge status={v}/>, sortable:false },
@@ -76,9 +76,9 @@ export default function ContasReceber() {
   return (
     <div>
       <PageHeader title="Contas a Receber" breadcrumbs={['Início','Financeiro','Contas a Receber']}
-        actions={<button onClick={()=>setShowModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90"><Plus size={13}/> Novo Lançamento</button>}
+        actions={<button type="button" onClick={()=>setShowModal(true)} className="flex w-full sm:w-auto items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90"><Plus size={13}/> Novo Lançamento</button>}
       />
-      <div className="grid grid-cols-3 gap-3 mb-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
         {[{label:'Em Aberto',val:fmtR(totalAberto),color:'text-blue-600',bg:'bg-blue-50'},{label:'Vencido',val:fmtR(totalVencido),color:'text-destructive',bg:'bg-red-50'},{label:'Recebido (mês)',val:fmtR(totalPago),color:'text-success',bg:'bg-green-50'}].map(s=>(
           <div key={s.label} className={`${s.bg} border border-border rounded px-4 py-3 flex items-center gap-3`}>
             <DollarSign size={18} className={s.color}/>
@@ -103,12 +103,12 @@ export default function ContasReceber() {
 
       {detalhe && (
         <DetalheModal title={detalhe.numero} subtitle={detalhe.descricao} onClose={()=>setDetalhe(null)}>
-          <div className="grid grid-cols-2 gap-3 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
             {[['Cliente',detalhe.cliente_fornecedor],['Categoria',detalhe.categoria],['Valor',fmtR(detalhe.valor)],['Status',detalhe.status],['Emissão',fmtD(detalhe.data_emissao)],['Vencimento',fmtD(detalhe.data_vencimento)]].map(([k,v])=>(
               <div key={k} className="flex justify-between border-b border-border pb-1"><span className="text-muted-foreground">{k}</span><span className="font-medium">{v}</span></div>
             ))}
           </div>
-          <div className="mt-3 flex justify-end gap-2">
+          <div className="mt-3 flex flex-col sm:flex-row justify-end gap-2">
             {detalhe.status !== 'Pago' && <button onClick={()=>marcarPago(detalhe.id)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-green-600 text-white rounded hover:opacity-90"><CheckCircle size={12}/> Marcar como Pago</button>}
             <button
               onClick={async () => {

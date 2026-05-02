@@ -201,7 +201,12 @@ export default function Header({ onMenuToggle }) {
 
   return (
     <header className="bg-white border-b border-border h-11 flex items-center px-2 sm:px-4 gap-2 sm:gap-3 shrink-0 z-10">
-      <button onClick={onMenuToggle} className="text-muted-foreground hover:text-foreground transition-colors">
+      <button
+        type="button"
+        onClick={onMenuToggle}
+        className="md:hidden text-muted-foreground hover:text-foreground transition-colors p-1 -ml-0.5"
+        aria-label="Abrir menu"
+      >
         <Menu size={18} />
       </button>
 
@@ -235,11 +240,12 @@ export default function Header({ onMenuToggle }) {
       {pode('impersonate') && (
         <div className="relative">
           <button
+            type="button"
             onClick={() => { setSwitchOpen(!switchOpen); setUserOpen(false); setNotifOpen(false); }}
-            className="flex items-center gap-1.5 text-xs border border-border rounded px-2.5 py-1 hover:bg-muted transition-colors text-muted-foreground"
+            className="flex items-center gap-1.5 text-xs border border-border rounded px-2 sm:px-2.5 py-1 hover:bg-muted transition-colors text-muted-foreground"
             title="Ver como outro usuário"
           >
-            <Eye size={13} /> Ver como
+            <Eye size={13} /> <span className="hidden sm:inline">Ver como</span>
           </button>
           {switchOpen && (
             <div className="absolute right-0 top-full mt-1 w-52 bg-white border border-border rounded-lg shadow-lg z-50 py-1">
@@ -278,7 +284,7 @@ export default function Header({ onMenuToggle }) {
           )}
         </button>
         {notifOpen && (
-          <div className="absolute right-0 top-full mt-1 w-72 bg-white border border-border rounded-lg shadow-lg z-50">
+          <div className="absolute right-0 top-full mt-1 w-[min(100vw-1rem,18rem)] sm:w-72 bg-white border border-border rounded-lg shadow-lg z-50 max-h-[70vh] overflow-y-auto">
             <div className="px-3 py-2 border-b border-border flex items-center justify-between">
               <span className="text-xs font-semibold">Notificações</span>
               <button

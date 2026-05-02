@@ -333,11 +333,11 @@ export default function DynamicEntityPage({ entityCode }) {
       {/* Modal Detalhe (apenas leitura) */}
       {detail && (
         <Dialog open={!!detail} onOpenChange={(open) => !open && setDetail(null)}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="lg:max-w-4xl">
             <DialogHeader>
               <DialogTitle>Detalhes — {entity.name}</DialogTitle>
             </DialogHeader>
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
               {entity.fields
                 ?.filter(f => !f.hidden)
                 .map(field => (

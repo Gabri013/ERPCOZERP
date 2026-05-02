@@ -17,6 +17,9 @@ import { registerNotificationsModule } from './modules/notifications/notificatio
 import { registerFinanceiroModule } from './modules/financeiro/financeiro.module.js';
 import { registerWorkflowsModule } from './modules/workflows/workflows.module.js';
 import { registerAdminModule } from './modules/admin/admin.module.js';
+import { registerCozincaModule } from './modules/cozinca/cozinca.module.js';
+import { registerProductsModule } from './modules/products/products.module.js';
+import { registerEstoqueModule } from './modules/estoque/estoque.module.js';
 
 export function createApp() {
   const app = express();
@@ -28,7 +31,7 @@ export function createApp() {
       credentials: true,
     })
   );
-  app.use(express.json({ limit: '2mb' }));
+  app.use(express.json({ limit: '20mb' }));
 
   // modules
   registerHealthModule(app);
@@ -45,6 +48,9 @@ export function createApp() {
   registerFinanceiroModule(app);
   registerWorkflowsModule(app);
   registerAdminModule(app);
+  registerCozincaModule(app);
+  registerProductsModule(app);
+  registerEstoqueModule(app);
 
   app.get('/', (req, res) => {
     res.json({

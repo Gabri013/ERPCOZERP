@@ -32,8 +32,9 @@ export default function ERPLayout() {
 
       {mobileOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          className="fixed inset-0 bg-black/50 z-[90] md:hidden"
           onClick={() => setMobileOpen(false)}
+          aria-hidden
         />
       )}
 
@@ -41,8 +42,11 @@ export default function ERPLayout() {
         <Sidebar collapsed={collapsed} onToggle={handleToggle} onNavigate={null} />
       </div>
 
-      <div className={`fixed inset-y-0 left-0 z-50 flex flex-col md:hidden transition-transform duration-300 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <div
+        className={`fixed inset-y-0 left-0 z-[100] flex flex-col md:hidden transition-transform duration-300 ease-out shadow-xl ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}
+      >
         <Sidebar
+          mobileDrawer
           collapsed={false}
           onToggle={() => setMobileOpen(false)}
           onNavigate={() => setMobileOpen(false)}
@@ -51,8 +55,10 @@ export default function ERPLayout() {
 
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         <Header onMenuToggle={handleToggle} />
-        <main className="flex-1 overflow-auto p-3 md:p-4">
-          <Outlet />
+        <main className="flex-1 overflow-auto min-h-0">
+          <div className="w-full max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 pb-8">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

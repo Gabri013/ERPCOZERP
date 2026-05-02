@@ -7,6 +7,7 @@ import ApontamentoModal from '@/components/producao/ApontamentoModal';
 import { PodeRender, usePermissao } from '@/lib/PermissaoContext';
 import { exportOrdemProducaoModelo, exportPdfReport } from '@/services/pdfExport';
 import FluxoProducao from '@/components/producao/FluxoProducao';
+import { productsApi } from '@/services/productsApi';
 
 const ETAPAS_FLUXO = [
   'Programação','Engenharia','Corte a Laser','Retirada','Rebarbação',
@@ -61,6 +62,7 @@ export default function DetalheOP() {
   const [revisoes, setRevisoes] = useState([
     { id:1, data:'2026-04-15', prazoAnterior:'2026-04-20', novoPrazo:'2026-04-25', motivo:'Atraso no fornecimento de matéria-prima', responsavel:'Maria L.' }
   ]);
+  const [opFiles, setOpFiles] = useState([]);
 
   useEffect(() => {
     let mounted = true;
@@ -79,6 +81,20 @@ export default function DetalheOP() {
       }
     })();
     return () => { mounted = false; };
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    let ok = true;
+    (async () => {
+      try {
+        const f = await productsApi.filesForOp(id);
+        if (ok) setOpFiles(Array.isArray(f) ? f : []);
+      } catch {
+        if (ok) setOpFiles([]);
+      }
+    })();
+    return () => { ok = false; };
   }, [id]);
 
   const roles = usuarioVisivel?.roles || [];
@@ -170,6 +186,7 @@ export default function DetalheOP() {
     { key:'dados', label:'Dados Gerais' },
     { key:'processo', label:'Processo' },
     { key:'apontamentos', label:`Apontamentos (${apontamentos.length})` },
+    { key:'arquivos', label:`Arquivos (${opFiles.length})` },
     { key:'revisoes', label:`Revisão de Prazo (${revisoes.length})` },
   ];
 
@@ -311,6 +328,33 @@ export default function DetalheOP() {
                 ))}
               </tbody>
             </table>
+          )}
+        </div>
+      )}
+
+      {aba === 'arquivos' && (
+        <div className="bg-white border border-border rounded-lg p-4">
+          <p className="text-xs text-muted-foreground mb-3">
+            Cópias de DXF/PDF do produto, disponíveis após a geração automática desta OP a partir do pedido.
+          </p>
+          {opFiles.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Nenhum arquivo vinculado a esta ordem.</p>
+          ) : (
+            <ul className="space-y-2">
+              {opFiles.map((f) => (
+                <li key={f.id} className="flex flex-wrap items-center justify-between gap-2 text-xs border border-border rounded px-3 py-2">
+                  <span className="font-mono text-[10px] text-muted-foreground">{f.tipo}</span>
+                  <span className="truncate flex-1">{f.nomeOriginal}</span>
+                  <button
+                    type="button"
+                    className="text-primary underline"
+                    onClick={() => productsApi.openFileInNewTab(f.id)}
+                  >
+                    Abrir
+                  </button>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
       )}

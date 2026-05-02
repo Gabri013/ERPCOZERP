@@ -51,6 +51,9 @@ services:
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       DEFAULT_MASTER_PASSWORD: ${DEFAULT_MASTER_PASSWORD:-master123_dev}
       SEED_ENABLED: ${SEED_ENABLED:-true}
+      UPLOAD_DIR: /app/uploads
+    volumes:
+      - ./data/uploads:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy

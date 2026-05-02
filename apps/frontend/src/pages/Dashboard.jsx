@@ -124,21 +124,22 @@ export default function Dashboard() {
   }, [widgetIds]);
 
   if (loading) {
-    return <div className="flex items-center justify-center h-64">Carregando...</div>;
+    return <div className="flex items-center justify-center min-h-[16rem] text-muted-foreground">Carregando...</div>;
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground">Personalize o que você quer ver</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-sm sm:text-base text-muted-foreground mt-1">Personalize o que você quer ver</p>
         </div>
-        <div className="flex gap-2">
-          <button onClick={() => setShowConfig(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded hover:bg-muted">
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <button type="button" onClick={() => setShowConfig(true)} className="flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 text-xs border border-border rounded hover:bg-muted">
             <Settings size={13}/> Personalizar
           </button>
           <button
+            type="button"
             onClick={async () => {
               if (!user?.id) return;
               const perfil = getPerfilFromUser(user);
@@ -146,14 +147,14 @@ export default function Dashboard() {
               setWidgetIds(next);
               try { await dashboardLayoutServiceApi.resetLayout(); } catch {}
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded hover:bg-muted"
+            className="flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 text-xs border border-border rounded hover:bg-muted"
           >
             <RotateCcw size={13}/> Padrão
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 auto-rows-[180px]">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 auto-rows-min sm:auto-rows-[180px]">
         {activeWidgets.map((id) => {
           const Comp = WIDGET_COMPONENTS[id];
           if (!Comp) return null;

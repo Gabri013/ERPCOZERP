@@ -25,7 +25,7 @@ export default function WidgetGraficoProducao({ series }) {
         </div>
         <Link to="/producao/ordens" className="text-xs text-primary hover:underline flex items-center gap-1">Ver OPs <ArrowRight size={11}/></Link>
       </div>
-      <div className="flex-1 min-h-[140px]">
+      <div className="h-64 md:h-80 w-full shrink-0">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />

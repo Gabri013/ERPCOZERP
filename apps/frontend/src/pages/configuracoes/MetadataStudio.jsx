@@ -351,7 +351,7 @@ export default function MetadataStudio() {
 
       {/* === MODAL ENTIDADE === */}
       <Dialog open={showEntityForm} onOpenChange={setShowEntityForm}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{editingEntity ? 'Editar' : 'Nova'} Entidade</DialogTitle>
             <DialogDescription>
@@ -384,7 +384,7 @@ export default function MetadataStudio() {
                 placeholder="Descrição da entidade"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>Tipo</Label>
                 <select 
@@ -418,7 +418,7 @@ export default function MetadataStudio() {
 
       {/* === MODAL CAMPO === */}
       <Dialog open={showFieldForm} onOpenChange={setShowFieldForm}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{editingField ? 'Editar' : 'Novo'} Campo</DialogTitle>
           </DialogHeader>
