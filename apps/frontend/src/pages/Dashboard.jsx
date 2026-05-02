@@ -1,8 +1,9 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import { DollarSign, Factory, Package, Users, Settings, RotateCcw, Bell, ShoppingCart } from 'lucide-react';
+import { toast } from 'sonner';
 import { resolveApiUrl } from '@/config/appConfig';
 import { useAuth } from '@/lib/AuthContext';
-import { dashboardConfig, ALL_WIDGETS } from '@/services/dashboardConfig';
+import { dashboardConfig, ALL_WIDGETS, sanitizeWidgetIds } from '@/services/dashboardConfig';
 import { dashboardLayoutServiceApi } from '@/services/dashboardLayoutServiceApi';
 import DashboardConfigurador from '@/components/dashboard/DashboardConfigurador';
 import WidgetKPI from '@/components/dashboard/WidgetKPI';
@@ -52,7 +53,12 @@ export default function Dashboard() {
   const [kpis, setKpis] = useState({});
   const [loading, setLoading] = useState(true);
   const [widgetIds, setWidgetIds] = useState([]);
+  const [layoutReady, setLayoutReady] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
+  const configuringRef = useRef(false);
+  useEffect(() => {
+    configuringRef.current = showConfig;
+  }, [showConfig]);
 
   useEffect(() => {
     let mounted = true;
@@ -92,29 +98,31 @@ export default function Dashboard() {
 
   useEffect(() => {
     let mounted = true;
-    async function loadLayout() {
-      if (!user?.id) return;
+    (async () => {
+      if (!user?.id) {
+        if (mounted) setLayoutReady(true);
+        return;
+      }
+      if (mounted) setLayoutReady(false);
       const perfil = getPerfilFromUser(user);
       try {
         const remote = await dashboardLayoutServiceApi.getLayout();
         if (!mounted) return;
-
-        // Se existir layout remoto (mesmo vazio), ele é a fonte de verdade em modo API.
-        if (Array.isArray(remote)) {
-          if (remote.length) {
-            setWidgetIds(remote);
-            return;
-          }
+        if (configuringRef.current) return;
+        const cleaned = sanitizeWidgetIds(remote);
+        if (cleaned.length > 0) {
+          setWidgetIds(cleaned);
+          return;
         }
       } catch {
-        // fallback local
+        /* API indisponível → localStorage / perfil */
       }
-
       if (!mounted) return;
-      const localDefault = dashboardConfig.get(user.id, perfil);
-      setWidgetIds(localDefault);
-    }
-    loadLayout();
+      if (configuringRef.current) return;
+      setWidgetIds(dashboardConfig.get(user.id, perfil));
+    })().finally(() => {
+      if (mounted) setLayoutReady(true);
+    });
     return () => { mounted = false; };
   }, [user?.id]);
 
@@ -123,7 +131,7 @@ export default function Dashboard() {
     return widgetIds.filter(id => all.has(id));
   }, [widgetIds]);
 
-  if (loading) {
+  if (loading || (user?.id && !layoutReady)) {
     return <div className="flex items-center justify-center min-h-[16rem] text-muted-foreground">Carregando...</div>;
   }
 
@@ -141,11 +149,18 @@ export default function Dashboard() {
           <button
             type="button"
             onClick={async () => {
-              if (!user?.id) return;
+              if (!user?.id) {
+                toast.error('Faça login para restaurar o layout.');
+                return;
+              }
               const perfil = getPerfilFromUser(user);
               const next = dashboardConfig.reset(user.id, perfil);
               setWidgetIds(next);
-              try { await dashboardLayoutServiceApi.resetLayout(); } catch {}
+              try {
+                await dashboardLayoutServiceApi.resetLayout();
+              } catch {
+                toast('Padrão aplicado neste dispositivo; servidor não respondeu.');
+              }
             }}
             className="flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 text-xs border border-border rounded hover:bg-muted"
           >
@@ -170,20 +185,37 @@ export default function Dashboard() {
 
       {showConfig && (
         <DashboardConfigurador
+          key={widgetIds.join('|')}
           ativos={widgetIds}
           onClose={() => setShowConfig(false)}
           onSave={async (next) => {
-            setWidgetIds(next);
-            if (user?.id) dashboardConfig.save(user.id, next);
-            try { await dashboardLayoutServiceApi.saveLayout(next); } catch {}
+            const cleaned = sanitizeWidgetIds(next);
+            if (cleaned.length === 0) {
+              toast.error('Selecione pelo menos um widget.');
+              return;
+            }
+            setWidgetIds(cleaned);
+            if (user?.id) dashboardConfig.save(user.id, cleaned);
+            try {
+              await dashboardLayoutServiceApi.saveLayout(cleaned);
+            } catch {
+              toast('Salvo neste dispositivo; não foi possível sincronizar com o servidor.');
+            }
             setShowConfig(false);
           }}
           onReset={async () => {
-            if (!user?.id) return;
+            if (!user?.id) {
+              toast.error('Faça login para restaurar o layout.');
+              return;
+            }
             const perfil = getPerfilFromUser(user);
             const next = dashboardConfig.reset(user.id, perfil);
             setWidgetIds(next);
-            try { await dashboardLayoutServiceApi.resetLayout(); } catch {}
+            try {
+              await dashboardLayoutServiceApi.resetLayout();
+            } catch {
+              toast('Padrão aplicado neste dispositivo; servidor não respondeu.');
+            }
           }}
         />
       )}

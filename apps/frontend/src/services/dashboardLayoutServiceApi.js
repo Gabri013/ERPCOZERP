@@ -2,10 +2,12 @@ import { api } from './api';
 
 function extractWidgets(res) {
   const body = res?.data ?? res;
+  if (!body || typeof body !== 'object') return [];
   const widgets =
-    body?.data?.widgets ??
-    body?.widgets ??
-    body?.layout?.widgets ??
+    body.data?.widgets ??
+    body.widgets ??
+    body.layout?.widgets ??
+    (Array.isArray(body.data) ? body.data : null) ??
     [];
   return Array.isArray(widgets) ? widgets : [];
 }

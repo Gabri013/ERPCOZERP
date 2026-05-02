@@ -16,6 +16,14 @@ export const ALL_WIDGETS = [
   { id: 'alertas',            label: 'Painel — Alertas',          grupo: 'Informações',  size: '1x1' },
 ];
 
+const ALLOWED_WIDGET_IDS = new Set(ALL_WIDGETS.map((w) => w.id));
+
+/** Mantém a ordem salva e descarta ids desconhecidos (dados legados / API). */
+export function sanitizeWidgetIds(ids) {
+  if (!Array.isArray(ids)) return [];
+  return ids.filter((id) => typeof id === 'string' && ALLOWED_WIDGET_IDS.has(id));
+}
+
 const DEFAULT_BY_PERFIL = {
   dono:              ['kpi_faturamento','kpi_pedidos','kpi_ops','kpi_estoque','kpi_ocs','kpi_notifs','grafico_vendas','grafico_financeiro','grafico_producao','estoque_critico','alertas'],
   gerente_geral:     ['kpi_pedidos','kpi_ops','kpi_estoque','kpi_ocs','kpi_notifs','grafico_vendas','grafico_financeiro','grafico_producao','alertas'],
@@ -35,21 +43,25 @@ const DEFAULT_BY_PERFIL = {
 
 export const dashboardConfig = {
   get: (usuarioId, perfil) => {
+    const fallback = DEFAULT_BY_PERFIL[perfil] || DEFAULT_BY_PERFIL.default;
     const key = `${PREFIX}${usuarioId}`;
     const saved = localStorage.getItem(key);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        return Array.isArray(parsed) ? parsed : (DEFAULT_BY_PERFIL[perfil] || DEFAULT_BY_PERFIL.default);
+        const candidate = Array.isArray(parsed) ? parsed : fallback;
+        const cleaned = sanitizeWidgetIds(candidate);
+        return cleaned.length ? cleaned : fallback;
       } catch {
-        return DEFAULT_BY_PERFIL[perfil] || DEFAULT_BY_PERFIL.default;
+        return fallback;
       }
     }
-    return DEFAULT_BY_PERFIL[perfil] || DEFAULT_BY_PERFIL.default;
+    return fallback;
   },
 
   save: (usuarioId, widgetIds) => {
-    localStorage.setItem(`${PREFIX}${usuarioId}`, JSON.stringify(widgetIds));
+    const cleaned = sanitizeWidgetIds(widgetIds);
+    localStorage.setItem(`${PREFIX}${usuarioId}`, JSON.stringify(cleaned));
   },
 
   reset: (usuarioId, perfil) => {
