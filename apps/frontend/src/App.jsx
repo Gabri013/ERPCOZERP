@@ -41,6 +41,11 @@ const ListaMateriais = lazy(() => import('@/pages/producao/ListaMateriais'));
 const RequisicaoMateriais = lazy(() => import('@/pages/producao/RequisicaoMateriais'));
 const ReporteProducao = lazy(() => import('@/pages/producao/ReporteProducao'));
 const CusteioPadrao = lazy(() => import('@/pages/producao/CusteioPadrao'));
+const CusteioReal = lazy(() => import('@/pages/producao/CusteioReal'));
+const Contabilidade = lazy(() => import('@/pages/contabilidade/Contabilidade'));
+const IntegracaoContabil = lazy(() => import('@/pages/contabilidade/IntegracaoContabil'));
+const ControleQualidade = lazy(() => import('@/pages/qualidade/ControleQualidade'));
+const GestaoDocumentos = lazy(() => import('@/pages/qualidade/GestaoDocumentos'));
 const ProgramacaoProducao = lazy(() => import('@/pages/producao/ProgramacaoProducao'));
 const MonitoramentoTempoReal = lazy(() => import('@/pages/producao/MonitoramentoTempoReal'));
 const AnaliseTempos = lazy(() => import('@/pages/producao/AnaliseTempos'));
@@ -228,6 +233,7 @@ const AuthenticatedApp = () => {
           <Route path="/producao/ordens" element={<PermissaoRoute acao="ver_op"><OrdensProducao /></PermissaoRoute>} />
           <Route path="/producao/pcp" element={<PermissaoRoute acao="ver_pcp"><PCP /></PermissaoRoute>} />
           <Route path="/producao/custeio-padrao" element={<PermissaoRoute acao="ver_pcp"><CusteioPadrao /></PermissaoRoute>} />
+          <Route path="/producao/custeio-real" element={<PermissaoRoute acao="ver_pcp"><CusteioReal /></PermissaoRoute>} />
           <Route path="/producao/programacao" element={<PermissaoRoute acao="ver_pcp"><ProgramacaoProducao /></PermissaoRoute>} />
           <Route path="/producao/monitoramento" element={<PermissaoRoute acao="ver_chao_fabrica"><MonitoramentoTempoReal /></PermissaoRoute>} />
           <Route path="/producao/analise-tempos" element={<PermissaoRoute acao="ver_chao_fabrica"><AnaliseTempos /></PermissaoRoute>} />
@@ -305,6 +311,10 @@ const AuthenticatedApp = () => {
           <Route path="/financeiro/transferencias" element={<PermissaoRoute acao="ver_financeiro"><TransferenciasBancarias /></PermissaoRoute>} />
           <Route path="/financeiro/regua-cobranca" element={<PermissaoRoute acao="ver_financeiro"><ReguaCobranca /></PermissaoRoute>} />
           <Route path="/financeiro/crm" element={<PermissaoRoute acao="ver_financeiro"><CRMFinanceiro /></PermissaoRoute>} />
+          <Route path="/contabilidade" element={<PermissaoRoute acao="ver_financeiro"><Contabilidade /></PermissaoRoute>} />
+          <Route path="/contabilidade/integracao" element={<PermissaoRoute acao="ver_financeiro"><IntegracaoContabil /></PermissaoRoute>} />
+          <Route path="/qualidade" element={<PermissaoRoute acao="ver_producao"><ControleQualidade /></PermissaoRoute>} />
+          <Route path="/qualidade/documentos" element={<PermissaoRoute acao="ver_producao"><GestaoDocumentos /></PermissaoRoute>} />
 
           <Route path="/configuracoes/empresa" element={<PermissaoRoute acao="editar_config"><Empresa /></PermissaoRoute>} />
           <Route path="/configuracoes/usuarios" element={<PermissaoRoute acao="gerenciar_usuarios"><Usuarios /></PermissaoRoute>} />

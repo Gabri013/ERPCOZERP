@@ -4,7 +4,7 @@ import {
   LayoutDashboard, ShoppingCart, Truck, Factory,
   DollarSign, ChevronDown, ChevronRight,
   FileText, Boxes, Database, Users, X, Wrench,
-  PanelLeftClose, PanelLeftOpen, BarChart2, Settings, Briefcase, Globe,
+  PanelLeftClose, PanelLeftOpen, BarChart2, Settings, Briefcase, Globe, BookOpen, ClipboardCheck,
 } from 'lucide-react';
 import { usePermissao } from '@/lib/PermissaoContext';
 import { useMetadataStore } from '@/stores/metadataStore';
@@ -98,6 +98,7 @@ const MENU_SECTIONS = [
           { label: 'Plano de Produção',  path: '/producao/plano-producao',  required: 'ver_pcp' },
           { label: 'MRP / CRP',          path: '/producao/mrp',             required: 'ver_pcp' },
           { label: 'Custeio Padrão',     path: '/producao/custeio-padrao',  required: 'ver_pcp' },
+          { label: 'Custeio Real',       path: '/producao/custeio-real',    required: 'ver_pcp' },
           { label: 'Kanban',              path: '/producao/kanban',          required: 'ver_kanban' },
           { label: 'Chão de Fábrica',     path: '/producao/chao-fabrica',    required: 'ver_chao_fabrica' },
           { label: 'Monitoramento RT',    path: '/producao/monitoramento',   required: 'ver_chao_fabrica' },
@@ -146,6 +147,12 @@ const MENU_SECTIONS = [
         ],
       },
       {
+        label: 'Qualidade', icon: ClipboardCheck, children: [
+          { label: 'Controle de Qualidade', path: '/qualidade',            required: 'ver_producao' },
+          { label: 'Gestão de Documentos',  path: '/qualidade/documentos', required: 'ver_producao' },
+        ],
+      },
+      {
         label: 'Financeiro', icon: DollarSign, children: [
           { label: 'Contas a Receber',   path: '/financeiro/receber',        required: 'ver_financeiro' },
           { label: 'Contas a Pagar',     path: '/financeiro/pagar',          required: 'ver_financeiro' },
@@ -158,6 +165,12 @@ const MENU_SECTIONS = [
           { label: 'Régua de Cobrança',  path: '/financeiro/regua-cobranca', required: 'ver_financeiro' },
           { label: 'DRE',               path: '/financeiro/dre',            required: 'ver_financeiro' },
           { label: 'Aprovação de Pedidos', path: '/financeiro/aprovacao-pedidos', required: 'aprovar_financeiro' },
+        ],
+      },
+      {
+        label: 'Contabilidade', icon: BookOpen, children: [
+          { label: 'Contabilidade',        path: '/contabilidade',             required: 'ver_financeiro' },
+          { label: 'Integ. Contábil/Fiscal', path: '/contabilidade/integracao', required: 'ver_financeiro' },
         ],
       },
     ],
