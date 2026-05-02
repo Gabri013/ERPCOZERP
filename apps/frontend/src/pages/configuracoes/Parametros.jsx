@@ -1,6 +1,8 @@
-﻿import { useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import PageHeader from '@/components/common/PageHeader';
 import { Save } from 'lucide-react';
+import { toast } from 'sonner';
+import { getPlatformSettings, putPlatformSettings } from '@/services/platformApi';
 
 const SECTIONS = [
   { titulo:'Estoque', params:[
@@ -24,19 +26,66 @@ const SECTIONS = [
   ]},
 ];
 
+function buildDefaults() {
+  const d = {};
+  SECTIONS.forEach((s) => s.params.forEach((p) => { d[p.key] = p.valor; }));
+  return d;
+}
+
 export default function Parametros() {
-  const [dados, setDados] = useState(() => {
-    const d = {};
-    SECTIONS.forEach(s=>s.params.forEach(p=>{d[p.key]=p.valor;}));
-    return d;
-  });
+  const [dados, setDados] = useState(buildDefaults);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let ok = true;
+    (async () => {
+      try {
+        const data = await getPlatformSettings();
+        const p = data?.parametros && typeof data.parametros === 'object' ? data.parametros : {};
+        if (!ok) return;
+        setDados({ ...buildDefaults(), ...p });
+      } catch {
+        if (ok) toast.error('Não foi possível carregar parâmetros.');
+      } finally {
+        if (ok) setLoading(false);
+      }
+    })();
+    return () => { ok = false; };
+  }, []);
+
   const upd = (k,v) => setDados(d=>({...d,[k]:v}));
   const inp = 'border border-border rounded px-2.5 py-1.5 text-xs bg-white outline-none focus:border-primary';
+
+  const salvar = async () => {
+    setSaving(true);
+    try {
+      await putPlatformSettings({ parametros: dados });
+      toast.success('Parâmetros salvos.');
+    } catch (e) {
+      toast.error(e?.response?.data?.error || e?.message || 'Falha ao salvar.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div>
       <PageHeader title="Parâmetros do Sistema" breadcrumbs={['Início','Configurações','Parâmetros']}
-        actions={<button className="flex items-center gap-1.5 px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90"><Save size={13}/> Salvar</button>}
+        actions={(
+          <button
+            type="button"
+            disabled={loading || saving}
+            onClick={salvar}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90 disabled:opacity-50"
+          >
+            <Save size={13}/> {saving ? 'Salvando…' : 'Salvar'}
+          </button>
+        )}
       />
+      {loading ? (
+        <p className="text-sm text-muted-foreground">Carregando…</p>
+      ) : (
       <div className="space-y-4">
         {SECTIONS.map(s=>(
           <div key={s.titulo} className="bg-white border border-border rounded-lg overflow-hidden">
@@ -48,7 +97,7 @@ export default function Parametros() {
                 <div key={p.key} className="flex items-center justify-between px-4 py-3">
                   <label className="text-xs text-foreground">{p.label}</label>
                   {p.tipo==='bool' && (
-                    <button onClick={()=>upd(p.key,!dados[p.key])}
+                    <button type="button" onClick={()=>upd(p.key,!dados[p.key])}
                       className={`w-9 h-5 rounded-full transition-colors relative ${dados[p.key]?'cozinha-blue-bg':'bg-muted'}`}>
                       <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${dados[p.key]?'left-4':'left-0.5'}`}/>
                     </button>
@@ -67,6 +116,7 @@ export default function Parametros() {
           </div>
         ))}
       </div>
+      )}
     </div>
   );
 }

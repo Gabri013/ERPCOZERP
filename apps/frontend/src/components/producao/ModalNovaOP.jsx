@@ -5,11 +5,11 @@ const ETAPAS_DEFAULT = ['Programação','Engenharia','Corte a Laser','Retirada',
 
 const CLIENTES = ['Metalúrgica ABC Ltda','SiderTech S/A','TechParts Ltda','Grupo Delta','Ind. XYZ S/A'];
 const PRODUTOS = [
-  { codigo:'EIX-025', descricao:'Eixo Transmissão 25mm' },
-  { codigo:'ROL-ESP-01', descricao:'Conjunto Rolamento Especial' },
-  { codigo:'FLA-INOX-3', descricao:'Flange Aço Inox 3"' },
-  { codigo:'RED-MOD5', descricao:'Caixa Redutora Mod.5' },
-  { codigo:'BUC-BRZ-3040', descricao:'Bucha Bronze 30x40' },
+  { codigo:'CAT-EIX-025', descricao:'Eixo Transmissão 25mm' },
+  { codigo:'CAT-ROL-6205', descricao:'Rolamento 6205-ZZ' },
+  { codigo:'CAT-FLA-3IN', descricao:'Flange aço inox 3"' },
+  { codigo:'CAT-CHA-003', descricao:'Chapa Aço 3mm' },
+  { codigo:'CAT-GUI-LINEAR', descricao:'Guia linear 500mm' },
 ];
 
 const EMPTY = {

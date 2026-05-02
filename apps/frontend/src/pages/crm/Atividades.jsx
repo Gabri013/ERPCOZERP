@@ -2,6 +2,7 @@
 import PageHeader from '@/components/common/PageHeader';
 import { Phone, Mail, Users, Calendar, Plus } from 'lucide-react';
 import { recordsServiceApi } from '@/services/recordsServiceApi';
+import { api } from '@/services/api';
 import { toast } from 'sonner';
 
 const tipoIcon = { 'Reunião': <Users size={13} />, 'Ligação': <Phone size={13} />, 'E-mail': <Mail size={13} />, 'Visita': <Calendar size={13} />, Tarefa: <Calendar size={13} />, Outro: <Calendar size={13} /> };
@@ -15,9 +16,29 @@ export default function Atividades() {
     let ok = true;
     (async () => {
       try {
-        const list = await recordsServiceApi.list('crm_atividade');
+        const [recRes, todayRes] = await Promise.all([
+          recordsServiceApi.list('crm_atividade').catch(() => []),
+          api.get('/api/crm/activities/today').catch(() => ({ data: {} })),
+        ]);
         if (!ok) return;
-        setRows(Array.isArray(list) ? list : []);
+        const fromRecords = Array.isArray(recRes) ? recRes : [];
+        const rawToday = Array.isArray(todayRes?.data?.data) ? todayRes.data.data : [];
+        const fromApi = rawToday.map((r) => {
+          const d = r?.data && typeof r.data === 'object' ? r.data : {};
+          return {
+            id: r.id,
+            titulo: d.titulo || d.title || 'Atividade',
+            tipo: d.tipo || 'Tarefa',
+            data: d.data_atividade || d.data || d.due || '',
+            relacionamento: d.relacionamento || '',
+            observacao: d.observacao || '',
+            responsavel: d.responsavel || '',
+            status: d.status || 'Aberta',
+            _fonte: 'api',
+          };
+        });
+        const merged = [...fromApi, ...fromRecords.filter((a) => !fromApi.some((x) => x.id === a.id))];
+        setRows(merged);
       } catch (e) {
         if (!ok) return;
         toast.error(e?.message || 'Erro ao carregar atividades.');

@@ -1,35 +1,40 @@
-﻿import { useEffect, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import Header from './Header'
 import ImpersonateBanner from './ImpersonateBanner'
 import { useImpersonation } from '@/contexts/ImpersonationContext'
 
+const DESKTOP_BREAKPOINT = 768
+
 export default function ERPLayout() {
-  const [collapsed, setCollapsed] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
   const [mobileOpen, setMobileOpen] = useState(false)
   const { isImpersonating } = useImpersonation()
   const location = useLocation()
+  const prevPathRef = useRef(location.pathname)
 
+  // Fecha o drawer mobile ao navegar — não afeta o estado desktop
   useEffect(() => {
-    setMobileOpen(false)
+    if (prevPathRef.current !== location.pathname) {
+      prevPathRef.current = location.pathname
+      setMobileOpen(false)
+    }
   }, [location.pathname])
 
-  const isMobile = () => window.innerWidth < 768
-
   const handleToggle = () => {
-    if (isMobile()) {
-      setMobileOpen((previous) => !previous)
-      return
+    if (window.innerWidth < DESKTOP_BREAKPOINT) {
+      setMobileOpen((prev) => !prev)
+    } else {
+      setSidebarOpen((prev) => !prev)
     }
-
-    setCollapsed((previous) => !previous)
   }
 
   return (
-    <div className={`flex h-screen overflow-hidden bg-background ${isImpersonating ? 'pt-10' : ''}`}>
+    <div className={`flex h-screen overflow-hidden bg-background ${isImpersonating ? 'pt-24 sm:pt-[4.5rem]' : ''}`}>
       <ImpersonateBanner />
 
+      {/* Overlay mobile */}
       {mobileOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-[90] md:hidden"
@@ -38,20 +43,30 @@ export default function ERPLayout() {
         />
       )}
 
-      <div className="hidden md:flex flex-col h-full shrink-0">
-        <Sidebar collapsed={collapsed} onToggle={handleToggle} onNavigate={null} />
-      </div>
+      {/* Sidebar desktop — sempre renderizado, largura controlada por isOpen */}
+      <aside className="hidden md:flex flex-col h-full shrink-0">
+        <Sidebar
+          isOpen={sidebarOpen}
+          setIsOpen={setSidebarOpen}
+          onNavigate={null}
+        />
+      </aside>
 
-      <div
-        className={`fixed inset-y-0 left-0 z-[100] flex flex-col md:hidden transition-transform duration-300 ease-out shadow-xl ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}
+      {/* Sidebar mobile — drawer deslizante */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-[100] flex flex-col md:hidden transition-transform duration-300 ease-out shadow-xl ${
+          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
       >
         <Sidebar
           mobileDrawer
-          collapsed={false}
-          onToggle={() => setMobileOpen(false)}
+          isOpen={true}
+          setIsOpen={(open) => {
+            if (!open) setMobileOpen(false)
+          }}
           onNavigate={() => setMobileOpen(false)}
         />
-      </div>
+      </aside>
 
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         <Header onMenuToggle={handleToggle} />

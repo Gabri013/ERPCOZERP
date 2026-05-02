@@ -10,7 +10,9 @@
     "start": "node dist/server.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
-    "prisma:seed": "tsx prisma/seed.ts"
+    "prisma:seed": "tsx prisma/seed.ts",
+    "seed:materials": "node scripts/seed-raw-materials.js",
+    "sync:cozinca-team": "tsx scripts/sync-cozinca-team-users.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.16.1",

@@ -77,7 +77,7 @@ async function run() {
     }},
 
     // Estoque
-    { name: 'GET /api/estoque', fn: () => request('GET', `${BACKEND}/api/estoque`) },
+    { name: 'GET /api/records?entity=produto', fn: () => request('GET', `${BACKEND}/api/records?entity=produto`) },
 
     // Compras
     { name: 'GET /api/compras/fornecedores', fn: () => request('GET', `${BACKEND}/api/compras/fornecedores`) },

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../../infra/prisma.js';
 import { authenticate } from '../../middleware/auth.js';
+import { sortRolesByPriority } from '../../lib/roleOrder.js';
 
 export const authMeRouter = Router();
 
@@ -19,7 +20,8 @@ authMeRouter.get('/me', authenticate, async (req, res) => {
     id: user.id,
     email: user.email,
     full_name: user.fullName,
-    roles: user.roles.map((r) => r.role.code),
+    sector: user.sector ?? null,
+    roles: sortRolesByPriority(user.roles.map((r) => r.role.code)),
   });
 });
 

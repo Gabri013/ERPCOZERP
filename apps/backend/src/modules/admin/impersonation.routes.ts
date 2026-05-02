@@ -36,6 +36,7 @@ adminImpersonationRouter.post('/impersonate/:userId', async (req, res) => {
     {
       sub: target.id,
       email: target.email,
+      fullName: target.fullName,
       roles,
       impersonation: true,
       impersonatedBy: by,
@@ -48,7 +49,7 @@ adminImpersonationRouter.post('/impersonate/:userId', async (req, res) => {
   return res.json({
     success: true,
     token,
-    user: { id: target.id, email: target.email, roles },
+    user: { id: target.id, email: target.email, full_name: target.fullName, roles },
   });
 });
 

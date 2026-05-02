@@ -63,6 +63,7 @@ export default function DetalheOP() {
     { id:1, data:'2026-04-15', prazoAnterior:'2026-04-20', novoPrazo:'2026-04-25', motivo:'Atraso no fornecimento de matéria-prima', responsavel:'Maria L.' }
   ]);
   const [opFiles, setOpFiles] = useState([]);
+  const [bomData, setBomData] = useState(null); // { lines, bomStatus }
 
   useEffect(() => {
     let mounted = true;
@@ -96,6 +97,21 @@ export default function DetalheOP() {
     })();
     return () => { ok = false; };
   }, [id]);
+
+  // Load BOM when op is loaded
+  useEffect(() => {
+    if (!op?.codigoProduto) return;
+    let ok = true;
+    (async () => {
+      try {
+        const bom = await productsApi.bomForProductCode(op.codigoProduto);
+        if (ok) setBomData(bom || null);
+      } catch {
+        if (ok) setBomData(null);
+      }
+    })();
+    return () => { ok = false; };
+  }, [op?.codigoProduto]);
 
   const roles = usuarioVisivel?.roles || [];
   const setorInfo = (() => {
@@ -182,10 +198,12 @@ export default function DetalheOP() {
   const statusCls = STATUS_COR[op.status] || 'bg-gray-100 text-gray-600';
   const fmt = (d) => d ? new Date(d).toLocaleDateString('pt-BR') : '—';
 
+  const bomLineCount = bomData?.lines?.length ?? 0;
   const abas = [
     { key:'dados', label:'Dados Gerais' },
     { key:'processo', label:'Processo' },
     { key:'apontamentos', label:`Apontamentos (${apontamentos.length})` },
+    { key:'bom', label:`BOM (${bomLineCount})` },
     { key:'arquivos', label:`Arquivos (${opFiles.length})` },
     { key:'revisoes', label:`Revisão de Prazo (${revisoes.length})` },
   ];
@@ -328,6 +346,78 @@ export default function DetalheOP() {
                 ))}
               </tbody>
             </table>
+          )}
+        </div>
+      )}
+
+      {aba === 'bom' && (
+        <div className="bg-white border border-border rounded-lg p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-xs font-semibold">Lista de Materiais (BOM)</h3>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Estrutura do produto <span className="font-mono">{op.codigoProduto}</span>
+                {bomData?.bomStatus && (
+                  <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                    bomData.bomStatus === 'COMPLETE' ? 'bg-green-100 text-green-700' :
+                    bomData.bomStatus === 'PENDING_ENGINEERING' ? 'bg-amber-100 text-amber-700' :
+                    'bg-red-100 text-red-700'
+                  }`}>
+                    {bomData.bomStatus}
+                  </span>
+                )}
+              </p>
+            </div>
+          </div>
+
+          {(!bomData || bomData.lines?.length === 0) ? (
+            <p className="text-xs text-muted-foreground py-4 text-center">
+              BOM não cadastrada para este produto. Acesse Engenharia → Projetos para importar.
+            </p>
+          ) : (
+            <div className="overflow-x-auto rounded border border-border">
+              <table className="min-w-[640px] w-full text-xs">
+                <thead>
+                  <tr className="border-b bg-muted/40">
+                    <th className="p-2 text-left w-8">#</th>
+                    <th className="p-2 text-left">Código</th>
+                    <th className="p-2 text-left">Descrição</th>
+                    <th className="p-2 text-left">Material</th>
+                    <th className="p-2 text-left">Processo</th>
+                    <th className="p-2 text-right">Qtd</th>
+                    <th className="p-2 text-right">Peso kg</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bomData.lines.map((l, i) => (
+                    <tr key={l.id} className="border-b border-border/50 hover:bg-muted/20">
+                      <td className="p-2 text-muted-foreground">{i + 1}</td>
+                      <td className="p-2 font-mono font-medium">{l.componentCode}</td>
+                      <td className="p-2 text-muted-foreground max-w-[140px] truncate">{l.description || '—'}</td>
+                      <td className="p-2 text-muted-foreground max-w-[120px] truncate">{l.materialSpec || '—'}</td>
+                      <td className="p-2">
+                        {l.process ? (
+                          <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                            l.process === 'ALMOXARIFADO' ? 'bg-blue-100 text-blue-700' :
+                            l.process === 'LASER' ? 'bg-orange-100 text-orange-700' :
+                            l.process === 'DOBRA' ? 'bg-purple-100 text-purple-700' :
+                            l.process === 'SOLDA' ? 'bg-red-100 text-red-700' :
+                            l.process === 'MONTAGEM' ? 'bg-green-100 text-green-700' :
+                            'bg-gray-100 text-gray-600'
+                          }`}>
+                            {l.process}
+                          </span>
+                        ) : '—'}
+                      </td>
+                      <td className="p-2 text-right font-medium">{Number(l.quantity)}</td>
+                      <td className="p-2 text-right text-muted-foreground">
+                        {l.weightKg ? Number(l.weightKg).toFixed(3) : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       )}

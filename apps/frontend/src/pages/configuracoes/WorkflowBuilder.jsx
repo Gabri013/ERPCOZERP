@@ -17,7 +17,7 @@ import {
 import { toast } from 'sonner';
 import { Plus, Edit, Trash2, GripVertical, ArrowRight } from 'lucide-react';
 import { useMetadataStore } from '@/stores/metadataStore';
-import { resolveApiUrl } from '@/config/appConfig';
+import { api } from '@/services/api';
 
 export default function WorkflowBuilder() {
   const { entities, loadEntities } = useMetadataStore();
@@ -50,9 +50,8 @@ export default function WorkflowBuilder() {
 
   const loadWorkflows = async () => {
     try {
-      const res = await fetch(resolveApiUrl('/api/workflows'));
-      const json = await res.json();
-      if (json.success) setWorkflows(json.data);
+      const { data: json } = await api.get('/api/workflows');
+      if (json?.success) setWorkflows(json.data || []);
     } catch (err) {
       toast.error('Erro ao carregar workflows');
     }
@@ -60,16 +59,11 @@ export default function WorkflowBuilder() {
 
   const handleSave = async () => {
     try {
-      const url = selectedWorkflow ? resolveApiUrl(`/api/workflows/${selectedWorkflow.id}`) : resolveApiUrl('/api/workflows');
-      const method = selectedWorkflow ? 'PUT' : 'POST';
-      
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form)
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error);
+      if (selectedWorkflow) {
+        await api.put(`/api/workflows/${selectedWorkflow.id}`, form);
+      } else {
+        await api.post('/api/workflows', form);
+      }
 
       toast.success(selectedWorkflow ? 'Atualizado' : 'Criado');
       setShowDialog(false);
@@ -83,11 +77,11 @@ export default function WorkflowBuilder() {
   const handleDelete = async (id) => {
     if (!confirm('Excluir workflow?')) return;
     try {
-      await fetch(resolveApiUrl(`/api/workflows/${id}`), { method: 'DELETE' });
+      await api.delete(`/api/workflows/${id}`);
       toast.success('Excluído');
       loadWorkflows();
     } catch (err) {
-      toast.error('Erro ao excluir');
+      toast.error(err.message || 'Erro ao excluir');
     }
   };
 
@@ -95,14 +89,8 @@ export default function WorkflowBuilder() {
     if (!selectedWorkflow) return;
     
     try {
-      const res = await fetch(resolveApiUrl(`/api/workflows/${selectedWorkflow.id}/steps`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(stepForm)
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error);
-      
+      await api.post(`/api/workflows/${selectedWorkflow.id}/steps`, stepForm);
+
       toast.success('Etapa adicionada');
       setShowStepDialog(false);
       loadWorkflows();

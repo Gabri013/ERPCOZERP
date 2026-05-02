@@ -1,32 +1,27 @@
-import { api } from '@/services/api';
+import { recordsServiceApi } from '@/services/recordsServiceApi';
 
 export const produtoService = {
   async getAll(params = {}) {
-    const qs = new URLSearchParams();
-    if (params.search) qs.set('search', params.search);
-    if (params.tipo) qs.set('tipo', params.tipo);
-    const suffix = qs.toString() ? `?${qs.toString()}` : '';
-    const res = await api.get(`/api/estoque${suffix}`);
-    return res?.data || [];
+    return recordsServiceApi.list('produto', {
+      search: params.search || '',
+      tipo: params.tipo || '',
+    });
   },
 
   async getById(id) {
-    const res = await api.get(`/api/estoque/${id}`);
-    return res?.data || null;
+    return recordsServiceApi.get(id);
   },
 
   async create(produto) {
-    const res = await api.post('/api/estoque', produto);
-    return res?.data;
+    return recordsServiceApi.create('produto', produto);
   },
 
   async update(id, data) {
-    const res = await api.put(`/api/estoque/${id}`, data);
-    return res?.data;
+    return recordsServiceApi.update(id, data);
   },
 
   async delete(id) {
-    await api.delete(`/api/estoque/${id}`);
+    await recordsServiceApi.remove(id);
   },
 
   async search(termo) {

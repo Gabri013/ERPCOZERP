@@ -1,74 +1,110 @@
-﻿import { useState } from 'react';
+﻿import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import PageHeader from '@/components/common/PageHeader';
-import { CheckCircle, AlertCircle, Clock } from 'lucide-react';
+import { Clock } from 'lucide-react';
+import { api } from '@/services/api';
 
-const LANCAMENTOS = [
-  { id:'1', data:'2026-04-15', descricao:'Depósito cliente Grupo Delta', valor:10500, tipo:'C', status:'Conciliado' },
-  { id:'2', data:'2026-04-15', descricao:'Pagamento Rolamentos Nacionais', valor:-4100, tipo:'D', status:'Conciliado' },
-  { id:'3', data:'2026-04-16', descricao:'TED recebida - Comércio Beta', valor:8900, tipo:'C', status:'Conciliado' },
-  { id:'4', data:'2026-04-17', descricao:'Pagamento energia elétrica CPFL', valor:-3840, tipo:'D', status:'Conciliado' },
-  { id:'5', data:'2026-04-18', descricao:'Depósito - TechParts Ltda', valor:6700, tipo:'C', status:'Pendente' },
-  { id:'6', data:'2026-04-18', descricao:'Débito automático aluguel', valor:-12000, tipo:'D', status:'Divergente' },
-  { id:'7', data:'2026-04-19', descricao:'Transferência interna', valor:5000, tipo:'C', status:'Pendente' },
-];
+async function fetchConciliation() {
+  const res = await api.get('/api/financial/conciliation');
+  if (!res?.data?.success) throw new Error('Resposta inválida');
+  return res.data.data;
+}
 
-const iconStatus = { 'Conciliado':<CheckCircle size={13} className="text-success"/>, 'Pendente':<Clock size={13} className="text-warning"/>, 'Divergente':<AlertCircle size={13} className="text-destructive"/> };
-const bgStatus = { 'Conciliado':'bg-green-50', 'Pendente':'bg-yellow-50', 'Divergente':'bg-red-50' };
+const iconStatus = {
+  Pendente: <Clock size={13} className="text-warning" />,
+};
 
 export default function ConciliacaoBancaria() {
   const [filtro, setFiltro] = useState('Todos');
-  const lista = filtro==='Todos' ? LANCAMENTOS : LANCAMENTOS.filter(l=>l.status===filtro);
-  const saldo = LANCAMENTOS.reduce((s,l)=>s+l.valor,0);
+
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['financial-conciliation'],
+    queryFn: fetchConciliation,
+  });
+
+  const items = useMemo(() => {
+    const raw = Array.isArray(data?.items) ? data.items : [];
+    return raw.map((it) => ({
+      id: it.id,
+      data: it.vencimento ? String(it.vencimento).slice(0, 10) : '—',
+      descricao: `${it.tipo || 'Lançamento'} · ${it.id?.slice(0, 8)}`,
+      tipo: '—',
+      valor: Number(it.valor || 0),
+      status: 'Pendente',
+    }));
+  }, [data]);
+
+  const lista = filtro === 'Todos' ? items : items.filter((l) => l.status === filtro);
+  const saldo = items.reduce((s, l) => s + l.valor, 0);
+
   return (
     <div>
-      <PageHeader title="Conciliação Bancária" breadcrumbs={['Início','Financeiro','Conciliação Bancária']}
-        actions={<select className="text-xs border border-border rounded px-2 py-1.5 bg-white outline-none"><option>Abril 2026</option></select>}
-      />
-      <div className="grid grid-cols-4 gap-3 mb-4">
-        {[
-          {label:'Saldo Banco',val:`R$ ${saldo.toLocaleString('pt-BR',{minimumFractionDigits:2})}`,color:'text-foreground'},
-          {label:'Conciliados',val:LANCAMENTOS.filter(l=>l.status==='Conciliado').length,color:'text-success'},
-          {label:'Pendentes',val:LANCAMENTOS.filter(l=>l.status==='Pendente').length,color:'text-warning'},
-          {label:'Divergentes',val:LANCAMENTOS.filter(l=>l.status==='Divergente').length,color:'text-destructive'},
-        ].map(k=>(
-          <div key={k.label} className="bg-white border border-border rounded px-4 py-3 text-center">
-            <div className={`text-lg font-bold ${k.color}`}>{k.val}</div>
-            <div className="text-[11px] text-muted-foreground">{k.label}</div>
-          </div>
-        ))}
-      </div>
-      <div className="bg-white border border-border rounded-lg overflow-hidden">
-        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border">
-          {['Todos','Conciliado','Pendente','Divergente'].map(f=>(
-            <button key={f} onClick={()=>setFiltro(f)}
-              className={`px-3 py-1 rounded text-xs font-medium transition-colors ${filtro===f?'cozinha-blue-bg text-white':'bg-muted text-muted-foreground hover:bg-border'}`}>
-              {f}
-            </button>
-          ))}
-        </div>
-        <table className="w-full text-xs">
-          <thead><tr className="bg-muted border-b border-border">
-            <th className="text-left px-4 py-2 font-medium text-muted-foreground">Data</th>
-            <th className="text-left px-4 py-2 font-medium text-muted-foreground">Descrição</th>
-            <th className="text-left px-4 py-2 font-medium text-muted-foreground">Tipo</th>
-            <th className="text-left px-4 py-2 font-medium text-muted-foreground">Valor</th>
-            <th className="text-left px-4 py-2 font-medium text-muted-foreground">Status</th>
-          </tr></thead>
-          <tbody>
-            {lista.map((l,i)=>(
-              <tr key={i} className={`border-b border-border last:border-0 ${bgStatus[l.status]}`}>
-                <td className="px-4 py-2">{new Date(l.data+'T00:00').toLocaleDateString('pt-BR')}</td>
-                <td className="px-4 py-2">{l.descricao}</td>
-                <td className="px-4 py-2"><span className={`font-bold ${l.tipo==='C'?'text-success':'text-destructive'}`}>{l.tipo==='C'?'Crédito':'Débito'}</span></td>
-                <td className={`px-4 py-2 font-medium ${l.valor>0?'text-success':'text-destructive'}`}>
-                  {l.valor>0?'+':''}R$ {Math.abs(l.valor).toLocaleString('pt-BR',{minimumFractionDigits:2})}
-                </td>
-                <td className="px-4 py-2"><div className="flex items-center gap-1.5">{iconStatus[l.status]}<span>{l.status}</span></div></td>
-              </tr>
+      <PageHeader title="Conciliação Bancária" breadcrumbs={['Início', 'Financeiro', 'Conciliação Bancária']} />
+      {isError && <p className="mb-3 text-sm text-destructive">Erro ao carregar pendências.</p>}
+      {isLoading ? (
+        <p className="text-sm text-muted-foreground">Carregando…</p>
+      ) : (
+        <>
+          <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {[
+              { label: 'Itens pendentes', val: data?.pendencias ?? items.length, color: 'text-foreground' },
+              { label: 'Conta', val: data?.bankAccount ?? 'Principal', color: 'text-muted-foreground' },
+              { label: 'Soma valores', val: `R$ ${saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, color: 'text-primary' },
+            ].map((k) => (
+              <div key={k.label} className="rounded border border-border bg-white px-4 py-3 text-center">
+                <div className={`text-lg font-bold ${k.color}`}>{k.val}</div>
+                <div className="text-[11px] text-muted-foreground">{k.label}</div>
+              </div>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </div>
+          <div className="overflow-hidden rounded-lg border border-border bg-white">
+            <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2.5">
+              {['Todos', 'Pendente'].map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => setFiltro(f)}
+                  className={`rounded px-3 py-1 text-xs font-medium transition-colors ${
+                    filtro === f ? 'cozinha-blue-bg text-white' : 'bg-muted text-muted-foreground hover:bg-border'
+                  }`}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-border bg-muted">
+                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">Vencimento</th>
+                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">Descrição</th>
+                  <th className="px-4 py-2 text-right font-medium text-muted-foreground">Valor</th>
+                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lista.map((l) => (
+                  <tr key={l.id} className="border-b border-border bg-yellow-50 last:border-0">
+                    <td className="px-4 py-2">{l.data !== '—' ? new Date(l.data + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}</td>
+                    <td className="px-4 py-2">{l.descricao}</td>
+                    <td className={`px-4 py-2 text-right font-medium ${l.valor >= 0 ? 'text-foreground' : 'text-destructive'}`}>
+                      R$ {Math.abs(l.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="px-4 py-2">
+                      <div className="flex items-center gap-1.5">
+                        {iconStatus[l.status]}
+                        <span>{l.status}</span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {lista.length === 0 && (
+              <div className="px-4 py-8 text-center text-xs text-muted-foreground">Nenhuma pendência aberta.</div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 ﻿import { apiGet } from '@/utils/api';
+import { api } from '@/services/api';
 import { useNavigate } from 'react-router-dom';
 import { useMetadataStore } from '@/stores/metadataStore';
 import { useAuth } from '@/lib/AuthContext';
@@ -20,6 +21,42 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { useEffect, useState, useMemo } from 'react';
 import { usePermissionEngine } from '@/lib/PermissaoContext';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+
+/** Evita React #31 ao renderizar object/JSON em células ou no modal de detalhe. */
+function formatFieldValueForDisplay(value, field) {
+  if (value == null || value === '') return '—';
+  if (typeof value === 'boolean') return value ? 'Sim' : 'Não';
+  if (typeof value === 'object') {
+    if (Array.isArray(value)) {
+      return value
+        .map((v) => (v != null && typeof v === 'object' ? JSON.stringify(v) : String(v)))
+        .join(', ');
+    }
+    if (value.label != null) return String(value.label);
+    if (value.name != null) return String(value.name);
+    if (value.title != null) return String(value.title);
+    if (value.code != null) return String(value.code);
+    if (value.id != null) return String(value.id);
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return '—';
+    }
+  }
+  if (field?.data_type === 'currency' || field?.data_type === 'number') {
+    const n = Number(value);
+    return Number.isFinite(n)
+      ? `R$ ${n.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+      : String(value);
+  }
+  return String(value);
+}
 
 export default function DynamicEntityPage({ entityCode }) {
   const navigate = useNavigate();
@@ -93,15 +130,13 @@ export default function DynamicEntityPage({ entityCode }) {
     if (!confirm('Tem certeza?')) return;
 
     try {
-      const res = await fetch(`/api/records/${id}`, { method: 'DELETE' });
-      const json = await res.json();
-      
-      if (json.success) {
+      const { data: json } = await api.delete(`/api/records/${id}`);
+      if (json?.success) {
         toast.success('Excluído com sucesso');
         loadRecords();
       }
     } catch (err) {
-      toast.error('Erro ao excluir');
+      toast.error(err.message || 'Erro ao excluir');
     }
   };
 
@@ -117,36 +152,36 @@ export default function DynamicEntityPage({ entityCode }) {
         width: field.width || 'auto',
         sortable: !field.data_type?.includes('text'), // simplificado
         render: (value, record) => {
-          // Render custom para tipos específicos
           if (field.data_type === 'boolean') {
             return value ? 'Sim' : 'Não';
           }
-          
-          if (field.data_type === 'reference') {
-            // Mostra label (tenta encontrar na lista de referências)
-            return value || '—';
-          }
 
           if (field.data_type === 'currency' || field.data_type === 'number') {
-            return value != null ? `R$ ${Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '—';
+            if (value != null && typeof value === 'object') {
+              return formatFieldValueForDisplay(value, field);
+            }
+            return value != null && Number.isFinite(Number(value))
+              ? `R$ ${Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+              : formatFieldValueForDisplay(value, field);
           }
 
           if (field.code === 'status') {
             const statusColors = {
-              'Ativo': 'bg-green-100 text-green-800',
-              'Inativo': 'bg-gray-100 text-gray-800',
-              'Aberto': 'bg-blue-100 text-blue-800',
+              Ativo: 'bg-green-100 text-green-800',
+              Inativo: 'bg-gray-100 text-gray-800',
+              Aberto: 'bg-blue-100 text-blue-800',
               'Aguardando Aprovação': 'bg-yellow-100 text-yellow-800',
-              'Aprovado': 'bg-green-100 text-green-800',
-              'Cancelado': 'bg-red-100 text-red-800',
-              'concluida': 'bg-green-600 text-white',
-              'em_andamento': 'bg-blue-600 text-white',
+              Aprovado: 'bg-green-100 text-green-800',
+              Cancelado: 'bg-red-100 text-red-800',
+              concluida: 'bg-green-600 text-white',
+              em_andamento: 'bg-blue-600 text-white',
             };
+            const text = formatFieldValueForDisplay(value, field);
             const cls = statusColors[value] || 'bg-gray-100 text-gray-800';
-            return <Badge className={cls}>{value}</Badge>;
+            return <Badge className={cls}>{text}</Badge>;
           }
 
-          return value || '—';
+          return formatFieldValueForDisplay(value, field);
         }
       }));
   }, [entity]);
@@ -191,7 +226,7 @@ export default function DynamicEntityPage({ entityCode }) {
         {entity.fields
           ?.filter(f => f.data_type === 'select' || f.data_type === 'boolean')
           .map(field => (
-            <div key={field.id} className="flex items-center gap-2">
+            <div key={field.code || field.id} className="flex items-center gap-2">
               <select
                 value={filters[field.code] || ''}
                 onChange={(e) => setFilter(entityCode, { ...filters, [field.code]: e.target.value || null })}
@@ -341,15 +376,10 @@ export default function DynamicEntityPage({ entityCode }) {
               {entity.fields
                 ?.filter(f => !f.hidden)
                 .map(field => (
-                  <div key={field.id} className="flex justify-between border-b pb-2">
+                  <div key={field.code || field.id} className="flex justify-between border-b pb-2">
                     <span className="text-muted-foreground">{field.label}:</span>
-                    <span className="font-medium">
-                      {field.data_type === 'reference' 
-                        ? detail[field.code] 
-                        : field.data_type === 'boolean'
-                        ? (detail[field.code] ? 'Sim' : 'Não')
-                        : detail[field.code]?.toLocaleString() || '—'
-                      }
+                    <span className="font-medium text-right max-w-[65%] break-words">
+                      {formatFieldValueForDisplay(detail[field.code], field)}
                     </span>
                   </div>
                 ))}

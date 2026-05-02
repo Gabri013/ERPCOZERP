@@ -8,7 +8,8 @@ export default defineConfig({
   },
   retries: 1,
   use: {
-    baseURL: process.env.E2E_BASE_URL || 'http://127.0.0.1:5173',
+    // 5173 é usado pelo compose (frontend nginx); em dev o Vite costuma subir em 5174+ se 5173 estiver ocupado.
+    baseURL: process.env.E2E_BASE_URL || 'http://127.0.0.1:5174',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',

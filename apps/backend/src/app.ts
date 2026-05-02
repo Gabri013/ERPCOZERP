@@ -20,6 +20,17 @@ import { registerAdminModule } from './modules/admin/admin.module.js';
 import { registerCozincaModule } from './modules/cozinca/cozinca.module.js';
 import { registerProductsModule } from './modules/products/products.module.js';
 import { registerEstoqueModule } from './modules/estoque/estoque.module.js';
+import { registerStockModule } from './modules/stock/stock.module.js';
+import { registerSalesModule } from './modules/sales/sales.module.js';
+import { registerPurchasesModule } from './modules/purchases/purchases.module.js';
+import { registerProductionModule } from './modules/production/production.module.js';
+import { registerCrmModule } from './modules/crm/crm.module.js';
+import { registerHrModule } from './modules/hr/hr.module.js';
+import { registerFiscalModule } from './modules/fiscal/fiscal.module.js';
+import { registerFinancialModule } from './modules/financial/financial.module.js';
+import { registerSearchModule } from './modules/search/search.module.js';
+import { registerPlatformModule } from './modules/platform/platform.module.js';
+import { registerRolesModule } from './modules/roles/roles.module.js';
 
 export function createApp() {
   const app = express();
@@ -51,6 +62,17 @@ export function createApp() {
   registerCozincaModule(app);
   registerProductsModule(app);
   registerEstoqueModule(app);
+  registerStockModule(app);
+  registerSalesModule(app);
+  registerPurchasesModule(app);
+  registerProductionModule(app);
+  registerCrmModule(app);
+  registerHrModule(app);
+  registerFiscalModule(app);
+  registerFinancialModule(app);
+  registerSearchModule(app);
+  registerPlatformModule(app);
+  registerRolesModule(app);
 
   app.get('/', (req, res) => {
     res.json({

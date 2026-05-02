@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../../infra/prisma.js';
 import { requirePermission } from '../../middleware/auth.js';
 import { getIO } from '../../realtime/io.js';
+import { filterNotificationsByUserRole } from './notifications.service.js';
 
 export const notificationsRouter = Router();
 
@@ -12,19 +13,28 @@ notificationsRouter.get('/me', async (req, res) => {
   const limitRaw = Number(req.query.limit || 20);
   const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 100) : 20;
 
-  const sector = typeof req.query.sector === 'string' ? req.query.sector.trim() : '';
+  const sectorFilter = typeof req.query.sector === 'string' ? req.query.sector.trim() : '';
+  const moduleFilter = typeof req.query.module === 'string' ? req.query.module.trim() : '';
 
-  const items = await prisma.userNotification.findMany({
+  const roleCodes = Array.isArray(req.user?.roles) ? req.user.roles : [];
+
+  const fetchTake = sectorFilter ? limit : Math.min(limit * 5, 200);
+
+  const rows = await prisma.userNotification.findMany({
     where: {
       userId,
-      ...(sector ? { sector } : {}),
+      ...(sectorFilter ? { sector: sectorFilter } : {}),
     },
     orderBy: { createdAt: 'desc' },
-    take: limit,
+    take: fetchTake,
   });
 
+  const visible = filterNotificationsByUserRole(rows, roleCodes, {
+    module: moduleFilter || null,
+  }).slice(0, limit);
+
   res.json({
-    items: items.map((n) => ({
+    items: visible.map((n) => ({
       id: n.id,
       sector: n.sector,
       type: n.type,
@@ -60,12 +70,20 @@ notificationsRouter.post('/', requirePermission('entity.manage'), async (req, re
     targets = [userIdCaller];
   }
 
+  const targetRoles = Array.isArray(req.body?.target_roles) ? req.body.target_roles : undefined;
+  const targetModule =
+    typeof req.body?.target_module === 'string' && req.body.target_module.trim()
+      ? req.body.target_module.trim()
+      : undefined;
+
   await prisma.userNotification.createMany({
     data: targets.map((uid) => ({
       userId: uid,
       sector,
       type: typeRaw,
       text,
+      ...(targetRoles !== undefined ? { targetRoles } : {}),
+      ...(targetModule !== undefined ? { targetModule } : {}),
     })),
   });
 

@@ -2,43 +2,69 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import PageHeader from '@/components/common/PageHeader';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { api } from '@/services/api';
+import { recordsServiceApi } from '@/services/recordsServiceApi';
 import { productsApi } from '@/services/productsApi';
+import { stockApi } from '@/services/stockApi';
 import Model3DViewer from '@/components/products/Model3DViewer';
+import ImportBomModal from '@/components/engenharia/ImportBomModal';
 import { useToast } from '@/components/ui/use-toast';
-import { ArrowLeft, FileUp, Loader2 } from 'lucide-react';
-import { usePermissao } from '@/lib/PermissaoContext';
+import { ArrowLeft, FileUp, Loader2, Upload, Trash2 } from 'lucide-react';
+import { usePermissions } from '@/lib/PermissaoContext';
 
 export default function ProdutoDetalhe() {
   const { id: recordId } = useParams();
   const { toast } = useToast();
-  const { pode } = usePermissao();
-  const canEdit = pode('editar_produtos');
+  const { pode } = usePermissions();
+  const canEdit = pode('editar_produtos') || pode('produto.update');
 
   const [loading, setLoading] = useState(true);
   const [produto, setProduto] = useState(null);
   const [bomLines, setBomLines] = useState([]);
   const [files, setFiles] = useState([]);
-  const [bomText, setBomText] = useState('');
-  const [preview, setPreview] = useState(null);
   const [bomStatus, setBomStatus] = useState('EMPTY');
   const [savingStatus, setSavingStatus] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  /** ID do EntityRecord usado por `/api/products/...` (BOM, arquivos, 3D). */
+  const [bomApiId, setBomApiId] = useState(null);
 
   const load = useCallback(async () => {
     if (!recordId) return;
     setLoading(true);
     try {
-      const res = await api.get(`/api/estoque/${recordId}`);
-      const p = res?.data;
-      setProduto(p);
-      setBomStatus(p?.bom_status || 'EMPTY');
+      let mapped = null;
+      try {
+        mapped = await stockApi.getProduct(recordId);
+      } catch {
+        mapped = null;
+      }
+
+      let bomRecordId = recordId;
+      let displayProduto = null;
+
+      if (mapped?.id) {
+        displayProduto = mapped;
+        bomRecordId = mapped.entityRecordId || null;
+      } else {
+        const p = await recordsServiceApi.get(recordId);
+        if (!p) {
+          toast({ variant: 'destructive', title: 'Produto não encontrado' });
+          setProduto(null);
+          return;
+        }
+        displayProduto = p;
+        bomRecordId = recordId;
+      }
+
+      setProduto(displayProduto);
+      setBomStatus(displayProduto?.bom_status || 'EMPTY');
+      setBomApiId(bomRecordId);
+
       const [lines, fl] = await Promise.all([
-        productsApi.listBomLines(recordId).catch(() => []),
-        productsApi.listFiles(recordId).catch(() => []),
+        bomRecordId ? productsApi.listBomLines(bomRecordId).catch(() => []) : Promise.resolve([]),
+        bomRecordId ? productsApi.listFiles(bomRecordId).catch(() => []) : Promise.resolve([]),
       ]);
       setBomLines(lines || []);
       setFiles(fl || []);
@@ -53,37 +79,23 @@ export default function ProdutoDetalhe() {
     load();
   }, [load]);
 
-  const handlePreviewBom = async () => {
-    if (!bomText.trim()) {
-      toast({ variant: 'destructive', title: 'Cole a planilha exportada do SolidWorks' });
-      return;
-    }
+  const handleClearBom = async () => {
+    if (!canEdit || !bomApiId) return;
+    if (!window.confirm('Apagar todas as linhas da BOM? Esta ação não pode ser desfeita.')) return;
     try {
-      const data = await productsApi.importBom(recordId, { csvText: bomText, dryRun: true });
-      setPreview(data);
-      toast({ title: 'Pré-visualização', description: `${data.rowCount || 0} linhas analisadas` });
-    } catch (e) {
-      toast({ variant: 'destructive', title: 'Prévia', description: e?.message || 'Erro' });
-    }
-  };
-
-  const handleImportBom = async () => {
-    if (!canEdit) return;
-    try {
-      await productsApi.importBom(recordId, { csvText: bomText, dryRun: false });
-      toast({ title: 'BOM importada', description: 'Status atualizado para COMPLETE.' });
-      setPreview(null);
+      await productsApi.clearBom(bomApiId);
+      toast({ title: 'BOM limpa', description: 'Status retornado para EMPTY.' });
       load();
     } catch (e) {
-      toast({ variant: 'destructive', title: 'Importação', description: e?.message || 'Erro' });
+      toast({ variant: 'destructive', title: 'Erro', description: e?.message || 'Falha' });
     }
   };
 
   const handleStatus = async (v) => {
-    if (!canEdit) return;
+    if (!canEdit || !bomApiId) return;
     setSavingStatus(true);
     try {
-      await productsApi.putBomStatus(recordId, v);
+      await productsApi.putBomStatus(bomApiId, v);
       setBomStatus(v);
       setProduto((p) => (p ? { ...p, bom_status: v } : p));
       toast({ title: 'Status BOM', description: v });
@@ -132,7 +144,7 @@ export default function ProdutoDetalhe() {
 
       <div className="flex flex-wrap items-center gap-3">
         <Label className="text-sm">Status engenharia (BOM)</Label>
-        <Select value={bomStatus} onValueChange={handleStatus} disabled={!canEdit || savingStatus}>
+        <Select value={bomStatus} onValueChange={handleStatus} disabled={!canEdit || savingStatus || !bomApiId}>
           <SelectTrigger className="w-[240px]">
             <SelectValue />
           </SelectTrigger>
@@ -162,79 +174,112 @@ export default function ProdutoDetalhe() {
         </TabsContent>
 
         <TabsContent value="bom" className="mt-4 space-y-4">
-          <p className="text-xs text-muted-foreground">
-            Cole exportação CSV/TSV do SolidWorks (código, descrição, material, X, Y, quantidade). Espessura é inferida do campo Material (ex.: #430-0,8-…).
-          </p>
-          <Textarea
-            className="min-h-[160px] font-mono text-xs"
-            placeholder="CÓDIGO;DESCRIÇÃO;MATERIAL;X;Y;QTD"
-            value={bomText}
-            onChange={(e) => setBomText(e.target.value)}
-            disabled={!canEdit}
-          />
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="secondary" onClick={handlePreviewBom} disabled={!canEdit}>
-              Pré-visualizar (peso / novos códigos)
-            </Button>
-            <Button type="button" onClick={handleImportBom} disabled={!canEdit}>
-              Importar e gravar
-            </Button>
-          </div>
-
-          {preview?.preview && (
-            <div className="overflow-x-auto rounded border border-border">
-              <table className="min-w-[600px] w-full text-xs">
-                <thead>
-                  <tr className="border-b bg-muted/50">
-                    <th className="p-2 text-left">#</th>
-                    <th className="p-2 text-left">Código</th>
-                    <th className="p-2 text-right">Peso kg</th>
-                    <th className="p-2 text-right">e mm</th>
-                    <th className="p-2 text-center">Novo?</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {preview.preview.slice(0, 50).map((row, i) => (
-                    <tr key={i} className="border-b border-border/60">
-                      <td className="p-2">{row.line}</td>
-                      <td className="p-2 font-mono">{row.codigo}</td>
-                      <td className="p-2 text-right">{row.weight_kg}</td>
-                      <td className="p-2 text-right">{row.thickness_mm ?? '—'}</td>
-                      <td className="p-2 text-center">{row.auto_create ? 'Sim' : '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {preview.preview.length > 50 && (
-                <p className="p-2 text-xs text-muted-foreground">Mostrando 50 de {preview.preview.length} linhas.</p>
-              )}
-            </div>
+          {!bomApiId && (
+            <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-950 dark:text-amber-100">
+              Este produto está só no catálogo (Prisma). Para importar BOM SolidWorks e anexos técnicos,
+              é necessário um vínculo com registro de entidade de engenharia
+              (<span className="font-mono">entityRecordId</span>).
+            </p>
           )}
 
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-sm font-medium">Lista de Materiais (BOM)</p>
+              <p className="text-xs text-muted-foreground">
+                {bomLines.length} {bomLines.length === 1 ? 'componente' : 'componentes'} cadastrados
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {canEdit && bomApiId && bomLines.length > 0 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleClearBom}
+                  className="gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10"
+                >
+                  <Trash2 size={13} /> Limpar BOM
+                </Button>
+              )}
+              {canEdit && bomApiId && (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => setShowImportModal(true)}
+                  className="gap-1.5"
+                >
+                  <Upload size={13} /> Importar BOM (SolidWorks)
+                </Button>
+              )}
+            </div>
+          </div>
+
           <div className="overflow-x-auto rounded border border-border">
-            <table className="min-w-[600px] w-full text-sm">
+            <table className="min-w-[700px] w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/40">
+                  <th className="p-2 text-left w-8">#</th>
                   <th className="p-2 text-left">Código</th>
+                  <th className="p-2 text-left">Descrição</th>
+                  <th className="p-2 text-left">Material</th>
+                  <th className="p-2 text-left">Processo</th>
                   <th className="p-2 text-right">Qtd</th>
                   <th className="p-2 text-right">Peso kg</th>
-                  <th className="p-2 text-right">X/Y mm</th>
+                  <th className="p-2 text-right">X × Y</th>
                 </tr>
               </thead>
               <tbody>
-                {bomLines.map((l) => (
-                  <tr key={l.id} className="border-b border-border/50">
-                    <td className="p-2 font-mono">{l.componentCode}</td>
-                    <td className="p-2 text-right">{l.quantity}</td>
-                    <td className="p-2 text-right">{l.weightKg ?? '—'}</td>
-                    <td className="p-2 text-right text-xs">
-                      {l.xMm ?? '—'} × {l.yMm ?? '—'}
+                {bomLines.map((l, i) => (
+                  <tr key={l.id} className="border-b border-border/50 hover:bg-muted/20">
+                    <td className="p-2 text-muted-foreground text-xs">{i + 1}</td>
+                    <td className="p-2 font-mono text-xs font-medium">{l.componentCode}</td>
+                    <td className="p-2 text-xs text-muted-foreground max-w-[160px] truncate">
+                      {l.description || '—'}
+                    </td>
+                    <td className="p-2 text-xs text-muted-foreground max-w-[120px] truncate">
+                      {l.materialSpec || '—'}
+                    </td>
+                    <td className="p-2 text-xs">
+                      {l.process ? (
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                          l.process === 'ALMOXARIFADO' ? 'bg-blue-100 text-blue-700' :
+                          l.process === 'LASER' ? 'bg-orange-100 text-orange-700' :
+                          l.process === 'DOBRA' ? 'bg-purple-100 text-purple-700' :
+                          l.process === 'SOLDA' ? 'bg-red-100 text-red-700' :
+                          l.process === 'MONTAGEM' ? 'bg-green-100 text-green-700' :
+                          'bg-gray-100 text-gray-600'
+                        }`}>
+                          {l.process}
+                        </span>
+                      ) : '—'}
+                    </td>
+                    <td className="p-2 text-right font-medium">{Number(l.quantity)}</td>
+                    <td className="p-2 text-right text-xs text-muted-foreground">
+                      {l.weightKg ? Number(l.weightKg).toFixed(3) : '—'}
+                    </td>
+                    <td className="p-2 text-right text-xs text-muted-foreground">
+                      {l.xMm != null ? `${l.xMm} × ${l.yMm ?? '?'}` : '—'}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            {!bomLines.length && <p className="p-4 text-sm text-muted-foreground">Nenhuma linha persistida — importe a BOM.</p>}
+            {!bomLines.length && (
+              <div className="p-8 text-center text-sm text-muted-foreground">
+                <p>Nenhuma linha na BOM.</p>
+                {canEdit && bomApiId && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="mt-3 gap-1.5"
+                    onClick={() => setShowImportModal(true)}
+                  >
+                    <Upload size={13} /> Importar BOM do SolidWorks
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
         </TabsContent>
 
@@ -248,12 +293,13 @@ export default function ProdutoDetalhe() {
                 multiple
                 accept=".dxf,.pdf,.DXF,.PDF"
                 className="hidden"
-                disabled={!canEdit}
+                disabled={!canEdit || !bomApiId}
                 onChange={async (e) => {
                   const fl = e.target.files;
                   if (!fl?.length) return;
                   try {
-                    await productsApi.uploadFiles(recordId, fl);
+                    if (!bomApiId) return;
+                    await productsApi.uploadFiles(bomApiId, fl);
                     toast({ title: 'Arquivos enviados' });
                     load();
                   } catch (err) {
@@ -282,7 +328,7 @@ export default function ProdutoDetalhe() {
           {!files.length && <p className="text-sm text-muted-foreground">Nenhum arquivo técnico.</p>}
         </TabsContent>
 
-        <TabsContent value="m3d" className="mt-4 space-y-4">
+        <TabsContent value="m3d" className="mt-4 space-y-4" key="m3d">
           <div className="flex flex-wrap gap-2">
             <Label className="flex items-center gap-2 cursor-pointer">
               <FileUp className="h-4 w-4" />
@@ -296,7 +342,8 @@ export default function ProdutoDetalhe() {
                   const f = e.target.files?.[0];
                   if (!f) return;
                   try {
-                    await productsApi.uploadModel3d(recordId, f);
+                    if (!bomApiId) return;
+                    await productsApi.uploadModel3d(bomApiId, f);
                     toast({ title: 'Modelo 3D salvo' });
                     load();
                   } catch (err) {
@@ -307,9 +354,21 @@ export default function ProdutoDetalhe() {
               />
             </Label>
           </div>
-          <Model3DViewer modelUrl={productsApi.model3dUrl(recordId)} title={codigo} />
+          <Model3DViewer modelUrl={bomApiId ? productsApi.model3dUrl(bomApiId) : ''} title={codigo} />
         </TabsContent>
       </Tabs>
+
+      {showImportModal && bomApiId && (
+        <ImportBomModal
+          productRecordId={bomApiId}
+          productName={produto?.descricao || produto?.codigo || ''}
+          onClose={() => setShowImportModal(false)}
+          onImported={() => {
+            setShowImportModal(false);
+            load();
+          }}
+        />
+      )}
     </div>
   );
 }

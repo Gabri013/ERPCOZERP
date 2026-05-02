@@ -11,6 +11,7 @@
     "lint": "npm run lint --prefix apps/frontend && npm run lint --prefix apps/backend",
     "lint:frontend": "npm run lint --prefix apps/frontend",
     "lint:backend": "npm run lint --prefix apps/backend",
+    "smoke": "npm run lint --prefix apps/backend && npm run build --prefix apps/frontend",
     "test:smoke": "node tests/smoke/test-all-endpoints.cjs",
     "test:smoke:core": "node tests/smoke/smoke-test-core.cjs",
     "test:e2e": "playwright test",
@@ -20,6 +21,7 @@
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f",
     "docker:seed": "docker compose run --rm -e SEED_ENABLED=true backend npm run prisma:seed",
+    "sync:cozinca-team": "npm run sync:cozinca-team --prefix apps/backend",
     "migrate:legacy": "node scripts/migrate-legacy-data.js",
     "seed:materials": "node scripts/seed-raw-materials.js"
   },

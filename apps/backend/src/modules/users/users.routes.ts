@@ -1,9 +1,38 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
+import type { RequestHandler } from 'express';
 import { prisma } from '../../infra/prisma.js';
+import { sortRolesByPriority } from '../../lib/roleOrder.js';
+import { requirePermission } from '../../middleware/auth.js';
 
 export const usersRouter = Router();
+
+/** List/create/delete and non-password updates — matches UI “Gerenciar usuários”. */
+const manageUsersGate: RequestHandler = requirePermission(['user.manage', 'gerenciar_usuarios']);
+const manageUsersStrictGate: RequestHandler = requirePermission('user.manage');
+
+function wantsPasswordChange(body: unknown): boolean {
+  if (!body || typeof body !== 'object') return false;
+  const p = (body as Record<string, unknown>).password;
+  return typeof p === 'string' && p.length > 0;
+}
+
+/** Password change requires `user.manage`; other fields allow `gerenciar_usuarios`. */
+const putUserPermissionGate: RequestHandler = (req, res, next) => {
+  const mw = wantsPasswordChange(req.body) ? manageUsersStrictGate : manageUsersGate;
+  return mw(req, res, next);
+};
+
+async function replaceUserRoles(userId: string, roleCodes: string[], assignedBy?: string) {
+  const roles = await prisma.role.findMany({ where: { code: { in: roleCodes } } });
+  await prisma.userRole.deleteMany({ where: { userId } });
+  for (const role of roles) {
+    await prisma.userRole.create({
+      data: { userId, roleId: role.id, assignedBy },
+    });
+  }
+}
 
 const createSchema = z.object({
   email: z.string().email(),
@@ -20,7 +49,11 @@ const updateSchema = z.object({
   active: z.boolean().optional(),
 });
 
-usersRouter.get('/', async (req, res) => {
+const rolesOnlySchema = z.object({
+  roles: z.array(z.string()).min(1, 'Selecione ao menos um papel.'),
+});
+
+usersRouter.get('/', manageUsersGate, async (req, res) => {
   const users = await prisma.user.findMany({
     orderBy: { createdAt: 'desc' },
     include: { roles: { include: { role: true } } },
@@ -34,13 +67,13 @@ usersRouter.get('/', async (req, res) => {
       email: u.email,
       full_name: u.fullName,
       active: u.active,
-      roles: u.roles.map((r) => r.role.code),
+      roles: sortRolesByPriority(u.roles.map((r) => r.role.code)),
       created_at: u.createdAt,
     })),
   });
 });
 
-usersRouter.post('/', async (req, res) => {
+usersRouter.post('/', manageUsersGate, async (req, res) => {
   const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Dados inválidos', details: parsed.error.flatten() });
 
@@ -69,7 +102,20 @@ usersRouter.post('/', async (req, res) => {
   res.status(201).json({ success: true, data: { id: created.id } });
 });
 
-usersRouter.put('/:id', async (req, res) => {
+/** Assign roles only (same gate as manage users; no password / profile fields). */
+usersRouter.put('/:id/roles', manageUsersGate, async (req, res) => {
+  const { id } = req.params;
+  const parsed = rolesOnlySchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Dados inválidos', details: parsed.error.flatten() });
+
+  const existing = await prisma.user.findUnique({ where: { id } });
+  if (!existing) return res.status(404).json({ error: 'Usuário não encontrado' });
+
+  await replaceUserRoles(id, parsed.data.roles, req.user?.userId);
+  res.json({ success: true });
+});
+
+usersRouter.put('/:id', putUserPermissionGate, async (req, res) => {
   const { id } = req.params;
   const parsed = updateSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Dados inválidos', details: parsed.error.flatten() });
@@ -85,17 +131,13 @@ usersRouter.put('/:id', async (req, res) => {
   await prisma.user.update({ where: { id }, data });
 
   if (parsed.data.roles) {
-    const roles = await prisma.role.findMany({ where: { code: { in: parsed.data.roles } } });
-    await prisma.userRole.deleteMany({ where: { userId: id } });
-    for (const role of roles) {
-      await prisma.userRole.create({ data: { userId: id, roleId: role.id, assignedBy: req.user?.userId } });
-    }
+    await replaceUserRoles(id, parsed.data.roles, req.user?.userId);
   }
 
   res.json({ success: true });
 });
 
-usersRouter.delete('/:id', async (req, res) => {
+usersRouter.delete('/:id', manageUsersGate, async (req, res) => {
   const { id } = req.params;
 
   const existing = await prisma.user.findUnique({ where: { id } });

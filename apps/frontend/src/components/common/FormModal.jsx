@@ -5,7 +5,16 @@ export const inp = 'w-full border border-border rounded px-2.5 py-1.5 text-xs bg
 export const lbl = 'block text-[11px] text-muted-foreground mb-0.5 font-medium';
 export const req = <span className="text-red-500 ml-0.5">*</span>;
 
-export default function FormModal({ title, subtitle, onClose, onSave, saving, children, size = 'md' }) {
+export default function FormModal({
+  title,
+  subtitle,
+  onClose,
+  onSave,
+  saving,
+  children,
+  size = 'md',
+  hideFooter,
+}) {
   const sizeClass =
     { sm: 'sm:max-w-md', md: 'sm:max-w-xl', lg: 'sm:max-w-2xl', xl: 'sm:max-w-4xl' }[size] || 'sm:max-w-xl';
 
@@ -26,6 +35,7 @@ export default function FormModal({ title, subtitle, onClose, onSave, saving, ch
           </button>
         </div>
         <div className="flex-1 overflow-y-auto min-h-0 px-4 sm:px-5 py-4">{children}</div>
+        {!hideFooter && (
         <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 px-4 sm:px-5 py-3 border-t border-border bg-muted/30 shrink-0">
           <button type="button" onClick={onClose} className="w-full sm:w-auto px-4 py-2 sm:py-1.5 text-xs border border-border rounded hover:bg-muted">
             Cancelar
@@ -39,6 +49,7 @@ export default function FormModal({ title, subtitle, onClose, onSave, saving, ch
             {saving ? 'Salvando...' : 'Salvar'}
           </button>
         </div>
+        )}
       </div>
     </div>
   );

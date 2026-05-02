@@ -6,6 +6,7 @@ import { Prisma } from '@prisma/client';
 import {
   enrichRowWeights,
   parseSolidWorksBomTable,
+  normalizeProcess,
   type ParsedBomRow,
 } from './bom-solidworks.js';
 
@@ -49,6 +50,10 @@ async function findProdutoByCodigo(codigo: string) {
     take: 10000,
   });
   return rows.find((r) => String((r.data as any).codigo) === String(codigo)) || null;
+}
+
+export async function findProdutoEntityRecordByCode(codigo: string) {
+  return findProdutoByCodigo(codigo);
 }
 
 export async function ensureIndustrialMeta(
@@ -156,7 +161,7 @@ async function autoCreateComponent(
 }
 
 export async function previewBomImport(csvText: string) {
-  const { rows } = parseSolidWorksBomTable(csvText);
+  const { rows, columnNames, detectedDelimiter } = parseSolidWorksBomTable(csvText);
   const preview: Array<Record<string, unknown>> = [];
   const wouldCreate: string[] = [];
 
@@ -171,12 +176,15 @@ export async function previewBomImport(csvText: string) {
       codigo: row.codigo,
       descricao: row.descricao,
       material: row.material,
+      processo: normalizeProcess(row.processo),
+      processo_raw: row.processo,
       x_mm: row.xMm,
       y_mm: row.yMm,
       thickness_mm: thicknessMm,
       weight_kg: weightKg,
       is_sheet: isSheet,
       qtd: row.qtd,
+      qtd_total: row.qtdTotal,
       auto_create: !exists,
     });
   }
@@ -184,8 +192,11 @@ export async function previewBomImport(csvText: string) {
   return {
     densityKgM3: DENSITY_KG_M3,
     rowCount: rows.length,
+    columnNames,
+    detectedDelimiter,
     preview,
     wouldCreate,
+    wouldCreateCount: wouldCreate.length,
   };
 }
 
@@ -224,12 +235,14 @@ export async function importBomForProduct(
         componentCode: row.codigo.trim(),
         description: row.descricao || null,
         materialSpec: row.material || null,
+        process: normalizeProcess(row.processo),
         xMm: row.xMm && row.xMm > 0 ? row.xMm : null,
         yMm: row.yMm && row.yMm > 0 ? row.yMm : null,
         thicknessMm,
         weightKg: isSheet ? weightKg : weightKg || null,
         quantity: row.qtd,
-      },
+        totalQty: row.qtdTotal ?? null,
+      } as Parameters<typeof prisma.billOfMaterialLine.create>[0]['data'],
     });
 
     const rm = await prisma.rawMaterial.findUnique({ where: { code: row.codigo.trim() } });
@@ -243,10 +256,12 @@ export async function importBomForProduct(
     bomJson.push({
       codigo: row.codigo.trim(),
       qtd: row.qtd,
+      qtd_total: row.qtdTotal ?? null,
       perda_pct: 0,
       weight_kg: isSheet ? weightKg : 0,
       material: row.material,
       thickness_mm: thicknessMm,
+      processo: normalizeProcess(row.processo),
     });
   }
 
@@ -337,6 +352,81 @@ export async function listBomLines(productRecordId: string) {
     where: { productRecordId },
     orderBy: { lineOrder: 'asc' },
   });
+}
+
+export async function clearBomLines(productRecordId: string) {
+  await prisma.billOfMaterialLine.deleteMany({ where: { productRecordId } });
+  await prisma.productIndustrialMeta.upsert({
+    where: { entityRecordId: productRecordId },
+    create: { entityRecordId: productRecordId, bomStatus: 'EMPTY' },
+    update: { bomStatus: 'EMPTY' },
+  });
+  return { ok: true };
+}
+
+export async function replaceBomLines(
+  productRecordId: string,
+  lines: Array<{
+    componentCode: string;
+    description?: string;
+    materialSpec?: string;
+    process?: string;
+    xMm?: number;
+    yMm?: number;
+    quantity: number;
+    totalQty?: number;
+  }>,
+  userId?: string,
+) {
+  const parent = await findProdutoRecordById(productRecordId);
+  if (!parent) throw new Error('Produto não encontrado');
+
+  await prisma.billOfMaterialLine.deleteMany({ where: { productRecordId } });
+
+  let order = 0;
+  for (const line of lines) {
+    if (!line.componentCode?.trim()) continue;
+    await (prisma.billOfMaterialLine as any).create({
+      data: {
+        productRecordId,
+        lineOrder: order++,
+        componentCode: line.componentCode.trim(),
+        description: line.description ?? null,
+        materialSpec: line.materialSpec ?? null,
+        process: line.process ?? null,
+        xMm: line.xMm ?? null,
+        yMm: line.yMm ?? null,
+        quantity: line.quantity ?? 1,
+        totalQty: line.totalQty ?? null,
+      },
+    });
+  }
+
+  const status = order > 0 ? 'COMPLETE' : 'EMPTY';
+  await prisma.productIndustrialMeta.upsert({
+    where: { entityRecordId: productRecordId },
+    create: { entityRecordId: productRecordId, bomStatus: status },
+    update: { bomStatus: status },
+  });
+  await syncBomStatusToEntityRecord(productRecordId, status);
+
+  // Update bom_json in entity record
+  const data = parent.data as Record<string, unknown>;
+  const bomJson = lines.map((l) => ({
+    codigo: l.componentCode,
+    qtd: l.quantity,
+    qtd_total: l.totalQty ?? null,
+    processo: l.process ?? null,
+  }));
+  await prisma.entityRecord.update({
+    where: { id: productRecordId },
+    data: {
+      data: { ...data, bom_json: bomJson } as Prisma.InputJsonValue,
+      updatedBy: userId ?? null,
+    },
+  });
+
+  return { ok: true, lineCount: order, bomStatus: status };
 }
 
 export async function listTechnicalFiles(productRecordId: string) {
@@ -448,6 +538,46 @@ export async function getProductModel3dInfo(productRecordId: string) {
     originalName: meta.model3dOriginalName || 'modelo.3d',
     absolutePath: abs,
   };
+}
+
+export async function listCatalogProductFiles(catalogProductId: string) {
+  return prisma.productFile.findMany({
+    where: { productId: catalogProductId },
+    orderBy: { createdAt: 'desc' },
+  });
+}
+
+export async function saveCatalogProductUpload(params: {
+  catalogProductId: string;
+  originalName: string;
+  buffer: Buffer;
+  userId?: string;
+  kind?: string;
+}) {
+  const p = await prisma.product.findUnique({ where: { id: params.catalogProductId } });
+  if (!p) throw new Error('Produto (catálogo) não encontrado');
+  await ensureUploadDirs();
+  await fs.mkdir(path.join(getUploadRoot(), 'catalog'), { recursive: true });
+  const ext = path.extname(params.originalName);
+  const id = crypto.randomUUID();
+  const fname = `${id}${ext}`;
+  const rel = path.join('catalog', fname).replace(/\\/g, '/');
+  const full = path.join(getUploadRoot(), rel);
+  await fs.writeFile(full, params.buffer);
+  return prisma.productFile.create({
+    data: {
+      id,
+      productId: params.catalogProductId,
+      path: rel,
+      originalName: params.originalName,
+      kind: params.kind ?? 'OTHER',
+      uploadedById: params.userId ?? undefined,
+    },
+  });
+}
+
+export function resolveCatalogProductFileAbsPath(row: { path: string }) {
+  return path.join(getUploadRoot(), row.path.replace(/^[/\\]+/, ''));
 }
 
 /** Ao gerar OP a partir do produto: copia metadados de arquivos do produto para contexto da OP (referência). */

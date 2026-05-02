@@ -1,5 +1,8 @@
 import { Router } from 'express';
 import { prisma } from '../../infra/prisma.js';
+import { rolesCanSeeNotificationSector } from '../../lib/notificationVisibility.js';
+import { sortRolesByPriority } from '../../lib/roleOrder.js';
+import { getDefaultDashboardWidgets } from '../../lib/defaultDashboardLayout.js';
 
 export const dashboardRouter = Router();
 
@@ -63,12 +66,12 @@ async function countRecordsByMonth(entityId: string, monthsBack = 6) {
 }
 
 async function getUserPrimaryRoleCode(userId: string) {
-  const roles = await prisma.userRole.findMany({
-    where: { userId },
-    include: { role: true },
-    orderBy: { assignedAt: 'asc' },
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { roles: { include: { role: true } } },
   });
-  return roles?.[0]?.role?.code || 'user';
+  if (!user) return 'user';
+  return sortRolesByPriority(user.roles.map((r) => r.role.code))[0] || 'user';
 }
 
 function inferSectorFromRole(roleCode: string) {
@@ -94,6 +97,10 @@ dashboardRouter.get('/', async (req, res) => {
 
   const roleCode = await getUserPrimaryRoleCode(userId);
   const sector = inferSectorFromRole(roleCode);
+  const jwtRoles = Array.isArray((req as { user?: { roles?: string[] } }).user?.roles)
+    ? (req as { user: { roles: string[] } }).user.roles
+    : [];
+  const roleCodesForNotifs = jwtRoles.length > 0 ? jwtRoles : roleCode ? [roleCode] : [];
 
   const [totalClientes, totalProdutos, totalOPs, totalOCs] = await Promise.all([
     countClientesAtivos(),
@@ -119,7 +126,14 @@ dashboardRouter.get('/', async (req, res) => {
     opId ? countRecordsByMonth(opId, 6) : Promise.resolve([]),
   ]);
 
-  const unreadNotifs = await prisma.userNotification.count({ where: { userId, readAt: null } });
+  const unreadNotifRows = await prisma.userNotification.findMany({
+    where: { userId, readAt: null },
+    select: { sector: true },
+    take: 2000,
+  });
+  const unreadNotifs = unreadNotifRows.filter((r) =>
+    rolesCanSeeNotificationSector(r.sector, roleCodesForNotifs)
+  ).length;
 
   res.json({
     success: true,
@@ -172,7 +186,21 @@ dashboardRouter.post('/layout/reset', async (req, res) => {
   const userId = req.user?.userId;
   if (!userId) return res.status(401).json({ error: 'Authentication required' });
 
-  await prisma.dashboardLayout.deleteMany({ where: { userId } });
-  res.json({ success: true });
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { roles: { include: { role: true } } },
+  });
+  if (!user) return res.status(401).json({ error: 'Authentication required' });
+
+  const roleCode = sortRolesByPriority(user.roles.map((r) => r.role.code))[0] || 'user';
+  const widgets = getDefaultDashboardWidgets(roleCode, user.sector);
+
+  const saved = await prisma.dashboardLayout.upsert({
+    where: { userId },
+    update: { widgets },
+    create: { userId, widgets },
+  });
+
+  res.json({ success: true, data: { widgets: saved.widgets } });
 });
 

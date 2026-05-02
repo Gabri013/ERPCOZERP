@@ -3,23 +3,30 @@ import PageHeader from '@/components/common/PageHeader';
 import FormModal, { inp, lbl } from '@/components/common/FormModal';
 import { Clock, Plus, Download } from 'lucide-react';
 import { exportPdfReport } from '@/services/pdfExport';
-import { recordsServiceApi } from '@/services/recordsServiceApi';
-
-const statusCor = {'Normal':'bg-green-100 text-green-700','Hora Extra':'bg-blue-100 text-blue-700','Falta':'bg-red-100 text-red-700','Atraso':'bg-yellow-100 text-yellow-700'};
+import { api } from '@/services/api';
+import { toast } from 'sonner';
 
 export default function Ponto() {
   const [rows, setRows] = useState([]);
+  const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [sel, setSel] = useState(0);
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ data:'', entrada:'', saida_almoco:'', retorno:'', saida:'', status:'Normal' });
-  const upd = (k,v) => setForm(f=>({...f,[k]:v}));
+  const [form, setForm] = useState({ employeeId: '', workDate: '', hours: 8, notes: '' });
+  const upd = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   async function load() {
     setLoading(true);
     try {
-      setRows(await recordsServiceApi.list('rh_ponto'));
+      const [te, em] = await Promise.all([
+        api.get('/api/hr/time-entries'),
+        api.get('/api/hr/employees'),
+      ]);
+      setRows(Array.isArray(te?.data?.data) ? te.data.data : []);
+      setEmployees(Array.isArray(em?.data?.data) ? em.data.data : []);
+    } catch {
+      toast.error('Erro ao carregar ponto.');
+      setRows([]);
     } finally {
       setLoading(false);
     }
@@ -29,47 +36,47 @@ export default function Ponto() {
     load();
   }, []);
 
-  const ponto = useMemo(() => {
-    const byMat = new Map();
+  const grouped = useMemo(() => {
+    const map = new Map();
     for (const r of rows) {
-      const key = r.matricula || r.nome || '—';
-      const existing = byMat.get(key) || { nome: r.nome || '—', matricula: r.matricula || '—', registros: [] };
-      existing.registros.push({
+      const id = r.employeeId;
+      const name = r.employee?.fullName || id;
+      if (!map.has(id)) map.set(id, { id, name, registros: [] });
+      map.get(id).registros.push({
         id: r.id,
-        data: r.data,
-        entrada: r.entrada,
-        saida_almoco: r.saida_almoco,
-        retorno: r.retorno,
-        saida: r.saida,
-        horas: r.horas,
-        status: r.status,
+        data: r.workDate ? String(r.workDate).slice(0, 10) : '',
+        horas: Number(r.hours || 0),
+        notes: r.notes || '',
       });
-      byMat.set(key, existing);
     }
-    // Ordena registros por data desc
-    const list = Array.from(byMat.values()).map((f) => ({
-      ...f,
-      registros: f.registros.sort((a, b) => String(b.data || '').localeCompare(String(a.data || ''))),
+    return Array.from(map.values()).map((g) => ({
+      ...g,
+      registros: g.registros.sort((a, b) => String(b.data).localeCompare(String(a.data))),
     }));
-    // Ordena funcionários por nome
-    return list.sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || '')));
   }, [rows]);
 
-  const func = ponto[sel];
+  const [sel, setSel] = useState(0);
+  const func = grouped[sel];
 
   const handleSave = async () => {
-    if(!form.data) return alert('Informe a data');
+    if (!form.employeeId || !form.workDate) {
+      toast.error('Funcionário e data são obrigatórios.');
+      return;
+    }
     setSaving(true);
     try {
-      await recordsServiceApi.create('rh_ponto', {
-        nome: func?.nome,
-        matricula: func?.matricula,
-        ...form,
-        horas: '8:00',
+      await api.post('/api/hr/time-entries', {
+        employeeId: form.employeeId,
+        workDate: form.workDate,
+        hours: Number(form.hours) || 0,
+        notes: form.notes || undefined,
       });
+      toast.success('Registro lançado.');
       await load();
       setShowModal(false);
-      setForm({ data:'', entrada:'', saida_almoco:'', retorno:'', saida:'', status:'Normal' });
+      setForm({ employeeId: '', workDate: '', hours: 8, notes: '' });
+    } catch (e) {
+      toast.error(e?.response?.data?.error || e?.message || 'Erro ao salvar.');
     } finally {
       setSaving(false);
     }
@@ -78,88 +85,99 @@ export default function Ponto() {
   const exportar = () => {
     exportPdfReport({
       title: 'Ponto Eletrônico',
-      subtitle: 'Registros de jornada dos colaboradores',
+      subtitle: 'Registros (API RH)',
       filename: 'ponto.pdf',
       table: {
-        headers: ['Funcionário', 'Matrícula', 'Data', 'Entrada', 'Saída Almoço', 'Retorno', 'Saída', 'Horas', 'Status'],
-        rows: ponto.flatMap((funcionario) => funcionario.registros.map((registro) => [
-          funcionario.nome,
-          funcionario.matricula,
-          registro.data ? new Date(String(registro.data) + 'T00:00:00').toLocaleDateString('pt-BR') : '—',
-          registro.entrada || '—',
-          registro.saida_almoco || '—',
-          registro.retorno || '—',
-          registro.saida || '—',
-          registro.horas,
-          registro.status,
-        ])),
+        headers: ['Funcionário', 'Data', 'Horas', 'Observações'],
+        rows: rows.map((r) => [
+          r.employee?.fullName || '—',
+          r.workDate ? String(r.workDate).slice(0, 10) : '—',
+          String(r.hours ?? ''),
+          r.notes || '',
+        ]),
       },
     });
   };
 
   return (
     <div>
-      <PageHeader title="Ponto Eletrônico" breadcrumbs={['Início','RH','Ponto Eletrônico']}
-        actions={<div className="flex gap-2">
-          <button onClick={exportar} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded hover:bg-muted"><Download size={13}/> Exportar PDF</button>
-          <button onClick={()=>setShowModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90"><Plus size={13}/> Registrar Ponto</button>
-        </div>}
+      <PageHeader
+        title="Ponto Eletrônico"
+        breadcrumbs={['Início', 'RH', 'Ponto Eletrônico']}
+        actions={(
+          <div className="flex gap-2">
+            <button type="button" onClick={exportar} className="flex items-center gap-1.5 rounded border border-border px-3 py-1.5 text-xs hover:bg-muted">
+              <Download size={13} /> Exportar PDF
+            </button>
+            <button type="button" onClick={() => setShowModal(true)} className="flex items-center gap-1.5 rounded px-3 py-1.5 text-xs cozinha-blue-bg text-white hover:opacity-90">
+              <Plus size={13} /> Novo lançamento
+            </button>
+          </div>
+        )}
       />
-      <div className="grid grid-cols-4 gap-3 mb-4">
-        {ponto.map((f,i)=>(
-          <button key={i} onClick={()=>setSel(i)} className={`text-left bg-white border rounded-lg px-4 py-3 transition-all ${sel===i?'border-primary shadow-sm':'border-border hover:border-muted-foreground'}`}>
-            <div className="text-xs font-semibold">{f.nome}</div>
-            <div className="text-[10px] text-muted-foreground">{f.matricula}</div>
-          </button>
-        ))}
-      </div>
-      <div className="bg-white border border-border rounded-lg overflow-hidden">
-        <div className="px-4 py-2.5 border-b border-border flex items-center gap-2">
-          <Clock size={14} className="text-muted-foreground"/>
-          <h3 className="text-sm font-semibold">{func?.nome} — Registros</h3>
+
+      {loading ? (
+        <p className="text-sm text-muted-foreground">Carregando…</p>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="rounded-lg border border-border bg-white lg:col-span-1">
+            <div className="border-b border-border px-3 py-2 text-xs font-semibold">Funcionários</div>
+            <div className="max-h-80 overflow-y-auto">
+              {grouped.map((g, i) => (
+                <button
+                  key={g.id}
+                  type="button"
+                  onClick={() => setSel(i)}
+                  className={`flex w-full items-center gap-2 border-b border-border px-3 py-2 text-left text-xs last:border-0 ${sel === i ? 'bg-muted font-medium' : 'hover:bg-muted/60'}`}
+                >
+                  <Clock size={12} className="shrink-0 text-muted-foreground" />
+                  {g.name}
+                </button>
+              ))}
+              {grouped.length === 0 && <div className="px-3 py-6 text-center text-xs text-muted-foreground">Sem lançamentos.</div>}
+            </div>
+          </div>
+          <div className="rounded-lg border border-border bg-white p-4 lg:col-span-2">
+            <h3 className="mb-3 text-sm font-semibold">{func?.name || '—'}</h3>
+            <div className="space-y-2">
+              {(func?.registros || []).map((reg) => (
+                <div key={reg.id || reg.data} className="flex flex-wrap items-center justify-between gap-2 rounded border border-border px-3 py-2 text-xs">
+                  <span>{reg.data ? new Date(reg.data + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}</span>
+                  <span className="font-semibold">{reg.horas} h</span>
+                  <span className="text-muted-foreground">{reg.notes || '—'}</span>
+                </div>
+              ))}
+              {(!func?.registros?.length) && <p className="text-xs text-muted-foreground">Nenhum registro.</p>}
+            </div>
+          </div>
         </div>
-        <table className="w-full text-xs">
-          <thead><tr className="bg-muted border-b border-border">
-            {['Data','Entrada','Saída Almoço','Retorno','Saída','Horas','Status'].map(h=>(
-              <th key={h} className="text-left px-4 py-2 font-medium text-muted-foreground">{h}</th>
-            ))}
-          </tr></thead>
-          <tbody>
-            {func?.registros.map((r,i)=>(
-              <tr key={i} className="border-b border-border last:border-0 hover:bg-nomus-blue-light">
-                <td className="px-4 py-2 font-medium">{r.data ? new Date(String(r.data) + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}</td>
-                <td className="px-4 py-2">{r.entrada||'—'}</td>
-                <td className="px-4 py-2">{r.saida_almoco||'—'}</td>
-                <td className="px-4 py-2">{r.retorno||'—'}</td>
-                <td className="px-4 py-2">{r.saida||'—'}</td>
-                <td className="px-4 py-2 font-medium">{r.horas}</td>
-                <td className="px-4 py-2"><span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${statusCor[r.status]}`}>{r.status}</span></td>
-              </tr>
-            ))}
-            {(!func || !func.registros?.length) && (
-              <tr><td colSpan={7} className="px-4 py-4 text-center text-muted-foreground text-xs">
-                {loading ? 'Carregando...' : 'Sem registros'}
-              </td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      )}
 
       {showModal && (
-        <FormModal title="Registrar Ponto" onClose={()=>setShowModal(false)} onSave={handleSave} saving={saving} size="sm">
+        <FormModal title="Novo lançamento de horas" onClose={() => setShowModal(false)} onSave={handleSave} saving={saving} size="md">
           <div className="space-y-3">
-            <div><label className={lbl}>Funcionário</label><input className={`${inp} bg-muted`} readOnly value={func?.nome}/></div>
-            <div><label className={lbl}>Data</label><input type="date" className={inp} value={form.data} onChange={e=>upd('data',e.target.value)}/></div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><label className={lbl}>Entrada</label><input type="time" className={inp} value={form.entrada} onChange={e=>upd('entrada',e.target.value)}/></div>
-              <div><label className={lbl}>Saída Almoço</label><input type="time" className={inp} value={form.saida_almoco} onChange={e=>upd('saida_almoco',e.target.value)}/></div>
-              <div><label className={lbl}>Retorno</label><input type="time" className={inp} value={form.retorno} onChange={e=>upd('retorno',e.target.value)}/></div>
-              <div><label className={lbl}>Saída</label><input type="time" className={inp} value={form.saida} onChange={e=>upd('saida',e.target.value)}/></div>
-            </div>
-            <div><label className={lbl}>Status</label>
-              <select className={inp} value={form.status} onChange={e=>upd('status',e.target.value)}>
-                {['Normal','Hora Extra','Falta','Atraso'].map(s=><option key={s}>{s}</option>)}
+            <div>
+              <label className={lbl}>Funcionário</label>
+              <select className={inp} value={form.employeeId} onChange={(e) => upd('employeeId', e.target.value)}>
+                <option value="">Selecione…</option>
+                {employees.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.code} — {e.fullName}
+                  </option>
+                ))}
               </select>
+            </div>
+            <div>
+              <label className={lbl}>Data</label>
+              <input type="date" className={inp} value={form.workDate} onChange={(e) => upd('workDate', e.target.value)} />
+            </div>
+            <div>
+              <label className={lbl}>Horas</label>
+              <input type="number" min="0.5" step="0.5" className={inp} value={form.hours} onChange={(e) => upd('hours', Number(e.target.value))} />
+            </div>
+            <div>
+              <label className={lbl}>Observações</label>
+              <input className={inp} value={form.notes} onChange={(e) => upd('notes', e.target.value)} />
             </div>
           </div>
         </FormModal>

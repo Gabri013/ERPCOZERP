@@ -1,6 +1,8 @@
-﻿import { useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import PageHeader from '@/components/common/PageHeader';
 import { Save, Plus, Eye, Trash2, GripVertical, Type, Hash, Image, Table, Minus, QrCode, BarChart } from 'lucide-react';
+import { toast } from 'sonner';
+import { getPlatformSettings, putPlatformSettings } from '@/services/platformApi';
 
 const CAMPOS_DINAMICOS = [
   '{{numero_op}}','{{numero_pedido}}','{{cliente}}','{{produto}}','{{descricao}}',
@@ -49,6 +51,7 @@ function ElementoCard({ el, onRemove }) {
 export default function ModeloOP() {
   const [modelos, setModelos] = useState(MODELOS_MOCK);
   const [modeloAtivo, setModeloAtivo] = useState(1);
+  const [saving, setSaving] = useState(false);
   const [elementos, setElementos] = useState([
     { id:1, tipo:'logo', conteudo:null },
     { id:2, tipo:'texto_fixo', conteudo:'ORDEM DE PRODUÇÃO' },
@@ -67,6 +70,32 @@ export default function ModeloOP() {
   const [novoConteudo, setNovoConteudo] = useState('');
   const [novoCampo, setNovoCampo] = useState(CAMPOS_DINAMICOS[0]);
   const [preview, setPreview] = useState(false);
+
+  useEffect(() => {
+    let ok = true;
+    (async () => {
+      try {
+        const data = await getPlatformSettings();
+        const els = data?.modeloOpElements;
+        if (ok && Array.isArray(els) && els.length) setElementos(els);
+      } catch {
+        /* mantém layout padrão local */
+      }
+    })();
+    return () => { ok = false; };
+  }, []);
+
+  const salvarNaPlataforma = async () => {
+    setSaving(true);
+    try {
+      await putPlatformSettings({ modeloOpElements: elementos });
+      toast.success('Modelo salvo na plataforma.');
+    } catch (e) {
+      toast.error(e?.response?.data?.error || e?.message || 'Erro ao salvar.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const addElemento = () => {
     const id = Date.now();
@@ -87,7 +116,7 @@ export default function ModeloOP() {
         actions={
           <div className="flex gap-2">
             <button onClick={()=>setPreview(!preview)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded hover:bg-muted"><Eye size={13}/>{preview?'Fechar Preview':'Preview'}</button>
-            <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90"><Save size={13}/> Salvar Modelo</button>
+            <button type="button" disabled={saving} onClick={salvarNaPlataforma} className="flex items-center gap-1.5 px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90 disabled:opacity-50"><Save size={13}/> {saving ? 'Salvando…' : 'Salvar Modelo'}</button>
           </div>
         }
       />

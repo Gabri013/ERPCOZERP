@@ -1,73 +1,101 @@
-﻿import PageHeader from '@/components/common/PageHeader';
+﻿import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import PageHeader from '@/components/common/PageHeader';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { api } from '@/services/api';
 
-const dre = [
-  { label:'Receita Bruta de Vendas', valor:210000, tipo:'receita', nivel:0 },
-  { label:'(-) Deduções e Impostos', valor:-28350, tipo:'deducao', nivel:1 },
-  { label:'Receita Líquida', valor:181650, tipo:'total', nivel:0 },
-  { label:'(-) Custo dos Produtos Vendidos (CPV)', valor:-105000, tipo:'deducao', nivel:1 },
-  { label:'Lucro Bruto', valor:76650, tipo:'total', nivel:0 },
-  { label:'(-) Despesas Operacionais', valor:-38200, tipo:'deducao', nivel:1 },
-  { label:'  Vendas', valor:-15000, tipo:'sub', nivel:2 },
-  { label:'  Administrativas', valor:-18200, tipo:'sub', nivel:2 },
-  { label:'  Financeiras', valor:-5000, tipo:'sub', nivel:2 },
-  { label:'EBITDA', valor:38450, tipo:'total', nivel:0 },
-  { label:'(-) Depreciação e Amortização', valor:-4200, tipo:'deducao', nivel:1 },
-  { label:'EBIT (Lucro Operacional)', valor:34250, tipo:'total', nivel:0 },
-  { label:'(-) Imposto de Renda / CSLL', valor:-11642, tipo:'deducao', nivel:1 },
-  { label:'Lucro Líquido', valor:22608, tipo:'resultado', nivel:0 },
-];
-
-const grafico = [
-  {label:'Receita Líquida',val:181650},{label:'Lucro Bruto',val:76650},{label:'EBITDA',val:38450},{label:'Lucro Líquido',val:22608},
-];
-
-const cores = { receita:'text-foreground font-semibold', deducao:'text-muted-foreground', total:'text-primary font-bold border-t border-border', resultado:'text-success font-bold border-t-2 border-success text-lg', sub:'text-muted-foreground' };
+async function fetchDre(from, to) {
+  const params = new URLSearchParams();
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  const res = await api.get(`/api/financial/dre?${params.toString()}`);
+  if (!res?.data?.success) throw new Error('Resposta inválida');
+  return res.data.data;
+}
 
 export default function DRE() {
+  const [periodo, setPeriodo] = useState('2026-03');
+  const from = `${periodo}-01`;
+  const end = new Date(from);
+  end.setMonth(end.getMonth() + 1);
+  end.setDate(0);
+  const to = end.toISOString().slice(0, 10);
+
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['financial-dre', from, to],
+    queryFn: () => fetchDre(from, to),
+  });
+
+  const receita = Number(data?.receita ?? 0);
+  const despesa = Number(data?.despesa ?? 0);
+  const resultado = Number(data?.resultado ?? receita - despesa);
+
+  const grafico = [
+    { label: 'Receitas', val: receita },
+    { label: 'Despesas', val: despesa },
+    { label: 'Resultado', val: resultado },
+  ];
+
   return (
     <div>
-      <PageHeader title="DRE — Demonstração do Resultado" breadcrumbs={['Início','Financeiro','DRE']}
-        actions={<select className="text-xs border border-border rounded px-2 py-1.5 bg-white outline-none"><option>Março 2026</option><option>Fevereiro 2026</option></select>}
+      <PageHeader
+        title="DRE — Demonstração do Resultado"
+        breadcrumbs={['Início', 'Financeiro', 'DRE']}
+        actions={(
+          <select
+            value={periodo}
+            onChange={(e) => setPeriodo(e.target.value)}
+            className="rounded border border-border bg-white px-2 py-1.5 text-xs outline-none"
+          >
+            <option value="2026-03">Março 2026</option>
+            <option value="2026-04">Abril 2026</option>
+            <option value="2026-05">Maio 2026</option>
+          </select>
+        )}
       />
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-white border border-border rounded-lg p-4">
-          <h3 className="text-sm font-semibold mb-3">Demonstração — Março/2026</h3>
-          <div className="space-y-0.5">
-            {dre.map((r,i)=>(
-              <div key={i} className={`flex items-center justify-between py-1.5 px-2 rounded text-xs ${cores[r.tipo]} ${r.nivel===1?'pl-6':r.nivel===2?'pl-10':''}`}>
-                <span>{r.label}</span>
-                <span className={r.valor<0?'text-destructive':r.tipo==='resultado'?'text-success':''}>
-                  R$ {Math.abs(r.valor).toLocaleString('pt-BR',{minimumFractionDigits:2})}
+
+      {isError && <p className="mb-3 text-sm text-destructive">Erro ao carregar DRE.</p>}
+      {isLoading ? (
+        <p className="text-sm text-muted-foreground">Carregando…</p>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="rounded-lg border border-border bg-white p-4">
+            <h3 className="mb-3 text-sm font-semibold">Resumo (lançamentos conciliados)</h3>
+            <div className="space-y-2 text-xs">
+              <div className="flex justify-between rounded bg-muted/50 px-2 py-2">
+                <span>Receitas</span>
+                <span className="font-semibold text-success">
+                  R$ {receita.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </span>
               </div>
-            ))}
-          </div>
-        </div>
-        <div className="bg-white border border-border rounded-lg p-4">
-          <h3 className="text-sm font-semibold mb-3">Visão Gráfica</h3>
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={grafico} margin={{top:0,right:0,left:-10,bottom:0}}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0"/>
-              <XAxis dataKey="label" tick={{fontSize:10}}/>
-              <YAxis tick={{fontSize:10}} tickFormatter={v=>`${(v/1000).toFixed(0)}k`}/>
-              <Tooltip formatter={v=>`R$ ${Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2})}`}/>
-              <Bar dataKey="val" fill="#0066cc" radius={4} name="Valor"/>
-            </BarChart>
-          </ResponsiveContainer>
-          <div className="grid grid-cols-2 gap-3 mt-4">
-            {[
-              {label:'Margem Bruta',val:'42,2%',color:'text-blue-600'},
-              {label:'Margem Líquida',val:'12,4%',color:'text-success'},
-            ].map(k=>(
-              <div key={k.label} className="bg-muted rounded p-3 text-center">
-                <div className={`text-lg font-bold ${k.color}`}>{k.val}</div>
-                <div className="text-[11px] text-muted-foreground">{k.label}</div>
+              <div className="flex justify-between rounded px-2 py-2">
+                <span>Despesas</span>
+                <span className="font-semibold text-destructive">
+                  R$ {despesa.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
               </div>
-            ))}
+              <div className="flex justify-between border-t border-border pt-2 font-bold">
+                <span>Resultado</span>
+                <span className={resultado >= 0 ? 'text-success' : 'text-destructive'}>
+                  R$ {resultado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="rounded-lg border border-border bg-white p-4">
+            <h3 className="mb-3 text-sm font-semibold">Visão gráfica</h3>
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={grafico} margin={{ top: 0, right: 8, left: -10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="label" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                <Tooltip formatter={(v) => `R$ ${Number(v).toLocaleString('pt-BR')}`} />
+                <Bar dataKey="val" fill="#0066cc" radius={4} name="Valor" />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

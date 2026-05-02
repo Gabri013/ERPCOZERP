@@ -27,6 +27,26 @@ function mimeFor(p: string) {
 
 productsRouter.use(authenticate);
 
+productsRouter.get('/by-code/:code/bom', requirePermission('ver_chao_fabrica'), async (req, res) => {
+  try {
+    const record = await svc.findProdutoEntityRecordByCode(req.params.code);
+    if (!record) return res.json({ success: true, data: { lines: [], bomStatus: 'EMPTY', lineCount: 0 } });
+    const lines = await svc.listBomLines(record.id);
+    const meta = await prisma.productIndustrialMeta.findUnique({ where: { entityRecordId: record.id } });
+    res.json({
+      success: true,
+      data: {
+        lines,
+        bomStatus: meta?.bomStatus ?? 'EMPTY',
+        lineCount: lines.length,
+        productRecordId: record.id,
+      },
+    });
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : 'Erro' });
+  }
+});
+
 productsRouter.get('/pending-bom', requirePermission('ver_roteiros'), async (_req, res) => {
   try {
     const data = await svc.listPendingBomProducts();
@@ -89,6 +109,71 @@ productsRouter.put('/:id/bom-status', requirePermission('editar_produtos'), asyn
 });
 
 productsRouter.get(
+  '/:id/bom',
+  requirePermission('ver_estoque'),
+  async (req, res) => {
+    try {
+      const lines = await svc.listBomLines(req.params.id);
+      const meta = await prisma.productIndustrialMeta.findUnique({
+        where: { entityRecordId: req.params.id },
+      });
+      res.json({
+        success: true,
+        data: {
+          lines,
+          bomStatus: meta?.bomStatus ?? 'EMPTY',
+          lineCount: lines.length,
+        },
+      });
+    } catch (e) {
+      res.status(500).json({ error: e instanceof Error ? e.message : 'Erro' });
+    }
+  },
+);
+
+productsRouter.put(
+  '/:id/bom',
+  requirePermission('editar_produtos'),
+  async (req, res) => {
+    try {
+      const lines: Array<{
+        componentCode: string;
+        description?: string;
+        materialSpec?: string;
+        process?: string;
+        xMm?: number;
+        yMm?: number;
+        quantity: number;
+        totalQty?: number;
+      }> = Array.isArray(req.body?.lines) ? req.body.lines : [];
+
+      if (!lines.length) {
+        return res.status(400).json({ error: 'Forneça lines[] com ao menos um item' });
+      }
+
+      const data = await svc.replaceBomLines(req.params.id, lines, req.user?.userId);
+      res.json({ success: true, data });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Erro';
+      res.status(400).json({ error: msg });
+    }
+  },
+);
+
+productsRouter.delete(
+  '/:id/bom',
+  requirePermission('editar_produtos'),
+  async (req, res) => {
+    try {
+      await svc.clearBomLines(req.params.id);
+      res.json({ success: true });
+    } catch (e) {
+      res.status(400).json({ error: e instanceof Error ? e.message : 'Erro' });
+    }
+  },
+);
+
+productsRouter.get(
   '/:id/bom/lines',
   requirePermission('ver_estoque'),
   async (req, res) => {
@@ -101,8 +186,13 @@ productsRouter.get(
   '/:id/files',
   requirePermission('ver_estoque'),
   async (req, res) => {
+    const catalog = await prisma.product.findUnique({ where: { id: req.params.id } });
+    if (catalog) {
+      const files = await svc.listCatalogProductFiles(req.params.id);
+      return res.json({ success: true, data: files, source: 'catalog' });
+    }
     const files = await svc.listTechnicalFiles(req.params.id);
-    res.json({ success: true, data: files });
+    res.json({ success: true, data: files, source: 'entity_record' });
   },
 );
 
@@ -114,22 +204,47 @@ productsRouter.post(
     try {
       const list = req.files as Array<{ originalname: string; buffer: Buffer }> | undefined;
       if (!list?.length) return res.status(400).json({ error: 'Nenhum arquivo' });
+      const catalog = await prisma.product.findUnique({ where: { id: req.params.id } });
       const created = [];
       for (const f of list) {
-        const row = await svc.saveTechnicalUpload({
-          productRecordId: req.params.id,
-          originalName: f.originalname,
-          buffer: f.buffer,
-          userId: req.user?.userId,
-        });
-        created.push(row);
+        if (catalog) {
+          const row = await svc.saveCatalogProductUpload({
+            catalogProductId: req.params.id,
+            originalName: f.originalname,
+            buffer: f.buffer,
+            userId: req.user?.userId,
+          });
+          created.push(row);
+        } else {
+          const row = await svc.saveTechnicalUpload({
+            productRecordId: req.params.id,
+            originalName: f.originalname,
+            buffer: f.buffer,
+            userId: req.user?.userId,
+          });
+          created.push(row);
+        }
       }
-      res.status(201).json({ success: true, data: created });
+      res.status(201).json({ success: true, data: created, source: catalog ? 'catalog' : 'entity_record' });
     } catch (e) {
       res.status(400).json({ error: e instanceof Error ? e.message : 'Upload falhou' });
     }
   },
 );
+
+productsRouter.get('/product-files/:fileId/raw', requirePermission('ver_estoque'), async (req, res) => {
+  const row = await prisma.productFile.findUnique({ where: { id: req.params.fileId } });
+  if (!row) return res.status(404).json({ error: 'Arquivo não encontrado' });
+  const abs = svc.resolveCatalogProductFileAbsPath(row);
+  try {
+    await fs.access(abs);
+  } catch {
+    return res.status(404).json({ error: 'Arquivo ausente no disco' });
+  }
+  res.setHeader('Content-Type', row.mimeType || 'application/octet-stream');
+  res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(row.originalName)}"`);
+  res.sendFile(abs);
+});
 
 productsRouter.post(
   '/:id/model3d',

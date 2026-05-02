@@ -24,7 +24,8 @@ export const dashboardLayoutServiceApi = {
   },
 
   async resetLayout() {
-    await api.post('/api/dashboard/layout/reset', {});
+    const res = await api.post('/api/dashboard/layout/reset', {});
+    return extractWidgets(res);
   },
 };
 

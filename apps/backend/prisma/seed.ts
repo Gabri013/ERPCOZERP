@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
-import { PrismaClient } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
+import { Prisma, PrismaClient } from '@prisma/client';
 
 /** Lista de entidades com permissões `entidade.view|create|edit|delete` — manter em sync com `src/infra/entity-permissions.ts`. */
 const GRANULAR_ENTITY_CODES = [
@@ -75,6 +76,9 @@ async function main() {
     { code: 'record.manage', name: 'Gerenciar Registros (CRUD)', category: 'core' },
     { code: 'relatorios:view', name: 'Ver Relatórios', category: 'relatorios' },
     { code: 'ver_crm', name: 'Ver CRM', category: 'crm' },
+    { code: 'crm.view', name: 'CRM — API visualização', category: 'crm' },
+    { code: 'crm.pipeline', name: 'CRM — pipeline', category: 'crm' },
+    { code: 'crm.dashboard', name: 'CRM — dashboard', category: 'crm' },
     { code: 'ver_fiscal', name: 'Ver Fiscal', category: 'fiscal' },
     { code: 'ver_folha', name: 'Ver Folha', category: 'rh' },
     // Vendas
@@ -119,6 +123,18 @@ async function main() {
     { code: 'impersonate', name: 'Ver como outro usuário', category: 'config' },
     // Backend modules
     { code: 'user.manage', name: 'Gerenciar usuários (API)', category: 'config' },
+    // Catálogo Prisma / estoque (módulo 1)
+    { code: 'produto.view', name: 'Catálogo — visualizar produtos', category: 'estoque' },
+    { code: 'produto.create', name: 'Catálogo — criar produto', category: 'estoque' },
+    { code: 'produto.update', name: 'Catálogo — editar produto', category: 'estoque' },
+    { code: 'produto.delete', name: 'Catálogo — inativar produto', category: 'estoque' },
+    { code: 'movimentacao.view', name: 'Movimentações — visualizar', category: 'estoque' },
+    { code: 'movimentacao.create', name: 'Movimentações — lançar', category: 'estoque' },
+    { code: 'inventario.view', name: 'Inventário — visualizar', category: 'estoque' },
+    { code: 'inventario.create', name: 'Inventário — criar contagem', category: 'estoque' },
+    { code: 'inventario.approve', name: 'Inventário — aprovar ajustes', category: 'estoque' },
+    { code: 'enderecamento.view', name: 'Endereços — visualizar', category: 'estoque' },
+    { code: 'enderecamento.manage', name: 'Endereços — gerenciar', category: 'estoque' },
   ];
 
   for (const p of perms) {
@@ -184,6 +200,10 @@ async function main() {
       'record.manage','entity.manage',
       'ver_pedidos','criar_pedidos','editar_pedidos','aprovar_pedidos','ver_clientes','editar_clientes','ver_orcamentos','criar_orcamentos',
       'ver_estoque','movimentar_estoque','editar_produtos',
+      'produto.view','produto.create','produto.update','produto.delete',
+      'movimentacao.view','movimentacao.create',
+      'inventario.view','inventario.create','inventario.approve',
+      'enderecamento.view','enderecamento.manage',
       'ver_compras','criar_oc','editar_fornecedores',
       'ver_op','criar_op','editar_op','apontar','ver_kanban','ver_pcp','ver_roteiros','ver_maquinas','ver_chao_fabrica',
       'ver_financeiro','editar_financeiro','aprovar_financeiro','ver_relatorio_financeiro',
@@ -194,6 +214,7 @@ async function main() {
     ],
     gerente_producao: [
       'record.manage','entity.manage','ver_op','criar_op','editar_op','apontar','ver_kanban','ver_pcp','ver_roteiros','ver_maquinas','ver_chao_fabrica','ver_estoque','ver_compras','ver_relatorios','relatorios:view',
+      'produto.view','movimentacao.view','movimentacao.create','inventario.view','inventario.create','inventario.approve','enderecamento.view','enderecamento.manage',
       ...producaoGranularCodes,
     ],
     orcamentista_vendas: [
@@ -992,6 +1013,405 @@ async function main() {
   ]);
 
   await seedEntityRecordsIfEmpty('historico_op', 'Histórico OP (Kanban)', []);
+
+  const catalogCount = await prisma.product.count();
+  if (catalogCount === 0) {
+    const defaultLoc = await prisma.location.create({
+      data: {
+        code: 'DEFAULT',
+        name: 'Depósito principal',
+        warehouse: 'Principal',
+        active: true,
+      },
+    });
+
+    const samples: Array<{
+      code: string;
+      name: string;
+      unit: string;
+      productType: string;
+      group: string;
+      cost: number;
+      sale: number;
+      min: number;
+      qty: number;
+    }> = [
+      { code: 'CAT-EIX-025', name: 'Eixo Transmissão 25mm', unit: 'UN', productType: 'Produto', group: 'Eixos', cost: 185, sale: 310, min: 5, qty: 40 },
+      { code: 'CAT-ROL-6205', name: 'Rolamento 6205-ZZ', unit: 'UN', productType: 'Componente', group: 'Rolamentos', cost: 8.2, sale: 18.9, min: 10, qty: 120 },
+      { code: 'CAT-CHA-003', name: 'Chapa Aço 3mm', unit: 'PC', productType: 'Insumo', group: 'Chapas', cost: 320, sale: 450, min: 4, qty: 20 },
+      { code: 'CAT-PAR-M10', name: 'Parafuso métrico M10', unit: 'UN', productType: 'Consumível', group: 'Fixação', cost: 0.45, sale: 0.9, min: 200, qty: 500 },
+      { code: 'CAT-FLA-3IN', name: 'Flange aço inox 3"', unit: 'UN', productType: 'Produto', group: 'Flanges', cost: 42, sale: 78, min: 8, qty: 35 },
+      { code: 'CAT-BUCH-12', name: 'Bucha redução 12mm', unit: 'UN', productType: 'Componente', group: 'Buchas', cost: 3.1, sale: 6.5, min: 50, qty: 80 },
+      { code: 'CAT-POR-M12', name: 'Porca autotravante M12', unit: 'UN', productType: 'Consumível', group: 'Fixação', cost: 0.32, sale: 0.65, min: 300, qty: 800 },
+      { code: 'CAT-ARR-10', name: 'Arruela lisa 10mm', unit: 'UN', productType: 'Consumível', group: 'Fixação', cost: 0.08, sale: 0.15, min: 500, qty: 2000 },
+      { code: 'CAT-GUI-LINEAR', name: 'Guia linear 500mm', unit: 'UN', productType: 'Componente', group: 'Automação', cost: 210, sale: 390, min: 2, qty: 6 },
+      { code: 'CAT-MOTOR-05', name: 'Motor brushless 0,5kW', unit: 'UN', productType: 'Componente', group: 'Automação', cost: 890, sale: 1320, min: 1, qty: 3 },
+    ];
+
+    const produtoEntity = await prisma.entity.findUnique({ where: { code: 'produto' } });
+    const legacyCodigoByCatalogCode: Record<string, string> = {
+      'CAT-EIX-025': 'EIX-025',
+      'CAT-ROL-6205': 'ROL-6205',
+      'CAT-CHA-003': 'CHA-003',
+    };
+
+    for (const s of samples) {
+      let entityRecordId: string | undefined;
+      const legacyCodigo = legacyCodigoByCatalogCode[s.code];
+      if (produtoEntity && legacyCodigo) {
+        const match = await prisma.entityRecord.findFirst({
+          where: {
+            entityId: produtoEntity.id,
+            deletedAt: null,
+            data: { path: ['codigo'], equals: legacyCodigo },
+          },
+        });
+        if (match) entityRecordId = match.id;
+      }
+
+      await prisma.product.create({
+        data: {
+          code: s.code,
+          name: s.name,
+          unit: s.unit,
+          productType: s.productType,
+          group: s.group,
+          costPrice: new Prisma.Decimal(s.cost),
+          salePrice: new Prisma.Decimal(s.sale),
+          minStock: new Prisma.Decimal(s.min),
+          status: 'Ativo',
+          entityRecordId,
+          locations: {
+            create: {
+              locationId: defaultLoc.id,
+              quantity: new Prisma.Decimal(s.qty),
+            },
+          },
+        },
+      });
+    }
+  }
+
+  // --- Vendas (Customer / Quote / SaleOrder Prisma) — 5 pedidos, 3 orçamentos quando vazio ---
+  if ((await prisma.customer.count()) === 0 && (await prisma.product.count()) > 0) {
+    const products = await prisma.product.findMany({ orderBy: { code: 'asc' }, take: 8 });
+    const c1 = await prisma.customer.create({
+      data: {
+        code: 'CLI-V01',
+        name: 'Metalúrgica ABC Ltda',
+        document: '12.345.678/0001-90',
+        active: true,
+      },
+    });
+    const c2 = await prisma.customer.create({
+      data: {
+        code: 'CLI-V02',
+        name: 'TechParts Ltda',
+        document: '23.456.789/0001-01',
+        active: true,
+      },
+    });
+    const year = new Date().getFullYear();
+    const pt = await prisma.priceTable.create({
+      data: {
+        code: `TAB-${year}`,
+        name: 'Lista principal',
+        currency: 'BRL',
+        active: true,
+      },
+    });
+    await prisma.priceTableItem.createMany({
+      data: [
+        {
+          priceTableId: pt.id,
+          productId: products[0].id,
+          price: products[0].salePrice ?? new Prisma.Decimal(0),
+          minQty: null,
+        },
+        {
+          priceTableId: pt.id,
+          productId: products[1]?.id ?? products[0].id,
+          price: products[1]?.salePrice ?? new Prisma.Decimal(0),
+          minQty: new Prisma.Decimal(10),
+        },
+      ].filter((x, i, a) => a.findIndex((y) => y.productId === x.productId) === i),
+    });
+
+    const qItem = (prodIdx: number, qtd: number, price: number) => ({
+      productId: products[prodIdx % products.length].id,
+      quantity: new Prisma.Decimal(qtd),
+      unitPrice: new Prisma.Decimal(price),
+      discountPct: null,
+    });
+
+    const quotesSeed = [
+      { num: `${year}-00001`, cust: c1.id, items: [qItem(0, 4, 310), qItem(1, 10, 18.9)] },
+      { num: `${year}-00002`, cust: c2.id, items: [qItem(0, 2, 310)] },
+      { num: `${year}-00003`, cust: c1.id, items: [qItem(2, 5, 450), qItem(0, 1, 310)] },
+    ];
+
+    for (const qs of quotesSeed) {
+      let total = new Prisma.Decimal(0);
+      const creates = qs.items.map((it) => {
+        const lt = it.quantity.mul(it.unitPrice);
+        total = total.add(lt);
+        return {
+          productId: it.productId,
+          quantity: it.quantity,
+          unitPrice: it.unitPrice,
+          discountPct: it.discountPct,
+        };
+      });
+      await prisma.quote.create({
+        data: {
+          number: `ORC-${qs.num}`,
+          customerId: qs.cust,
+          status: 'ENVIADO',
+          totalAmount: total,
+          items: { create: creates },
+        },
+      });
+    }
+
+    const ordersSeed = [
+      { num: `${year}-00001`, cust: c1.id, col: 'PEDIDO', st: 'DRAFT', items: [qItem(0, 10, 310)] },
+      { num: `${year}-00002`, cust: c2.id, col: 'PRODUCAO', st: 'APPROVED', items: [qItem(1, 50, 18.9)] },
+      { num: `${year}-00003`, cust: c1.id, col: 'APROVACAO', st: 'DRAFT', items: [qItem(0, 5, 310)] },
+      { num: `${year}-00004`, cust: c2.id, col: 'EXPEDICAO', st: 'APPROVED', items: [qItem(2, 3, 450)] },
+      { num: `${year}-00005`, cust: c1.id, col: 'CONCLUIDO', st: 'APPROVED', items: [qItem(0, 2, 310)] },
+    ];
+
+    for (const os of ordersSeed) {
+      let total = new Prisma.Decimal(0);
+      const lines = os.items.map((it) => {
+        const lt = it.quantity.mul(it.unitPrice);
+        total = total.add(lt);
+        return {
+          productId: it.productId,
+          quantity: it.quantity,
+          unitPrice: it.unitPrice,
+          discountPct: it.discountPct,
+          lineTotal: lt,
+        };
+      });
+      await prisma.saleOrder.create({
+        data: {
+          number: `PV-${os.num}`,
+          customerId: os.cust,
+          status: os.st,
+          kanbanColumn: os.col,
+          totalAmount: total,
+          items: { create: lines },
+        },
+      });
+    }
+  }
+
+  // --- Compras (Supplier / PurchaseOrder) quando vazio ---
+  if ((await prisma.supplier.count()) === 0 && (await prisma.product.count()) > 0) {
+    const products = await prisma.product.findMany({ orderBy: { code: 'asc' }, take: 4 });
+    const s1 = await prisma.supplier.create({
+      data: { code: 'FOR-P01', name: 'Distribuidora Sul Ltda', document: '11.222.333/0001-44', active: true },
+    });
+    const s2 = await prisma.supplier.create({
+      data: { code: 'FOR-P02', name: 'Fixadores do Brasil', document: '55.666.777/0001-88', active: true },
+    });
+    const year = new Date().getFullYear();
+    await prisma.purchaseOrder.create({
+      data: {
+        number: `OC-${year}-00001`,
+        supplierId: s1.id,
+        status: 'ENVIADO',
+        items: {
+          create: [
+            {
+              productId: products[0].id,
+              quantity: new Prisma.Decimal(20),
+              unitCost: products[0].costPrice,
+              receivedQty: new Prisma.Decimal(0),
+            },
+            {
+              productId: products[1]?.id ?? products[0].id,
+              quantity: new Prisma.Decimal(100),
+              unitCost: products[1]?.costPrice,
+              receivedQty: new Prisma.Decimal(0),
+            },
+          ].filter((x, i, a) => a.findIndex((y) => y.productId === x.productId) === i),
+        },
+      },
+    });
+    await prisma.purchaseOrder.create({
+      data: {
+        number: `OC-${year}-00002`,
+        supplierId: s2.id,
+        status: 'RASCUNHO',
+        items: {
+          create: {
+            productId: products[0].id,
+            quantity: new Prisma.Decimal(5),
+            unitCost: products[0].costPrice,
+            receivedQty: new Prisma.Decimal(0),
+          },
+        },
+      },
+    });
+  }
+
+  // --- Catálogo Prisma: máquinas, roteiros, OPs, RH, NF-e (após produtos existirem) ---
+  if ((await prisma.product.count()) > 0) {
+    const products = await prisma.product.findMany({ orderBy: { code: 'asc' }, take: 8 });
+    const firstProduct = products[0];
+    const flangeProduct = products.find((p) => p.code.includes('FLA')) ?? firstProduct;
+
+    if ((await prisma.machine.count()) === 0) {
+      const m1 = await prisma.machine.create({
+        data: { id: randomUUID(), code: 'LASER-01', name: 'Laser 6kW', sector: 'Corte', active: true },
+      });
+      const m2 = await prisma.machine.create({
+        data: { id: randomUUID(), code: 'DOB-01', name: 'Dobradeira CNC', sector: 'Dobra', active: true },
+      });
+      const m3 = await prisma.machine.create({
+        data: { id: randomUUID(), code: 'SOLDA-01', name: 'Estação solda TIG', sector: 'Solda', active: true },
+      });
+
+      const routingA = await prisma.routing.create({
+        data: {
+          id: randomUUID(),
+          code: 'ROT-EIXO',
+          name: 'Roteiro padrão — eixo',
+          productId: firstProduct.id,
+          active: true,
+          stages: {
+            create: [
+              { id: randomUUID(), sortOrder: 0, name: 'Corte laser', machineId: m1.id, durationMinutes: 60 },
+              { id: randomUUID(), sortOrder: 1, name: 'Dobra', machineId: m2.id, durationMinutes: 45 },
+              { id: randomUUID(), sortOrder: 2, name: 'Solda', machineId: m3.id, durationMinutes: 30 },
+            ],
+          },
+        },
+      });
+
+      await prisma.routing.create({
+        data: {
+          id: randomUUID(),
+          code: 'ROT-FLANGE',
+          name: 'Roteiro — flange / acabamento',
+          productId: flangeProduct.id,
+          active: true,
+          stages: {
+            create: [{ id: randomUUID(), sortOrder: 0, name: 'Acabamento', durationMinutes: 90 }],
+          },
+        },
+      });
+
+      const so = await prisma.saleOrder.findFirst({ orderBy: { createdAt: 'desc' } });
+      const statuses = ['DRAFT', 'IN_PROGRESS', 'RELEASED', 'PAUSED', 'DONE'] as const;
+      const cols = ['BACKLOG', 'WIP', 'WIP', 'QA', 'DONE'] as const;
+      for (let i = 0; i < 5; i += 1) {
+        await prisma.workOrder.create({
+          data: {
+            id: randomUUID(),
+            number: `OP-PRD-${String(i + 1).padStart(5, '0')}`,
+            status: statuses[i],
+            saleOrderId: i < 4 ? so?.id : undefined,
+            productId: products[i % products.length].id,
+            routingId: routingA.id,
+            quantityPlanned: new Prisma.Decimal(10 + i * 2),
+            kanbanColumn: cols[i],
+            kanbanOrder: i,
+            dueDate: new Date(Date.now() + (5 + i) * 86400000),
+            items: {
+              create: {
+                id: randomUUID(),
+                productId: products[i % products.length].id,
+                quantity: new Prisma.Decimal(10 + i * 2),
+              },
+            },
+          },
+        });
+      }
+
+      const woApp = await prisma.workOrder.findFirst({ where: { number: 'OP-PRD-00001' } });
+      const st = await prisma.routingStage.findFirst({
+        where: { routingId: routingA.id },
+        orderBy: { sortOrder: 'asc' },
+      });
+      if (woApp && st) {
+        await prisma.productionAppointment.create({
+          data: {
+            id: randomUUID(),
+            workOrderId: woApp.id,
+            machineId: m1.id,
+            routingStageId: st.id,
+            scheduledStart: new Date(Date.now() + 86400000),
+            scheduledEnd: new Date(Date.now() + 90000000),
+            status: 'SCHEDULED',
+          },
+        });
+      }
+    }
+
+    if ((await prisma.employee.count()) === 0) {
+      const emps = [
+        { code: 'EMP001', fullName: 'João Melo', department: 'Produção', salaryBase: 3200, hire: '2021-03-15' },
+        { code: 'EMP002', fullName: 'Pedro Alves', department: 'Produção', salaryBase: 3800, hire: '2019-07-22' },
+        { code: 'EMP003', fullName: 'Maria Lima', department: 'Qualidade', salaryBase: 4500, hire: '2020-11-05' },
+        { code: 'EMP004', fullName: 'Carlos Santos', department: 'Vendas', salaryBase: 7200, hire: '2018-01-10' },
+        { code: 'EMP005', fullName: 'Ana Paula', department: 'Financeiro', salaryBase: 5100, hire: '2022-06-18' },
+      ];
+      for (const e of emps) {
+        await prisma.employee.create({
+          data: {
+            id: randomUUID(),
+            code: e.code,
+            fullName: e.fullName,
+            department: e.department,
+            salaryBase: new Prisma.Decimal(e.salaryBase),
+            hireDate: new Date(e.hire),
+            active: true,
+          },
+        });
+      }
+    }
+
+    if ((await prisma.fiscalNfe.count()) === 0) {
+      await prisma.fiscalNfe.createMany({
+        data: [
+          {
+            id: randomUUID(),
+            number: '1245',
+            series: '1',
+            accessKey: '35260412345678901234550010002450011010266123456789',
+            status: 'AUTORIZADA',
+            customerName: 'Metalúrgica ABC Ltda',
+            totalAmount: new Prisma.Decimal(45200),
+            issuedAt: new Date('2026-04-18'),
+          },
+          {
+            id: randomUUID(),
+            number: '1244',
+            series: '1',
+            accessKey: '35260412345678901234550010002440012010266123456790',
+            status: 'AUTORIZADA',
+            customerName: 'Ind. XYZ S/A',
+            totalAmount: new Prisma.Decimal(12800),
+            issuedAt: new Date('2026-04-16'),
+          },
+          {
+            id: randomUUID(),
+            number: '1243',
+            series: '1',
+            accessKey: null,
+            status: 'CANCELADA',
+            customerName: 'Comércio Beta',
+            totalAmount: new Prisma.Decimal(8900),
+            issuedAt: new Date('2026-04-14'),
+            cancelledAt: new Date('2026-04-15'),
+          },
+        ],
+      });
+    }
+  }
 
   // garante roles existirem (sem atribuir)
 }

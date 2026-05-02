@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 
 import { prisma } from '../../infra/prisma.js';
 import { env } from '../../config/env.js';
+import { sortRolesByPriority } from '../../lib/roleOrder.js';
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -39,7 +40,7 @@ authRouter.post('/login', async (req, res) => {
     return res.status(401).json({ error: 'Credenciais inválidas' });
   }
 
-  const roles = user.roles.map((ur) => ur.role.code);
+  const roles = sortRolesByPriority(user.roles.map((ur) => ur.role.code));
   const secret = env.JWT_SECRET || process.env.JWT_SECRET || 'dev_change_me';
   const expiresIn = env.JWT_EXPIRES_IN;
 
@@ -57,7 +58,13 @@ authRouter.post('/login', async (req, res) => {
   return res.json({
     success: true,
     token,
-    user: { id: user.id, email: user.email, full_name: user.fullName, roles },
+    user: {
+      id: user.id,
+      email: user.email,
+      full_name: user.fullName,
+      sector: user.sector ?? null,
+      roles,
+    },
   });
 });
 

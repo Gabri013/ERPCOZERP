@@ -2,6 +2,7 @@
 import { useAuth } from '@/lib/AuthContext';
 import { useImpersonation } from '@/contexts/ImpersonationContext';
 import { resolveApiUrl } from '@/config/appConfig';
+import { primaryRole } from '@/lib/rolePriority';
 import { devLog } from '@/lib/devLog';
 
 const PermissaoContext = createContext({ pode: () => true, papel: 'dono' });
@@ -83,7 +84,7 @@ export const PermissaoProvider = ({ children }) => {
     <PermissaoContext.Provider value={{
       pode,
       podeVerModulo,
-      papel: usuarioVisivel?.perfil || usuarioVisivel?.roles?.[0] || 'dono',
+      papel: usuarioVisivel?.perfil || primaryRole(usuarioVisivel?.roles) || 'dono',
       usuarioAtual: user,
       usuarioVisivel,
       impersonando: isImpersonating ? usuarioVisivel : null,
@@ -100,6 +101,9 @@ export const PermissaoProvider = ({ children }) => {
 };
 
 export const usePermissao = () => useContext(PermissaoContext);
+
+/** Alias em inglês (mesmo hook que `usePermissao`). */
+export const usePermissions = usePermissao;
 
 export const usePermissionEngine = () => {
   const { pode } = usePermissao();

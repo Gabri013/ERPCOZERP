@@ -8,10 +8,28 @@ import {
   fetchPedidosAguardandoAp,
   rejeitarPedidoApi,
 } from '@/services/businessLogicApi';
+import { api } from '@/services/api';
 import { toast } from 'sonner';
 
 const fmtR = (v) => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 const fmtD = (v) => (v ? new Date(`${v}T00:00`).toLocaleDateString('pt-BR') : '—');
+
+/** Normaliza um SaleOrder Prisma para o mesmo shape dos EntityRecords legados */
+function normalizeSaleOrder(so) {
+  return {
+    id: `prisma:${so.id}`,
+    _prismaId: so.id,
+    _source: 'prisma',
+    numero: so.number,
+    cliente_nome: so.customer?.name ?? so.customerId ?? '—',
+    vendedor: '—',
+    data_emissao: so.createdAt ? String(so.createdAt).slice(0, 10) : '',
+    data_entrega: so.dueDate ? String(so.dueDate).slice(0, 10) : '',
+    valor_total: Number(so.totalAmount ?? 0),
+    status: 'Aguardando Aprovação',
+    observacoes: '',
+  };
+}
 
 export default function AprovacaoPedidos() {
   const [pedidos, setPedidos] = useState([]);
@@ -22,8 +40,22 @@ export default function AprovacaoPedidos() {
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      const rows = await fetchPedidosAguardandoAp();
-      setPedidos(rows);
+      const [legacyRows, prismaRes] = await Promise.allSettled([
+        fetchPedidosAguardandoAp(),
+        api.get('/api/sales/sale-orders?status=DRAFT&limit=100'),
+      ]);
+
+      const legacy = legacyRows.status === 'fulfilled' ? legacyRows.value : [];
+
+      const prismaOrders = prismaRes.status === 'fulfilled'
+        ? (Array.isArray(prismaRes.value?.data?.data) ? prismaRes.value.data.data : [])
+            .filter((so) => Number(so.totalAmount ?? 0) >= CONFIG.LIMITE_APROVACAO)
+            .map(normalizeSaleOrder)
+        : [];
+
+      const legacyIds = new Set(legacy.map((r) => r.numero));
+      const deduped = [...legacy, ...prismaOrders.filter((o) => !legacyIds.has(o.numero))];
+      setPedidos(deduped);
     } catch (e) {
       toast.error(e?.message || 'Não foi possível carregar pedidos.');
       setPedidos([]);
@@ -36,26 +68,35 @@ export default function AprovacaoPedidos() {
     void reload();
   }, [reload]);
 
-  const handleAprovar = async (id) => {
+  const handleAprovar = async (pedido) => {
     try {
-      await aprovarPedidoGerencialApi(id);
+      if (pedido._source === 'prisma') {
+        await api.post(`/api/sales/sale-orders/${pedido._prismaId}/approve`);
+      } else {
+        await aprovarPedidoGerencialApi(pedido.id);
+      }
       toast.success('Pedido aprovado');
       await reload();
     } catch (e) {
-      toast.error(e?.message || 'Falha na aprovação');
+      toast.error(e?.response?.data?.error || e?.message || 'Falha na aprovação');
     }
   };
 
   const handleRejeitar = async () => {
-    if (!rejeitando) return;
+    const p = pedidos.find((x) => x.id === rejeitando);
+    if (!p) return;
     try {
-      await rejeitarPedidoApi(rejeitando, motivo);
+      if (p._source === 'prisma') {
+        await api.patch(`/api/sales/sale-orders/${p._prismaId}`, { status: 'CANCELLED', notes: motivo });
+      } else {
+        await rejeitarPedidoApi(rejeitando, motivo);
+      }
       toast.success('Pedido rejeitado');
       setRejeitando(null);
       setMotivo('');
       await reload();
     } catch (e) {
-      toast.error(e?.message || 'Falha ao rejeitar');
+      toast.error(e?.response?.data?.error || e?.message || 'Falha ao rejeitar');
     }
   };
 
@@ -133,7 +174,7 @@ export default function AprovacaoPedidos() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleAprovar(p.id)}
+                      onClick={() => handleAprovar(p)}
                       className="flex items-center gap-1 px-3 py-1.5 text-xs bg-success text-success-foreground rounded hover:opacity-90"
                     >
                       <CheckCircle size={12} /> Aprovar

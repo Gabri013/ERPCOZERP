@@ -1,47 +1,69 @@
-import { recordsServiceApi } from '@/services/recordsServiceApi';
+import { api } from '@/services/api';
 
-function nextNumeroFromExisting(ops) {
-  const nums = ops
-    .map((o) => String(o.numero || ''))
-    .map((n) => n.match(/OP-(\d+)/)?.[1])
-    .filter(Boolean)
-    .map((n) => Number(n));
-  const max = nums.length ? Math.max(...nums) : 0;
-  const next = max ? max + 1 : 1;
-  return `OP-${String(next).padStart(5, '0')}`;
+async function resolveProductIdByCode(code) {
+  const c = String(code || '').trim();
+  if (!c) return null;
+  try {
+    const { data: body } = await api.get(`/api/stock/products?search=${encodeURIComponent(c)}`);
+    const rows = body?.data ?? body;
+    if (!Array.isArray(rows)) return null;
+    const exact = rows.find((p) => p.code === c);
+    return exact?.id ?? rows[0]?.id ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export const opService = {
-  getAll: async () => ({ success: true, data: await recordsServiceApi.list('ordem_producao') }),
+  getAll: async () => {
+    const { data: body } = await api.get('/api/work-orders');
+    const rows = body?.data ?? [];
+    return { success: true, data: rows };
+  },
 
   getById: async (id) => {
-    const all = await recordsServiceApi.list('ordem_producao');
-    const op = all.find(o => o.id === id);
-    return { success: true, data: op };
+    const { data: body } = await api.get(`/api/work-orders/${id}`);
+    return { success: true, data: body?.data };
   },
 
   create: async (data) => {
-    const ops = await recordsServiceApi.list('ordem_producao');
-    const numero = data?.numero || nextNumeroFromExisting(ops);
-    const payload = {
-      ...data,
-      numero,
-      status: data?.status || 'aberta',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    const created = await recordsServiceApi.create('ordem_producao', payload);
-    return { success: true, data: created };
+    let productId = data.productId;
+    if (!productId && data.codigoProduto) {
+      productId = await resolveProductIdByCode(data.codigoProduto);
+    }
+    if (!productId) {
+      throw new Error('Não foi possível localizar o produto no catálogo. Use um código existente (ex.: CAT-EIX-025).');
+    }
+    const qty = Number(data.quantidade || data.quantityPlanned || 1);
+    const due = data.prazo ? new Date(data.prazo).toISOString() : undefined;
+    const { data: body } = await api.post('/api/work-orders', {
+      productId,
+      quantityPlanned: qty,
+      dueDate: due,
+      notes: data.observacao ? String(data.observacao) : undefined,
+      priority: typeof data.prioridade === 'string' ? data.prioridade.toLowerCase() : 'normal',
+    });
+    return { success: true, data: body?.data };
   },
 
   update: async (id, data) => {
-    const updated = await recordsServiceApi.update(id, { ...data, updatedAt: new Date().toISOString() });
-    return { success: true, data: updated };
+    const patch = {};
+    if (data.status != null) patch.status = data.status;
+    if (data.quantidade != null) patch.quantityPlanned = Number(data.quantidade);
+    if (data.prazo != null) patch.dueDate = new Date(data.prazo).toISOString();
+    if (data.prioridade != null) patch.priority = String(data.prioridade).toLowerCase();
+    if (data.observacao != null) patch.notes = data.observacao;
+    const { data: body } = await api.patch(`/api/work-orders/${id}`, patch);
+    return { success: true, data: body?.data };
   },
 
-  delete: async (id) => {
-    await recordsServiceApi.remove(id);
+  delete: async () => {
     return { success: true };
+  },
+
+  finish: async (id) => {
+    const { data: body } = await api.post(`/api/work-orders/${id}/finish`, {});
+    return { success: true, data: body?.data };
   },
 
   getData: () => [],

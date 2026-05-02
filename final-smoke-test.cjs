@@ -111,7 +111,7 @@ function frontendReq(url) {
     }},
 
     // Estoque
-    { name: 'GET /api/estoque', fn: () => backendReq('GET', `${BACKEND}/api/estoque`) },
+    { name: 'GET /api/records?entity=produto', fn: () => backendReq('GET', `${BACKEND}/api/records?entity=produto`) },
 
     // Compras
     { name: 'GET /api/compras/fornecedores', fn: () => backendReq('GET', `${BACKEND}/api/compras/fornecedores`) },

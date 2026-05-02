@@ -143,12 +143,12 @@ async function runSmokeTests() {
     logTest('GET /api/entities', entitiesRes.status === 200, 
       entitiesRes.status === 200 ? 'Lista de entidades obtida' : `Status: ${entitiesRes.status}`);
 
-    // GET /api/estoque (produtos)
-    const produtosRes = await request('GET', `${BACKEND_URL}/api/estoque?search=&limit=5`, { headers: authHeaders });
-    logTest('GET /api/estoque', produtosRes.status === 200, 
-      produtosRes.status === 200 ? 'Produtos listados (estoque)' : `Status: ${produtosRes.status}`);
+    // GET /api/records?entity=produto (produtos — core)
+    const produtosRes = await request('GET', `${BACKEND_URL}/api/records?entity=produto`, { headers: authHeaders });
+    logTest('GET /api/records?entity=produto', produtosRes.status === 200,
+      produtosRes.status === 200 ? 'Produtos listados (records)' : `Status: ${produtosRes.status}`);
 
-    // CRUD /api/estoque
+    // CRUD entity produto via /api/records
     let createdProdutoId = null;
     const novoProduto = {
       codigo: `SMK-${Date.now()}`,
@@ -164,27 +164,30 @@ async function runSmokeTests() {
       localizacao: 'SMK'
     };
 
-    const createProdRes = await request('POST', `${BACKEND_URL}/api/estoque`, { headers: authHeaders, body: novoProduto });
+    const createProdRes = await request('POST', `${BACKEND_URL}/api/records`, {
+      headers: authHeaders,
+      body: { entity: 'produto', data: novoProduto },
+    });
     if (createProdRes.status === 201) {
       const body = JSON.parse(createProdRes.body);
       createdProdutoId = body?.data?.id;
-      logTest('POST /api/estoque (create)', Boolean(createdProdutoId), createdProdutoId ? 'Criado' : 'Sem id no retorno');
+      logTest('POST /api/records (produto)', Boolean(createdProdutoId), createdProdutoId ? 'Criado' : 'Sem id no retorno');
     } else {
-      logTest('POST /api/estoque (create)', false, `Status: ${createProdRes.status}, Body: ${(createProdRes.body || '').substring(0, 120)}`);
+      logTest('POST /api/records (produto)', false, `Status: ${createProdRes.status}, Body: ${(createProdRes.body || '').substring(0, 120)}`);
     }
 
     if (createdProdutoId) {
-      const updateProdRes = await request('PUT', `${BACKEND_URL}/api/estoque/${createdProdutoId}`, {
+      const updateProdRes = await request('PUT', `${BACKEND_URL}/api/records/${createdProdutoId}`, {
         headers: authHeaders,
-        body: { ...novoProduto, descricao: `${novoProduto.descricao} (editado)` }
+        body: { data: { ...novoProduto, descricao: `${novoProduto.descricao} (editado)` } },
       });
-      logTest('PUT /api/estoque/:id (update)', updateProdRes.status === 200, `Status: ${updateProdRes.status}`);
+      logTest('PUT /api/records/:id (produto)', updateProdRes.status === 200, `Status: ${updateProdRes.status}`);
 
-      const delProdRes = await request('DELETE', `${BACKEND_URL}/api/estoque/${createdProdutoId}`, { headers: authHeaders });
-      logTest('DELETE /api/estoque/:id (delete)', delProdRes.status === 200, `Status: ${delProdRes.status}`);
+      const delProdRes = await request('DELETE', `${BACKEND_URL}/api/records/${createdProdutoId}`, { headers: authHeaders });
+      logTest('DELETE /api/records/:id (produto)', delProdRes.status === 200, `Status: ${delProdRes.status}`);
     } else {
-      logTest('PUT /api/estoque/:id (update)', true, 'Create falhou (skip)');
-      logTest('DELETE /api/estoque/:id (delete)', true, 'Create falhou (skip)');
+      logTest('PUT /api/records/:id (produto)', true, 'Create falhou (skip)');
+      logTest('DELETE /api/records/:id (produto)', true, 'Create falhou (skip)');
     }
 
     // CRUD financeiro (contas a receber)

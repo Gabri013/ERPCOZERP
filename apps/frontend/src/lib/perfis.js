@@ -22,6 +22,21 @@ export const PERFIS_LABELS = {
   visualizador: 'Visualizador',
 };
 
+/** Opções do `<select>` de perfil em Usuários — sem `producao` (legado; use setor: corte_laser, solda, …). */
+export const PERFIS_SELECT_KEYS = Object.keys(PERFIS_LABELS).filter((k) => k !== 'producao');
+
+/**
+ * Valor sempre compatível com `<option value>` — evita `<select>` controlado com value inexistente
+ * (Chrome/Edge podem destacar a opção errada, p.ex. Visualizador).
+ */
+export function normalizePerfilSelectValue(raw) {
+  if (raw == null || raw === '') return 'visualizador';
+  const s = String(raw).trim();
+  if (s === 'producao') return 'corte_laser';
+  if (PERFIS_LABELS[s] && s !== 'producao') return s;
+  return 'visualizador';
+}
+
 // Todas as permissões disponíveis no sistema
 export const TODAS_PERMISSOES = [
   // Vendas

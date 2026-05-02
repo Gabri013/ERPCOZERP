@@ -1,39 +1,88 @@
-﻿import { useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import PageHeader from '@/components/common/PageHeader';
 import { Save, Building2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { getPlatformSettings, putPlatformSettings } from '@/services/platformApi';
+
+const emptyCompany = {
+  razao_social: '',
+  nome_fantasia: '',
+  cnpj: '',
+  ie: '',
+  im: '',
+  regime: 'Lucro Real',
+  cep: '',
+  endereco: '',
+  complemento: '',
+  bairro: '',
+  cidade: '',
+  estado: 'SP',
+  telefone: '',
+  email: '',
+  site: '',
+};
 
 export default function Empresa() {
-  const [form, setForm] = useState({
-    razao_social:'Nomus Indústria e Comércio Ltda',
-    nome_fantasia:'Cozinha ERP',
-    cnpj:'12.345.678/0001-90',
-    ie:'123.456.789.000',
-    im:'12345678',
-    regime:'Lucro Real',
-    cep:'01310-100',
-    endereco:'Av. Paulista, 1234',
-    complemento:'Andar 10',
-    bairro:'Bela Vista',
-    cidade:'São Paulo',
-    estado:'SP',
-    telefone:'(11) 3333-4444',
-    email:'contato@nomus.com.br',
-    site:'www.nomus.com.br',
-  });
-  const upd = (k,v) => setForm(f=>({...f,[k]:v}));
+  const [form, setForm] = useState(emptyCompany);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let ok = true;
+    (async () => {
+      try {
+        const data = await getPlatformSettings();
+        if (!ok) return;
+        const c = data?.company && typeof data.company === 'object' ? data.company : {};
+        setForm({ ...emptyCompany, ...c });
+      } catch {
+        if (ok) toast.error('Não foi possível carregar dados da empresa.');
+      } finally {
+        if (ok) setLoading(false);
+      }
+    })();
+    return () => { ok = false; };
+  }, []);
+
+  const upd = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const inp = 'w-full border border-border rounded px-2.5 py-1.5 text-xs bg-white outline-none focus:border-primary';
   const lbl = 'block text-[11px] text-muted-foreground mb-0.5';
+
+  const salvar = async () => {
+    setSaving(true);
+    try {
+      await putPlatformSettings({ company: form });
+      toast.success('Dados da empresa salvos.');
+    } catch (e) {
+      toast.error(e?.response?.data?.error || e?.message || 'Falha ao salvar.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div>
       <PageHeader title="Dados da Empresa" breadcrumbs={['Início','Configurações','Empresa']}
-        actions={<button className="flex items-center gap-1.5 px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90"><Save size={13}/> Salvar</button>}
+        actions={(
+          <button
+            type="button"
+            disabled={loading || saving}
+            onClick={salvar}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90 disabled:opacity-50"
+          >
+            <Save size={13}/> {saving ? 'Salvando…' : 'Salvar'}
+          </button>
+        )}
       />
+      {loading ? (
+        <p className="text-sm text-muted-foreground">Carregando…</p>
+      ) : (
       <div className="bg-white border border-border rounded-lg p-5">
         <div className="flex items-center gap-3 mb-5 pb-4 border-b border-border">
           <div className="w-14 h-14 cozinha-blue-bg rounded-lg flex items-center justify-center"><Building2 size={28} className="text-white"/></div>
           <div>
-            <div className="font-semibold text-sm">{form.razao_social}</div>
-            <div className="text-xs text-muted-foreground">CNPJ: {form.cnpj}</div>
+            <div className="font-semibold text-sm">{form.razao_social || '—'}</div>
+            <div className="text-xs text-muted-foreground">CNPJ: {form.cnpj || '—'}</div>
           </div>
         </div>
         <div className="grid grid-cols-3 gap-4 mb-4">
@@ -63,6 +112,7 @@ export default function Empresa() {
           <div><label className={lbl}>Site</label><input className={inp} value={form.site} onChange={e=>upd('site',e.target.value)}/></div>
         </div>
       </div>
+      )}
     </div>
   );
 }

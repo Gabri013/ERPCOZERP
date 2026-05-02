@@ -3,6 +3,7 @@ import { io } from 'socket.io-client';
 import { toast } from 'sonner';
 import { appConfig } from '@/config/appConfig';
 import { useAuth } from '@/lib/AuthContext';
+import { rolesCanSeeNotificationSector } from '@/lib/notificationVisibility';
 
 const RealtimeContext = createContext({
   socket: null,
@@ -52,6 +53,8 @@ export function RealtimeProvider({ children }) {
     };
 
     const onNvNotif = (payload) => {
+      const roles = user?.roles || [];
+      if (!rolesCanSeeNotificationSector(payload?.sector, roles)) return;
       toast.info(payload?.text || 'Nova notificação');
       bumpNotifications();
     };

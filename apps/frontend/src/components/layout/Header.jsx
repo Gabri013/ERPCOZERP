@@ -1,4 +1,5 @@
 ﻿import { useEffect, useMemo, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { Menu, Bell, Search, ChevronDown, Settings, LogOut, HelpCircle, Users, Eye } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -6,6 +7,8 @@ import { useAuth } from '@/lib/AuthContext';
 import { useRealtimeNotifications } from '@/lib/RealtimeContext';
 import { usePermissao } from '@/lib/PermissaoContext';
 import { PERFIS_LABELS } from '@/lib/perfis';
+import { primaryRole } from '@/lib/rolePriority';
+import { roleCodeToPerfilUxKey } from '@/lib/roleToPerfil';
 import { api } from '@/services/api';
 import {
   CommandDialog,
@@ -17,20 +20,6 @@ import {
   CommandSeparator,
   CommandShortcut,
 } from '@/components/ui/command';
-
-const ROLE_TO_PERFIL = {
-  master: 'dono',
-  gerente: 'gerente_geral',
-  gerente_producao: 'gerente_producao',
-  orcamentista_vendas: 'vendas',
-  projetista: 'engenharia',
-  corte_laser: 'producao',
-  dobra_montagem: 'producao',
-  solda: 'producao',
-  expedicao: 'producao',
-  qualidade: 'qualidade',
-  user: 'visualizador',
-};
 
 function getAvatarFromName(name) {
   const initials = String(name || 'US')
@@ -71,6 +60,9 @@ export default function Header({ onMenuToggle }) {
   const [todosUsuarios, setTodosUsuarios] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const searchInputRef = useRef(null);
+  const [searchQ, setSearchQ] = useState('');
+  const [searchHits, setSearchHits] = useState(null);
+  const [searchLoading, setSearchLoading] = useState(false);
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { usuarioAtual, pode, iniciarImpersonate, impersonando } = usePermissao();
@@ -94,8 +86,8 @@ export default function Header({ onMenuToggle }) {
         const mapped = rows
           .filter(u => Boolean(u.active))
           .map((u) => {
-            const role = u.roles?.[0] || 'user';
-            const perfil = ROLE_TO_PERFIL[role] || role;
+            const role = primaryRole(u.roles);
+            const perfil = roleCodeToPerfilUxKey(role);
             const nome = u.full_name || u.email || 'Usuário';
 
             return {
@@ -161,6 +153,45 @@ export default function Header({ onMenuToggle }) {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
+  useEffect(() => {
+    if (!searchOpen) {
+      setSearchQ('');
+      setSearchHits(null);
+      setSearchLoading(false);
+    }
+  }, [searchOpen]);
+
+  useEffect(() => {
+    const q = searchQ.trim();
+    if (!searchOpen || q.length < 2) {
+      setSearchHits(null);
+      setSearchLoading(false);
+      return undefined;
+    }
+    let cancelled = false;
+    const t = window.setTimeout(() => {
+      void (async () => {
+        setSearchLoading(true);
+        try {
+          const res = await api.get(`/api/search?q=${encodeURIComponent(q)}`);
+          const payload = res?.data?.data;
+          if (!cancelled) setSearchHits(payload || null);
+        } catch {
+          if (!cancelled) {
+            setSearchHits(null);
+            toast.error('Falha na busca global.');
+          }
+        } finally {
+          if (!cancelled) setSearchLoading(false);
+        }
+      })();
+    }, 280);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [searchOpen, searchQ]);
+
   const navigationItems = useMemo(() => ([
     { label: 'Dashboard', to: '/', shortcut: 'G D' },
     { label: 'Clientes', to: '/vendas/clientes', shortcut: 'G C', can: () => true },
@@ -193,8 +224,7 @@ export default function Header({ onMenuToggle }) {
   const perfilBase =
     impersonando?.perfil ??
     usuarioAtual?.perfil ??
-    ROLE_TO_PERFIL[user?.roles?.[0]] ??
-    user?.roles?.[0] ??
+    roleCodeToPerfilUxKey(primaryRole(user?.roles)) ??
     user?.role ??
     'visualizador';
   const perfilExibido = getPerfilLabel(perfilBase);
@@ -204,8 +234,8 @@ export default function Header({ onMenuToggle }) {
       <button
         type="button"
         onClick={onMenuToggle}
-        className="md:hidden text-muted-foreground hover:text-foreground transition-colors p-1 -ml-0.5"
-        aria-label="Abrir menu"
+        className="text-muted-foreground hover:text-foreground transition-colors p-1 -ml-0.5"
+        aria-label="Alternar menu lateral"
       >
         <Menu size={18} />
       </button>
@@ -372,39 +402,142 @@ export default function Header({ onMenuToggle }) {
         )}
       </div>
 
-      <CommandDialog open={searchOpen} onOpenChange={setSearchOpen}>
-        <CommandInput placeholder="Buscar no ERP..." ref={searchInputRef} />
+      <CommandDialog
+        open={searchOpen}
+        onOpenChange={setSearchOpen}
+        shouldFilter={searchQ.trim().length < 2}
+      >
+        <CommandInput
+          placeholder="Buscar pedidos, produtos, clientes, OPs…"
+          ref={searchInputRef}
+          value={searchQ}
+          onValueChange={setSearchQ}
+        />
         <CommandList>
-          <CommandEmpty>Nenhum resultado.</CommandEmpty>
-          <CommandGroup heading="Navegação">
-            {navigationItems
-              .filter((item) => (typeof item.can === 'function' ? item.can() : true))
-              .map((item) => (
+          {searchQ.trim().length >= 2 && (
+            <>
+              {searchLoading && (
+                <div className="py-4 text-center text-xs text-muted-foreground">Buscando…</div>
+              )}
+              {!searchLoading && searchHits && (
+                <>
+                  {(searchHits.products?.length > 0) && (
+                    <CommandGroup heading="Produtos">
+                      {searchHits.products.map((item) => (
+                        <CommandItem
+                          key={`p-${item.id}`}
+                          value={`prod-${item.title}-${item.subtitle}`}
+                          onSelect={() => {
+                            setSearchOpen(false);
+                            navigate(item.href);
+                          }}
+                        >
+                          <span className="truncate">{item.title}</span>
+                          <span className="ml-2 truncate text-[11px] text-muted-foreground">{item.subtitle}</span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  )}
+                  {(searchHits.saleOrders?.length > 0) && (
+                    <CommandGroup heading="Pedidos de venda">
+                      {searchHits.saleOrders.map((item) => (
+                        <CommandItem
+                          key={`so-${item.id}`}
+                          value={`ped-${item.title}`}
+                          onSelect={() => {
+                            setSearchOpen(false);
+                            navigate(item.href);
+                          }}
+                        >
+                          <span className="font-medium">{item.title}</span>
+                          <span className="ml-2 text-[11px] text-muted-foreground truncate">{item.subtitle}</span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  )}
+                  {(searchHits.customers?.length > 0) && (
+                    <CommandGroup heading="Clientes">
+                      {searchHits.customers.map((item) => (
+                        <CommandItem
+                          key={`c-${item.id}`}
+                          value={`cli-${item.title}`}
+                          onSelect={() => {
+                            setSearchOpen(false);
+                            navigate(item.href);
+                          }}
+                        >
+                          {item.title}
+                          <span className="ml-2 text-[11px] text-muted-foreground">{item.subtitle}</span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  )}
+                  {(searchHits.workOrders?.length > 0) && (
+                    <CommandGroup heading="Ordens de produção">
+                      {searchHits.workOrders.map((item) => (
+                        <CommandItem
+                          key={`wo-${item.id}`}
+                          value={`op-${item.title}`}
+                          onSelect={() => {
+                            setSearchOpen(false);
+                            navigate(item.href);
+                          }}
+                        >
+                          <span className="font-medium">{item.title}</span>
+                          <span className="ml-2 text-[11px] text-muted-foreground truncate">{item.subtitle}</span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  )}
+                  {!searchLoading && (
+                    <CommandEmpty>
+                      {!searchHits.products?.length &&
+                      !searchHits.saleOrders?.length &&
+                      !searchHits.customers?.length &&
+                      !searchHits.workOrders?.length
+                        ? 'Nenhum resultado para esta busca.'
+                        : null}
+                    </CommandEmpty>
+                  )}
+                </>
+              )}
+            </>
+          )}
+
+          {searchQ.trim().length < 2 && (
+            <>
+              <CommandEmpty>Digite pelo menos 2 caracteres para buscar dados, ou escolha abaixo.</CommandEmpty>
+              <CommandGroup heading="Navegação">
+                {navigationItems
+                  .filter((item) => (typeof item.can === 'function' ? item.can() : true))
+                  .map((item) => (
+                    <CommandItem
+                      key={item.to}
+                      value={item.label}
+                      onSelect={() => {
+                        setSearchOpen(false);
+                        navigate(item.to);
+                      }}
+                    >
+                      {item.label}
+                      {item.shortcut ? <CommandShortcut>{item.shortcut}</CommandShortcut> : null}
+                    </CommandItem>
+                  ))}
+              </CommandGroup>
+              <CommandSeparator />
+              <CommandGroup heading="Ações">
                 <CommandItem
-                  key={item.to}
-                  value={item.label}
+                  value="Marcar notificações como lidas"
                   onSelect={() => {
+                    markAllNotificationsRead();
                     setSearchOpen(false);
-                    navigate(item.to);
                   }}
                 >
-                  {item.label}
-                  {item.shortcut ? <CommandShortcut>{item.shortcut}</CommandShortcut> : null}
+                  Marcar notificações como lidas
                 </CommandItem>
-              ))}
-          </CommandGroup>
-          <CommandSeparator />
-          <CommandGroup heading="Ações">
-            <CommandItem
-              value="Marcar notificações como lidas"
-              onSelect={() => {
-                markAllNotificationsRead();
-                setSearchOpen(false);
-              }}
-            >
-              Marcar notificações como lidas
-            </CommandItem>
-          </CommandGroup>
+              </CommandGroup>
+            </>
+          )}
         </CommandList>
       </CommandDialog>
     </header>

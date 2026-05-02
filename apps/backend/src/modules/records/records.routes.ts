@@ -58,10 +58,12 @@ recordsRouter.get('/', async (req, res) => {
   const entity = await prisma.entity.findUnique({ where: { code: entityCode } });
   if (!entity) return res.status(404).json({ error: 'Entidade não encontrada' });
 
+  const takeCap = entityCode === 'produto' ? 5000 : 200;
+
   const rows = await prisma.entityRecord.findMany({
     where: { entityId: entity.id, deletedAt: null },
     orderBy: { createdAt: 'desc' },
-    take: 200,
+    take: takeCap,
   });
 
   res.json({
@@ -121,7 +123,25 @@ recordsRouter.get('/:id', async (req, res) => {
   const can = await checkEntityRecordsAccess(userId, req.user?.roles, entityCode, 'view');
   if (!can) return res.status(403).json({ error: 'Forbidden' });
 
-  res.json({ success: true, data: { id: row.id, entity_id: row.entityId, data: row.data } });
+  const payload: {
+    id: string;
+    entity_id: string;
+    data: unknown;
+    bom_status?: string;
+    model3d_path?: string | null;
+  } = { id: row.id, entity_id: row.entityId, data: row.data };
+
+  if (entityCode === 'produto') {
+    const meta = await prisma.productIndustrialMeta.findUnique({
+      where: { entityRecordId: row.id },
+    });
+    if (meta) {
+      payload.bom_status = meta.bomStatus;
+      payload.model3d_path = meta.model3dPath;
+    }
+  }
+
+  res.json({ success: true, data: payload });
 });
 
 recordsRouter.put('/:id', async (req, res) => {
