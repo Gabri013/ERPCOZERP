@@ -5,6 +5,7 @@ import {
   DollarSign, ChevronDown, ChevronRight,
   FileText, Boxes, Database, Users, X, Wrench,
   PanelLeftClose, PanelLeftOpen, BarChart2, Settings, Briefcase, Globe, BookOpen, ClipboardCheck, FolderKanban,
+  Activity, ClipboardSignature,
 } from 'lucide-react';
 import { usePermissao } from '@/lib/PermissaoContext';
 import { useMetadataStore } from '@/stores/metadataStore';
@@ -230,6 +231,8 @@ const MENU_SECTIONS = [
     sectionLabel: 'SISTEMA',
     items: [
       { label: 'Relatórios', icon: BarChart2, path: '/relatorios', required: 'relatorios:view' },
+      { label: 'Auto-correções', icon: Activity, path: '/sistema/auto-correcoes', required: 'editar_config' },
+      { label: 'Quality gate', icon: ClipboardSignature, path: '/sistema/qualidade', required: 'editar_config' },
       {
         label: 'Configurações', icon: Settings, children: [
           { label: 'Empresa', path: '/configuracoes/empresa', required: 'editar_config' },
@@ -238,6 +241,7 @@ const MENU_SECTIONS = [
           { label: 'Modelo OP', path: '/configuracoes/modelo-op', required: 'editar_config' },
           { label: 'Metadata Studio', path: '/configuracoes/metadata-studio', required: 'editar_config' },
           { label: 'Form Builder', path: '/configuracoes/form-builder', required: 'editar_config' },
+          { label: 'Categorias industriais', path: '/configuracoes/categorias', required: 'editar_config' },
           { label: 'Workflows', path: '/configuracoes/workflows', required: 'editar_config' },
           { label: 'Fluxo do Pedido', path: '/configuracoes/fluxo-pedido', required: ['ver_pedidos', 'editar_config'] },
         ],

@@ -59,11 +59,16 @@ function mapWoRow(wo: {
   product?: { name: string; code: string } | null;
   responsible?: { fullName: string } | null;
   items?: Array<{ quantity: Prisma.Decimal; product: { name: string; code: string } }>;
+  categoryCode?: string | null;
+  categoryLabel?: string | null;
 }) {
   const custName = wo.saleOrder?.customer?.name ?? '';
   const prod =
     wo.product ??
     (wo.items?.length ? { name: wo.items[0].product.name, code: wo.items[0].product.code } : null);
+  const pri = String(wo.priority || 'normal').toLowerCase();
+  const prioridadeLabel = pri === 'urgente' ? 'Urgente' : pri === 'alta' ? 'Alta' : pri === 'baixa' ? 'Baixa' : 'Normal';
+
   return {
     id: wo.id,
     numero: wo.number,
@@ -82,6 +87,9 @@ function mapWoRow(wo: {
     kanbanColumn: wo.kanbanColumn,
     kanbanOrder: wo.kanbanOrder,
     priority: wo.priority,
+    prioridade: prioridadeLabel,
+    categoria_codigo: wo.categoryCode ?? null,
+    categoria_label: wo.categoryLabel ?? null,
     notes: wo.notes,
     finishedAt: wo.finishedAt?.toISOString() ?? null,
     createdAt: wo.createdAt.toISOString(),
@@ -148,7 +156,7 @@ export async function getWorkOrder(id: string) {
 
 async function nextWorkOrderNumber(tx: Db): Promise<string> {
   const last = await tx.workOrder.findFirst({ orderBy: { createdAt: 'desc' }, select: { number: true } });
-  const m = last?.number?.match(/OP-(\d+)/i);
+  const m = last?.number?.match(/-(\d+)$/);
   const n = m ? Number(m[1]) + 1 : 1;
   return `OP-${String(n).padStart(5, '0')}`;
 }
@@ -171,7 +179,40 @@ export async function createWorkOrder(
   userId?: string | null,
 ) {
   return prisma.$transaction(async (tx) => {
-    const number = input.number?.trim() || (await nextWorkOrderNumber(tx));
+    let priority = String(input.priority ?? 'normal').toLowerCase();
+    if (priority.includes('urg')) priority = 'urgente';
+    else if (['alta', 'baixa', 'normal'].includes(priority)) {
+      /* mantém */
+    } else priority = 'normal';
+
+    const product = await tx.product.findUnique({
+      where: { id: input.productId },
+      select: { code: true, group: true, productType: true },
+    });
+
+    let number = input.number?.trim() || '';
+    let categoryCode: string | undefined;
+    let categoryLabel: string | undefined;
+    if (!number) {
+      try {
+        const { allocateWorkOrderIndustrial } = await import('../meta-code/meta-code.service.js');
+        const gen = await allocateWorkOrderIndustrial(tx, {
+          group: product?.group,
+          productType: product?.productType,
+          productCode: product?.code,
+          codigoProduto: product?.code,
+        });
+        if (gen) {
+          number = gen.number;
+          categoryCode = gen.categoryCode;
+          categoryLabel = gen.categoryLabel;
+        }
+      } catch {
+        /* meta-code opcional */
+      }
+      if (!number) number = await nextWorkOrderNumber(tx);
+    }
+
     const wo = await tx.workOrder.create({
       data: {
         id: randomUUID(),
@@ -185,7 +226,9 @@ export async function createWorkOrder(
         scheduledEnd: input.scheduledEnd ? new Date(input.scheduledEnd) : undefined,
         dueDate: input.dueDate ? new Date(input.dueDate) : undefined,
         kanbanColumn: input.kanbanColumn ?? 'BACKLOG',
-        priority: input.priority ?? 'normal',
+        priority,
+        categoryCode,
+        categoryLabel,
         notes: input.notes ?? undefined,
         responsibleUserId: input.responsibleUserId ?? undefined,
         statusHistory: {
@@ -248,7 +291,12 @@ export async function updateWorkOrder(
   if (patch.dueDate !== undefined) data.dueDate = patch.dueDate ? new Date(patch.dueDate) : null;
   if (patch.kanbanColumn !== undefined) data.kanbanColumn = patch.kanbanColumn;
   if (patch.kanbanOrder !== undefined) data.kanbanOrder = patch.kanbanOrder;
-  if (patch.priority !== undefined) data.priority = patch.priority;
+  if (patch.priority !== undefined) {
+    let p = String(patch.priority).toLowerCase();
+    if (p.includes('urg')) p = 'urgente';
+    else if (!['alta', 'baixa', 'normal', 'urgente'].includes(p)) p = 'normal';
+    data.priority = p;
+  }
   if (patch.notes !== undefined) data.notes = patch.notes;
   if (patch.responsibleUserId !== undefined) {
     data.responsible = patch.responsibleUserId ? { connect: { id: patch.responsibleUserId } } : { disconnect: true };

@@ -1,0 +1,93 @@
+[
+  {
+    "key": "master",
+    "label": "Master",
+    "email": "master@Cozinha.com",
+    "password": "master123_dev",
+    "passwordEnv": "E2E_MASTER_PASSWORD"
+  },
+  {
+    "key": "gerente",
+    "label": "Gerente geral",
+    "email": "gerente@cozinha.com",
+    "password": "demo123_dev",
+    "passwordEnv": "E2E_DEMO_PASSWORD"
+  },
+  {
+    "key": "gerente_producao",
+    "label": "Gerente Produção",
+    "email": "gerente.producao@cozinha.com",
+    "password": "demo123_dev",
+    "passwordEnv": "E2E_DEMO_PASSWORD"
+  },
+  {
+    "key": "vendas",
+    "label": "Vendas",
+    "email": "vendas@cozinha.com",
+    "password": "demo123_dev",
+    "passwordEnv": "E2E_DEMO_PASSWORD"
+  },
+  {
+    "key": "projetista",
+    "label": "Projetista / Engenharia",
+    "email": "engenharia@cozinha.com",
+    "password": "demo123_dev",
+    "passwordEnv": "E2E_DEMO_PASSWORD"
+  },
+  {
+    "key": "compras",
+    "label": "Compras",
+    "email": "compras@cozinha.com",
+    "password": "demo123_dev",
+    "passwordEnv": "E2E_DEMO_PASSWORD"
+  },
+  {
+    "key": "operador_laser",
+    "label": "Operador Laser",
+    "email": "laser@cozinha.com",
+    "password": "demo123_dev",
+    "passwordEnv": "E2E_DEMO_PASSWORD"
+  },
+  {
+    "key": "operador_dobra",
+    "label": "Operador Dobra/Montagem",
+    "email": "dobra@cozinha.com",
+    "password": "demo123_dev",
+    "passwordEnv": "E2E_DEMO_PASSWORD"
+  },
+  {
+    "key": "operador_solda",
+    "label": "Operador Solda",
+    "email": "solda@cozinha.com",
+    "password": "demo123_dev",
+    "passwordEnv": "E2E_DEMO_PASSWORD"
+  },
+  {
+    "key": "qualidade",
+    "label": "Qualidade",
+    "email": "qualidade@cozinha.com",
+    "password": "demo123_dev",
+    "passwordEnv": "E2E_DEMO_PASSWORD"
+  },
+  {
+    "key": "expedicao",
+    "label": "Expedição",
+    "email": "expedicao@cozinha.com",
+    "password": "demo123_dev",
+    "passwordEnv": "E2E_DEMO_PASSWORD"
+  },
+  {
+    "key": "financeiro",
+    "label": "Financeiro",
+    "email": "financeiro@cozinha.com",
+    "password": "demo123_dev",
+    "passwordEnv": "E2E_DEMO_PASSWORD"
+  },
+  {
+    "key": "rh",
+    "label": "RH",
+    "email": "rh@cozinha.com",
+    "password": "demo123_dev",
+    "passwordEnv": "E2E_DEMO_PASSWORD"
+  }
+]

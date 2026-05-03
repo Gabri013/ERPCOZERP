@@ -21,6 +21,9 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Auditoria local (NDJSON, relatórios, screenshots)
+artifacts/
+
 # Tests / caches
 test-results/
 coverage/

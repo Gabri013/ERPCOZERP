@@ -1,0 +1,22 @@
+[
+  { "method": "GET", "path": "/health", "anonAllowed": [200] },
+  { "method": "GET", "path": "/api/health", "anonAllowed": [200] },
+  { "method": "GET", "path": "/", "anonAllowed": [200] },
+  { "method": "GET", "path": "/api/permissions/me", "anonAllowed": [401] },
+  { "method": "GET", "path": "/api/dashboard", "anonAllowed": [401] },
+  { "method": "GET", "path": "/api/dashboard/layout", "anonAllowed": [401] },
+  { "method": "GET", "path": "/api/crm/pipeline", "anonAllowed": [401] },
+  { "method": "GET", "path": "/api/crm/dashboard", "anonAllowed": [401] },
+  { "method": "GET", "path": "/api/crm/activities/today", "anonAllowed": [401] },
+  { "method": "GET", "path": "/api/sales/customers", "anonAllowed": [401] },
+  { "method": "GET", "path": "/api/sales/quotes", "anonAllowed": [401] },
+  { "method": "GET", "path": "/api/sales/sale-orders", "anonAllowed": [401] },
+  { "method": "GET", "path": "/api/sales/opportunities", "anonAllowed": [401] },
+  { "method": "GET", "path": "/api/work-orders", "anonAllowed": [401] },
+  { "method": "GET", "path": "/api/production/machines", "anonAllowed": [401] },
+  { "method": "GET", "path": "/api/production/routings", "anonAllowed": [401] },
+  { "method": "GET", "path": "/api/purchases/suppliers", "anonAllowed": [401] },
+  { "method": "GET", "path": "/api/purchases/orders", "anonAllowed": [401] },
+  { "method": "GET", "path": "/api/users", "anonAllowed": [401] },
+  { "method": "GET", "path": "/api/notifications/me", "anonAllowed": [401] }
+]

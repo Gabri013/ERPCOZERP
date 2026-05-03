@@ -42,8 +42,48 @@ model User {
   crmLogs                CrmLog[]
   crmInboxConversations  CrmConversation[] @relation("CrmConversationResponsible")
   permissionGrants       UserPermissionGrant[]
+  errorQueueReports      ErrorQueue[]
 
   @@map("users")
+}
+
+/// Fila de erros para monitorização, análise (IA) e fluxo de aprovação — não altera código em runtime.
+model ErrorQueue {
+  id              String    @id @default(uuid()) @db.Uuid
+  /// frontend_console_error | frontend_console_warn | frontend_render | backend_exception | api_invalid | api_timeout | api_500
+  type            String    @map("type") @db.VarChar(64)
+  /// critical | high | medium | low
+  severity        String    @map("severity") @db.VarChar(16)
+  description     String    @map("description") @db.Text
+  /// Ficheiro ou módulo identificado (heurística / stack)
+  sourceFile      String?   @map("source_file") @db.VarChar(512)
+  /// pending | analyzing | fixed | ignored | review_required
+  status          String    @default("pending") @map("status") @db.VarChar(32)
+  route           String?   @map("route") @db.VarChar(512)
+  userId          String?   @map("user_id") @db.Uuid
+  stackTrace      String?   @map("stack_trace") @db.Text
+  httpMethod      String?   @map("http_method") @db.VarChar(16)
+  httpStatus      Int?      @map("http_status")
+  metadata        Json?     @map("metadata")
+  analysisJson    Json?     @map("analysis_json")
+  probableCause   String?   @map("probable_cause") @db.Text
+  suggestedFix    String?   @map("suggested_fix") @db.Text
+  impact          String?   @map("impact") @db.Text
+  autoFixEligible Boolean   @default(false) @map("auto_fix_eligible")
+  autoApplied     Boolean   @default(false) @map("auto_applied")
+  testResult      Json?     @map("test_result")
+  rollbackAt      DateTime? @map("rollback_at") @db.Timestamptz(6)
+  /// Array JSON: { at, action, detail }
+  eventLog        Json      @default("[]") @map("event_log")
+  pullRequestUrl  String?   @map("pull_request_url") @db.VarChar(512)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt], map: "idx_error_queue_status_created")
+  @@index([severity, createdAt], map: "idx_error_queue_severity_created")
+  @@map("error_queue")
 }
 
 /// Auditoria de eventos do CRM (Fase A — rastreabilidade para automações futuras).
@@ -749,6 +789,9 @@ model WorkOrder {
   kanbanColumn        String    @default("BACKLOG") @map("kanban_column")
   kanbanOrder         Int       @default(0) @map("kanban_order")
   priority            String    @default("normal")
+  /// Sigla industrial (COC, REF, MOB) para badge/cor — preenchido na geração do código.
+  categoryCode        String?   @map("category_code") @db.VarChar(16)
+  categoryLabel       String?   @map("category_label") @db.VarChar(128)
   notes               String?   @db.Text
   responsibleUserId   String?   @map("responsible_user_id") @db.Uuid
   finishedAt          DateTime? @map("finished_at")
@@ -1576,5 +1619,62 @@ model NcMetaTheme {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("nc_meta_themes")
+}
+
+// ── Industrial: categorias visuais + regras de código inteligente ───────────
+
+model NcMetaCategory {
+  id         String   @id @default(uuid()) @db.Uuid
+  code       String   @unique @db.VarChar(16)
+  label      String   @db.VarChar(128)
+  color      String   @db.VarChar(16)
+  textColor  String   @map("text_color") @db.VarChar(16)
+  icon       String?  @db.VarChar(64)
+  sortOrder  Int      @default(0) @map("sort_order")
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([active, sortOrder], map: "idx_nc_meta_categories_active")
+  @@map("nc_meta_categories")
+}
+
+model NcMetaCodeRule {
+  id                     String   @id @default(uuid()) @db.Uuid
+  /// produto | pedido_venda | ordem_producao | work_order | …
+  entity                 String   @unique @db.VarChar(64)
+  prefix                 String   @db.VarChar(16)
+  /// Nome do campo no JSON/registo usado para resolver a sigla (ex.: categoria_industrial, group).
+  categoriaField         String?  @map("categoria_field") @db.VarChar(64)
+  useYear                Boolean  @default(true) @map("use_year")
+  useMonth               Boolean  @default(true) @map("use_month")
+  sequencePadding        Int      @default(5) @map("sequence_padding")
+  /// year | month | never
+  resetType              String   @default("month") @map("reset_type") @db.VarChar(16)
+  /// CAT_PREFIX_YM_SEQ | PREFIX_CAT_YM_SEQ | PREFIX_YEAR_SEQ
+  format                 String   @default("PREFIX_CAT_YM_SEQ") @db.VarChar(32)
+  /// codigo | numero | number (work_orders.number)
+  targetField            String   @default("numero") @map("target_field") @db.VarChar(32)
+  fallbackCategoryCode   String   @default("MOB") @map("fallback_category_code") @db.VarChar(16)
+  active                 Boolean  @default(true)
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  sequences NcMetaCodeSequence[]
+
+  @@map("nc_meta_code_rules")
+}
+
+model NcMetaCodeSequence {
+  id          String @id @default(uuid()) @db.Uuid
+  ruleId      String @map("rule_id") @db.Uuid
+  periodKey   String @map("period_key") @db.VarChar(32)
+  categoryKey String @map("category_key") @db.VarChar(32)
+  lastValue   Int    @map("last_value")
+
+  rule NcMetaCodeRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@unique([ruleId, periodKey, categoryKey], map: "uq_nc_meta_code_sequence")
+  @@map("nc_meta_code_sequences")
 }
 

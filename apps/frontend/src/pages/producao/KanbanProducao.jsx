@@ -7,6 +7,7 @@ import { historicoOPServiceApi } from '@/services/historicoOPServiceApi';
 import { usePermissao } from '@/lib/PermissaoContext';
 import { Clock, AlertTriangle, User, Package, History, X } from 'lucide-react';
 import FluxoProducao from '@/components/producao/FluxoProducao';
+import IndustrialCategoryBadge from '@/components/industrial/IndustrialCategoryBadge';
 
 const COLUNAS = [
   { key: 'aberta',       label: 'Aguardando',        cor: 'border-t-blue-400',   header: 'bg-blue-50',   badge: 'bg-blue-100 text-blue-700' },
@@ -16,9 +17,11 @@ const COLUNAS = [
 ];
 
 const PRIORIDADE_COR = {
-  Urgente: 'bg-red-100 text-red-700',
+  Urgente: 'bg-pink-100 text-pink-800 border border-pink-300',
+  urgente: 'bg-pink-100 text-pink-800 border border-pink-300',
   Alta:    'bg-orange-100 text-orange-700',
   Normal:  'bg-blue-100 text-blue-700',
+  normal:  'bg-blue-100 text-blue-700',
   Baixa:   'bg-gray-100 text-gray-600',
 };
 
@@ -30,6 +33,7 @@ const fmt = (d) => d ? new Date(d).toLocaleDateString('pt-BR', { day: '2-digit',
 
 function OPCard({ op, index }) {
   const atrasada = op.prazo && new Date(op.prazo) < new Date() && op.status !== 'concluida';
+  const urg = String(op.prioridade || op.priority || '').toLowerCase().includes('urg');
   return (
     <Draggable draggableId={String(op.id)} index={index}>
       {(drag, snapshot) => (
@@ -40,19 +44,24 @@ function OPCard({ op, index }) {
           className={`bg-white border rounded-lg p-3 cursor-grab active:cursor-grabbing select-none transition-shadow ${
             snapshot.isDragging
               ? 'shadow-2xl border-primary scale-[1.02] rotate-1'
-              : 'border-border hover:shadow-md hover:border-primary/40'
+              : urg
+                ? 'border-2 border-pink-400 shadow-sm shadow-pink-100/80 hover:border-pink-500'
+                : 'border-border hover:shadow-md hover:border-primary/40'
           }`}
         >
           <div className="flex items-start justify-between mb-2 gap-1">
-            <Link
-              to={`/producao/ordens/${op.id}`}
-              onClick={e => e.stopPropagation()}
-              className="text-xs font-bold text-primary hover:underline"
-            >
-              {op.numero}
-            </Link>
-            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 ${PRIORIDADE_COR[op.prioridade] || 'bg-gray-100 text-gray-600'}`}>
-              {op.prioridade}
+            <div className="flex items-center gap-1.5 min-w-0">
+              <IndustrialCategoryBadge code={op.categoria_codigo} />
+              <Link
+                to={`/producao/ordens/${op.id}`}
+                onClick={e => e.stopPropagation()}
+                className="text-xs font-bold text-primary hover:underline truncate"
+              >
+                {op.numero}
+              </Link>
+            </div>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 ${PRIORIDADE_COR[op.prioridade] || PRIORIDADE_COR[op.priority] || 'bg-gray-100 text-gray-600'}`}>
+              {op.prioridade || op.priority || '—'}
             </span>
           </div>
 

@@ -86,10 +86,18 @@ estoqueRouter.post('/', async (req, res) => {
   const entity = await getProdutoEntity();
   if (!entity) return res.status(404).json({ error: 'Entidade produto não configurada' });
 
+  const body = { ...(typeof req.body === 'object' && req.body ? (req.body as Record<string, unknown>) : {}) };
+  try {
+    const { applyIndustrialCodeOnPayload } = await import('../meta-code/meta-code.service.js');
+    await applyIndustrialCodeOnPayload(prisma, 'produto', body);
+  } catch {
+    /* opcional */
+  }
+
   const created = await prisma.entityRecord.create({
     data: {
       entityId: entity.id,
-      data: req.body as Prisma.InputJsonValue,
+      data: body as Prisma.InputJsonValue,
       createdBy: userId,
       updatedBy: userId,
     },

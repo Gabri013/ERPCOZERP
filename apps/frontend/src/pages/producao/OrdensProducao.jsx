@@ -9,13 +9,29 @@ import { opService } from '@/services/opService';
 import { Plus, Download, Kanban } from 'lucide-react';
 import { exportPdfReport } from '@/services/pdfExport';
 import FluxoProducao from '@/components/producao/FluxoProducao';
+import IndustrialCategoryBadge from '@/components/industrial/IndustrialCategoryBadge';
 
 const STATUS_LABEL = {
   aberta: 'Aberta', em_andamento: 'Em Andamento', pausada: 'Pausada', concluida: 'Concluída', cancelada: 'Cancelada'
 };
 
 const columns = [
-  { key: 'numero', label: 'Número', width: 100, render: (v, row) => <Link to={`/producao/ordens/${row.id}`} className="text-primary hover:underline font-medium">{v}</Link> },
+  {
+    key: 'numero',
+    label: 'Número',
+    width: 160,
+    render: (v, row) => (
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <IndustrialCategoryBadge code={row.categoria_codigo} />
+        <Link to={`/producao/ordens/${row.id}`} className="text-primary hover:underline font-medium">
+          {v}
+        </Link>
+        {String(row.prioridade || row.priority || '').toLowerCase().includes('urg') && (
+          <span className="text-[10px] px-1 rounded font-semibold bg-pink-100 text-pink-700 border border-pink-300">URG</span>
+        )}
+      </div>
+    ),
+  },
   { key: 'clienteNome', label: 'Cliente', width: 180 },
   { key: 'produtoDescricao', label: 'Produto' },
   { key: 'quantidade', label: 'Qtd', width: 60 },

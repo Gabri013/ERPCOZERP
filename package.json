@@ -33,6 +33,9 @@
     "test:e2e:sales": "playwright test tests/e2e/sales",
     "test:e2e:production": "playwright test tests/e2e/production",
     "test:e2e:performance": "playwright test tests/e2e/performance",
+    "test:audit:backend": "npm run test --prefix apps/backend -- src/__tests__/audit/api-surface.test.ts",
+    "test:audit:e2e": "playwright test tests/e2e/audit --project=\"Desktop Chrome\"",
+    "audit:run": "node tests/audit/run-audit.mjs",
     "test:all": "npm run test && npm run test:e2e",
     "docker:up": "docker compose up -d --build",
     "docker:down": "docker compose down",
@@ -40,11 +43,20 @@
     "docker:seed": "docker compose run --rm -e SEED_ENABLED=true backend npm run prisma:seed",
     "sync:cozinca-team": "npm run sync:cozinca-team --prefix apps/backend",
     "migrate:legacy": "node scripts/migrate-legacy-data.js",
-    "seed:materials": "node scripts/seed-raw-materials.js"
+    "seed:materials": "node scripts/seed-raw-materials.js",
+    "quality:gate": "node scripts/quality-gate/run.mjs",
+    "quality:gate:strict": "node scripts/quality-gate/run.mjs --strict",
+    "validate:backend": "node scripts/quality-gate/validate-backend.mjs",
+    "validate:frontend": "node scripts/quality-gate/validate-frontend.mjs",
+    "format:check": "prettier --check lint-rules/**/*.{js,cjs} scripts/**/*.mjs prettier.config.mjs",
+    "format:write": "prettier --write lint-rules/**/*.{js,cjs} scripts/**/*.mjs prettier.config.mjs",
+    "prepare": "husky || true"
   },
   "devDependencies": {
     "@playwright/test": "1.59.1",
     "concurrently": "^9.1.2",
-    "cross-env": "^7.0.3"
+    "cross-env": "^7.0.3",
+    "husky": "^9.1.7",
+    "prettier": "^3.5.3"
   }
 }

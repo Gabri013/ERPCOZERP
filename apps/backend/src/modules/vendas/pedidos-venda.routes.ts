@@ -78,13 +78,24 @@ pedidosVendaRouter.post('/', async (req, res) => {
 
   const numero = normalizeStr((data as any).numero);
   if (!numero) {
-    const existing = await prisma.entityRecord.findMany({
-      where: { entityId: entity.id, deletedAt: null },
-      orderBy: { createdAt: 'desc' },
-      take: 200,
-      select: { data: true },
-    });
-    (data as any).numero = nextNumero(existing.map((r) => r.data));
+    let assigned: string | undefined;
+    try {
+      const { allocateIndustrialCode } = await import('../meta-code/meta-code.service.js');
+      const gen = await allocateIndustrialCode(prisma, 'pedido_venda', data as Record<string, unknown>);
+      if (gen) assigned = gen.code;
+    } catch {
+      /* opcional */
+    }
+    if (assigned) (data as any).numero = assigned;
+    else {
+      const existing = await prisma.entityRecord.findMany({
+        where: { entityId: entity.id, deletedAt: null },
+        orderBy: { createdAt: 'desc' },
+        take: 200,
+        select: { data: true },
+      });
+      (data as any).numero = nextNumero(existing.map((r) => r.data));
+    }
   }
 
   const created = await prisma.entityRecord.create({

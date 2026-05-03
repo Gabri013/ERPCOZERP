@@ -66,10 +66,17 @@ async function updateRecord(entityCode: string, id: string, data: EntityRow | Js
 async function createRecord(entityCode: string, data: EntityRow | Json, userId?: string) {
   const entity = await getEntity(entityCode);
   if (!entity) throw new Error(`Entidade ${entityCode} não encontrada`);
+  const payload = { ...(data as Record<string, unknown>) };
+  try {
+    const { applyIndustrialCodeOnPayload } = await import('../meta-code/meta-code.service.js');
+    await applyIndustrialCodeOnPayload(prisma, entityCode, payload);
+  } catch {
+    /* opcional */
+  }
   const created = await prisma.entityRecord.create({
     data: {
       entityId: entity.id,
-      data: data as Prisma.InputJsonValue,
+      data: payload as Prisma.InputJsonValue,
       createdBy: userId,
       updatedBy: userId,
     },
@@ -444,7 +451,6 @@ export async function gerarOpDoPedido(pedidoId: string, userId: string) {
   const itens = Array.isArray((pedido as any).itens) ? (pedido as any).itens : [];
   await assertPedidoItensBomCompleto(itens);
   const produtos = await listRecords('produto');
-  const ops = await listRecords('ordem_producao');
 
   const createdOps: Json[] = [];
 
@@ -457,12 +463,10 @@ export async function gerarOpDoPedido(pedidoId: string, userId: string) {
       const tipo = String(p?.tipo || '');
       if (!['Produto', 'Semi-Acabado'].includes(tipo) && tipo !== '') continue;
 
-      const numero = nextNumero('OP', ops as any, /^OP-(\d+)/i);
-      ops.unshift({ numero } as any);
       const op = await createRecord(
         'ordem_producao',
         {
-          numero,
+          categoria_codigo: (p as any)?.categoria_industrial ?? (p as any)?.categoria_codigo,
           pedidoId: pedido.id,
           clienteNome: pedido.cliente_nome,
           codigoProduto: cod,
@@ -472,7 +476,7 @@ export async function gerarOpDoPedido(pedidoId: string, userId: string) {
           dataEmissao: new Date().toISOString(),
           prazo: pedido.data_entrega,
           status: 'aberta',
-          prioridade: 'Normal',
+          prioridade: 'normal',
           responsavel: '',
           observacao: `Gerado automaticamente do pedido ${pedido.numero}`,
           etapaKanban: 'a_fazer',
@@ -487,7 +491,8 @@ export async function gerarOpDoPedido(pedidoId: string, userId: string) {
       createdOps.push(op);
     }
   } else {
-    const numero = nextNumero('OP', ops as any, /^OP-(\d+)/i);
+    const existingOps = await listRecords('ordem_producao');
+    const numero = nextNumero('OP', existingOps as any, /^OP-(\d+)/i);
     const op = await createRecord(
       'ordem_producao',
       {

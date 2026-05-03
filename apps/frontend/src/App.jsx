@@ -4,6 +4,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter as Router, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { queryClientInstance } from '@/lib/query-client';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
+import { appConfig, resolveApiUrl } from '@/config/appConfig';
 import { RealtimeProvider } from '@/lib/RealtimeContext';
 import { ImpersonationProvider } from '@/contexts/ImpersonationContext';
 import { PermissaoProvider } from '@/lib/PermissaoContext';
@@ -12,6 +13,7 @@ import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import ERPLayout from '@/components/layout/ERPLayout';
 import PermissaoRoute from '@/components/PermissaoRoute';
 import RouteFallback from '@/components/common/RouteFallback';
+import ErrorMonitorBootstrap from '@/components/ErrorMonitorBootstrap';
 import Dashboard from '@/pages/Dashboard';
 import Login from '@/pages/Login';
 
@@ -108,7 +110,10 @@ const ModeloOP = lazy(() => import('@/pages/configuracoes/ModeloOP'));
 const MetadataStudio = lazy(() => import('@/pages/configuracoes/MetadataStudio'));
 const WorkflowBuilder = lazy(() => import('@/pages/configuracoes/WorkflowBuilder'));
 const FormBuilder = lazy(() => import('@/pages/configuracoes/FormBuilder'));
+const CategoriasIndustrial = lazy(() => import('@/pages/configuracoes/CategoriasIndustrial'));
 const FluxoPedido = lazy(() => import('@/pages/configuracoes/FluxoPedido'));
+const AutoCorrecoes = lazy(() => import('@/pages/sistema/AutoCorrecoes'));
+const Qualidade = lazy(() => import('@/pages/sistema/Qualidade'));
 const EntityDynamicPage = lazy(() => import('@/pages/dinamico/EntityDynamicPage'));
 const ContasReceber = lazy(() => import('@/pages/financeiro/ContasReceber'));
 const ContasPagar = lazy(() => import('@/pages/financeiro/ContasPagar'));
@@ -147,6 +152,24 @@ class AppRouteErrorBoundary extends Component {
     if (import.meta.env.DEV) {
       // eslint-disable-next-line no-console
       console.error('[AppRouteErrorBoundary]', error, info);
+    }
+    if (appConfig.isApi) {
+      const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+      if (token) {
+        const stackTrace = [error?.stack, info?.componentStack].filter(Boolean).join('\n---\n');
+        void fetch(resolveApiUrl('/api/error-monitor/ingest'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            type: 'frontend_render',
+            severity: 'critical',
+            description: error?.message || String(error),
+            stackTrace,
+            route: typeof window !== 'undefined' ? window.location?.pathname : '',
+            metadata: { componentStack: info?.componentStack },
+          }),
+        }).catch(() => {});
+      }
     }
   }
 
@@ -201,6 +224,7 @@ const AuthenticatedApp = () => {
 
   return (
     <Suspense fallback={<RouteFallback />}>
+      <ErrorMonitorBootstrap />
       <Routes>
         <Route element={<ERPLayout />}>
           <Route path="/" element={<Dashboard />} />
@@ -339,12 +363,22 @@ const AuthenticatedApp = () => {
           <Route path="/conhecimento" element={<PermissaoRoute acao="ver_vendas"><BaseConhecimento /></PermissaoRoute>} />
           <Route path="/sobre" element={<SobreERP />} />
 
+          <Route
+            path="/sistema/auto-correcoes"
+            element={<PermissaoRoute acao="editar_config"><AutoCorrecoes /></PermissaoRoute>}
+          />
+          <Route
+            path="/sistema/qualidade"
+            element={<PermissaoRoute acao="editar_config"><Qualidade /></PermissaoRoute>}
+          />
+
           <Route path="/configuracoes/empresa" element={<PermissaoRoute acao="editar_config"><Empresa /></PermissaoRoute>} />
           <Route path="/configuracoes/usuarios" element={<PermissaoRoute acao="gerenciar_usuarios"><Usuarios /></PermissaoRoute>} />
           <Route path="/configuracoes/parametros" element={<PermissaoRoute acao="editar_config"><Parametros /></PermissaoRoute>} />
           <Route path="/configuracoes/modelo-op" element={<PermissaoRoute acao="editar_config"><ModeloOP /></PermissaoRoute>} />
           <Route path="/configuracoes/metadata-studio" element={<PermissaoRoute acao="editar_config"><MetadataStudio /></PermissaoRoute>} />
           <Route path="/configuracoes/form-builder" element={<PermissaoRoute acao="editar_config"><FormBuilder /></PermissaoRoute>} />
+          <Route path="/configuracoes/categorias" element={<PermissaoRoute acao="editar_config"><CategoriasIndustrial /></PermissaoRoute>} />
           <Route path="/configuracoes/workflows" element={<PermissaoRoute acao="editar_config"><WorkflowBuilder /></PermissaoRoute>} />
           <Route path="/configuracoes/fluxo-pedido" element={<FluxoPedido />} />
         </Route>

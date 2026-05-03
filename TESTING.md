@@ -164,7 +164,7 @@ npm run test:coverage     # cobertura de backend + frontend
 | Email | Papel |
 |---|---|
 | `gerente@cozinha.com` | Gerente Geral |
-| `master@cozinca.com` | Master |
+| `master@Cozinha.com` (senha `master123_dev`) | Master |
 | `gerente.producao@cozinha.com` | Gerente Produção |
 | `financeiro@cozinha.com` | Financeiro |
 | `qualidade@cozinha.com` | Qualidade |

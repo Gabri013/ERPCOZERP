@@ -95,14 +95,20 @@ recordsRouter.post('/', async (req, res) => {
   const entity = await prisma.entity.findUnique({ where: { code: parsed.data.entity } });
   if (!entity) return res.status(404).json({ error: 'Entidade não encontrada' });
 
+  const roles = req.user?.roles ?? [];
+  const mergedCreate = { ...(parsed.data.data as Record<string, unknown>) };
   try {
-    await assertRequiredFields(parsed.data.entity, parsed.data.data as Record<string, unknown>);
+    const { applyIndustrialCodeOnPayload } = await import('../meta-code/meta-code.service.js');
+    await applyIndustrialCodeOnPayload(prisma, parsed.data.entity, mergedCreate);
+  } catch {
+    /* tabelas de meta-code opcionais */
+  }
+
+  try {
+    await assertRequiredFields(parsed.data.entity, mergedCreate);
   } catch (e: any) {
     return res.status(400).json({ error: e?.message || 'Validação falhou' });
   }
-
-  const roles = req.user?.roles ?? [];
-  const mergedCreate = { ...(parsed.data.data as Record<string, unknown>) };
   let crmLeadAutoAssignReason: string | undefined;
   try {
     if (parsed.data.entity === 'crm_lead') {

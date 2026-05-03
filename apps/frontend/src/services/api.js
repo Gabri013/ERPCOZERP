@@ -64,7 +64,7 @@ async function request(method, url, { data, silent403 } = {}) {
 
 export const api = {
   get: (url, opts) => request('GET', url, opts),
-  post: (url, data) => request('POST', url, { data }),
+  post: (url, data, opts) => request('POST', url, { data, ...opts }),
   put: (url, data) => request('PUT', url, { data }),
   patch: (url, data) => request('PATCH', url, { data }),
   delete: (url) => request('DELETE', url),

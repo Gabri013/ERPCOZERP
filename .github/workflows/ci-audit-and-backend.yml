@@ -1,0 +1,32 @@
+# Deteção contínua (base): testes de superfície API + lint backend quando possível.
+name: ci-audit-backend
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+  workflow_dispatch:
+
+jobs:
+  api-surface:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: apps/backend/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Prisma generate
+        run: npx prisma generate
+      - name: API surface audit tests
+        run: npm run test -- --run src/__tests__/audit/api-surface.test.ts
+        env:
+          DATABASE_URL: ${{ secrets.CI_DATABASE_URL }}
+          JWT_SECRET: ci_jwt_secret_at_least_32_characters_long

@@ -39,6 +39,12 @@ import { registerExpeditionModule } from './modules/expedition/expedition.module
 import { registerAccountingModule } from './modules/accounting/accounting.module.js';
 import { registerWebhooksModule } from './modules/webhooks/webhooks.module.js';
 import { registerMetaModule } from './modules/meta/meta.module.js';
+import { registerMetaCodeModule } from './modules/meta-code/meta-code.module.js';
+import {
+  attachErrorMonitorExpressHandler,
+  registerErrorMonitorModule,
+} from './modules/error-monitor/error-monitor.module.js';
+import { registerQualityGateModule } from './modules/quality-gate/quality-gate.module.js';
 
 export function createApp() {
   const app = express();
@@ -90,6 +96,9 @@ export function createApp() {
   registerExpeditionModule(app);
   registerAccountingModule(app);
   registerMetaModule(app);
+  registerMetaCodeModule(app);
+  registerErrorMonitorModule(app);
+  registerQualityGateModule(app);
 
   app.get('/', (req, res) => {
     res.json({
@@ -98,6 +107,8 @@ export function createApp() {
       health: '/health',
     });
   });
+
+  attachErrorMonitorExpressHandler(app);
 
   return app;
 }

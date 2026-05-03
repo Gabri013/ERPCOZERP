@@ -62,6 +62,27 @@ function crmStageHistory() {
   }).crmStageHistory;
 }
 
+function isMissingCrmStageHistoryTable(e: unknown): boolean {
+  if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2021') return true;
+  const msg = e instanceof Error ? e.message : String(e);
+  return /crm_stage_history|CrmStageHistory/i.test(msg);
+}
+
+/** Evita 500 quando a migração ainda não foi aplicada em ambiente local. */
+async function findManyStageHistorySafe(args: Record<string, unknown>): Promise<CrmStageHistoryRow[]> {
+  try {
+    return await crmStageHistory().findMany(args);
+  } catch (e) {
+    if (isMissingCrmStageHistoryTable(e)) {
+      logAnalytics('crm_stage_history indisponível', {
+        note: 'aplique prisma migrate (migration 20260604000000_crm_stage_history); retornando histórico vazio',
+      });
+      return [];
+    }
+    throw e;
+  }
+}
+
 export function parseCrmAnalyticsQuery(q: Record<string, unknown>): CrmAnalyticsFilters {
   const now = new Date();
   const defaultFrom = new Date(now);
@@ -300,7 +321,7 @@ export async function getSalesPerformanceAnalytics(f: CrmAnalyticsFilters) {
   });
   const idToName = new Map(users.map((u) => [u.id, u.fullName || u.id]));
 
-  const hist = await crmStageHistory().findMany({
+  const hist = await findManyStageHistorySafe({
     where: { createdAt: { gte: f.from, lte: f.to } },
     select: { oportunidadeId: true, stageFrom: true, stageTo: true, createdAt: true },
     orderBy: [{ oportunidadeId: 'asc' }, { createdAt: 'asc' }],
@@ -477,7 +498,7 @@ export async function enrichPipelineWithAnalytics(
   const history =
     oppIds.length === 0
       ? []
-      : await crmStageHistory().findMany({
+      : await findManyStageHistorySafe({
           where: {
             oportunidadeId: { in: oppIds },
             createdAt: { gte: f.from, lte: f.to },
