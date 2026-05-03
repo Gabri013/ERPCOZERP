@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../../infra/prisma.js';
 import { rolesCanSeeNotificationSector } from '../../lib/notificationVisibility.js';
 import { sortRolesByPriority } from '../../lib/roleOrder.js';
-import { getDefaultDashboardWidgets } from '../../lib/defaultDashboardLayout.js';
+import { getDefaultDashboardWidgets, migrateLegacyLayout } from '../../lib/defaultDashboardLayout.js';
 
 export const dashboardRouter = Router();
 
@@ -229,7 +229,12 @@ dashboardRouter.get('/', async (req, res) => {
     rolesCanSeeNotificationSector(r.sector, roleCodesForNotifs)
   ).length;
 
-  const layout = await prisma.dashboardLayout.findUnique({ where: { userId } });
+  const layoutRecord = await prisma.dashboardLayout.findUnique({ where: { userId } });
+  const rawWidgets = Array.isArray(layoutRecord?.widgets) ? (layoutRecord!.widgets as string[]) : [];
+  const migratedWidgets = migrateLegacyLayout(rawWidgets);
+  if (migratedWidgets.join(',') !== rawWidgets.join(',') && migratedWidgets.length > 0 && layoutRecord) {
+    await prisma.dashboardLayout.update({ where: { userId }, data: { widgets: migratedWidgets } }).catch(() => {});
+  }
 
   res.json({
     success: true,
@@ -252,7 +257,7 @@ dashboardRouter.get('/', async (req, res) => {
       },
     },
     layout: {
-      widgets: layout?.widgets ?? [],
+      widgets: migratedWidgets,
     },
   });
 });
@@ -262,15 +267,24 @@ dashboardRouter.get('/layout', async (req, res) => {
   if (!userId) return res.status(401).json({ error: 'Authentication required' });
 
   const layout = await prisma.dashboardLayout.findUnique({ where: { userId } });
-  res.json({ success: true, data: { widgets: layout?.widgets ?? [] } });
+  const raw = Array.isArray(layout?.widgets) ? (layout!.widgets as string[]) : [];
+  const widgets = migrateLegacyLayout(raw);
+
+  // Se o layout foi migrado (diferente do original), persiste a versão limpa
+  if (widgets.join(',') !== raw.join(',') && widgets.length > 0) {
+    await prisma.dashboardLayout.update({ where: { userId }, data: { widgets } }).catch(() => {});
+  }
+
+  res.json({ success: true, data: { widgets } });
 });
 
 dashboardRouter.put('/layout', async (req, res) => {
   const userId = req.user?.userId;
   if (!userId) return res.status(401).json({ error: 'Authentication required' });
 
-  const widgets = Array.isArray(req.body?.widgets) ? req.body.widgets : Array.isArray(req.body) ? req.body : null;
-  if (!widgets) return res.status(400).json({ error: 'widgets deve ser um array' });
+  const raw = Array.isArray(req.body?.widgets) ? req.body.widgets : Array.isArray(req.body) ? req.body : null;
+  if (!raw) return res.status(400).json({ error: 'widgets deve ser um array' });
+  const widgets = migrateLegacyLayout(raw);
 
   const saved = await prisma.dashboardLayout.upsert({
     where: { userId },

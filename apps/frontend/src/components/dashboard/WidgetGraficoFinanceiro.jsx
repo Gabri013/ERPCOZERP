@@ -1,4 +1,4 @@
-﻿import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { fetchSaldoFinanceiroApi } from '@/services/businessLogicApi';
@@ -39,7 +39,7 @@ export default function WidgetGraficoFinanceiro() {
         </Link>
       </div>
       <p className="text-[11px] text-muted-foreground mb-2 shrink-0">Saldo em aberto (R$)</p>
-      <div className="h-64 md:h-80 w-full shrink-0">
+      <div className="h-52 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />

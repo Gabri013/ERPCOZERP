@@ -2,23 +2,31 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests/e2e',
-  timeout: 60_000,
-  expect: {
-    timeout: 10_000,
-  },
-  retries: 1,
+  fullyParallel: false,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  workers: 1,
+  reporter: [['html', { outputFolder: 'test-reports/playwright' }], ['list']],
   use: {
-    // 5173 é usado pelo compose (frontend nginx); em dev o Vite costuma subir em 5174+ se 5173 estiver ocupado.
     baseURL: process.env.E2E_BASE_URL || 'http://127.0.0.1:5174',
-    trace: 'retain-on-failure',
+    trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
   projects: [
     {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      name: 'Desktop Chrome',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } },
+    },
+    {
+      name: 'Tablet',
+      use: { ...devices['iPad Pro'], viewport: { width: 1024, height: 1366 } },
+    },
+    {
+      name: 'Mobile',
+      use: { ...devices['iPhone 13'], viewport: { width: 390, height: 844 } },
     },
   ],
+  timeout: 60000,
+  expect: { timeout: 10000 },
 });
-

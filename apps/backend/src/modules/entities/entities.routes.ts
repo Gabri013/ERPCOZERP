@@ -15,9 +15,12 @@ entitiesRouter.get('/', async (req, res) => {
   const entities = await prisma.entity.findMany({ orderBy: { code: 'asc' } });
   const shaped = entities.map((e: any) => ({
     ...e,
-    // Compat com frontend: ele espera `entity.fields` direto no objeto.
-    // Persistimos no banco em `config.fields`.
-    fields: Array.isArray(e?.config?.fields) ? e.config.fields : [],
+    // Flatten config props so the frontend can read them directly
+    fields:       Array.isArray(e?.config?.fields) ? e.config.fields : [],
+    is_system:    e?.config?.is_system    ?? false,
+    showInMenu:   e?.config?.showInMenu   ?? true,
+    displayName:  e?.config?.displayName  ?? e.name,
+    icon:         e?.config?.icon         ?? null,
   }));
   res.json({ success: true, data: shaped });
 });

@@ -7,53 +7,64 @@ function intersectAllowed(ids: string[], allowed: Set<string>): string[] {
 }
 
 /** IDs válidos (frontend ALL_WIDGETS + legado). */
-// Adicionar KNOWN_WIDGET_IDS
 export const KNOWN_WIDGET_IDS = new Set([
   // Novos (por perfil)
-  'kpi_vendas',
-  'kpi_producao',
-  'kpi_financeiro',
-  'chart_vendas_mes',
-  'chart_producao_mes',
-  'alertas_estoque',
-  'alertas_financeiro',
-  'alertas_pedidos',
-  'chart_lead_time',
-  'top_produtos',
-  'chart_conversao',
-  'chart_funil_vendas',
-  'chart_ops_atrasadas',
-  'chart_qualidade',
-  'chart_eficiencia',
-  'kpi_projetos',
-  'chart_projetos_mes',
-  'alertas_aprovacao',
-  'chart_carga_trabalho',
+  'kpi_vendas', 'kpi_producao', 'kpi_financeiro',
+  'chart_vendas_mes', 'chart_producao_mes',
+  'alertas_estoque', 'alertas_financeiro', 'alertas_pedidos',
+  'chart_lead_time', 'top_produtos',
+  'chart_conversao', 'chart_funil_vendas',
+  'chart_ops_atrasadas', 'chart_qualidade', 'chart_eficiencia',
+  'kpi_projetos', 'chart_projetos_mes', 'alertas_aprovacao', 'chart_carga_trabalho',
   'chart_ops_hoje',
-  'chart_receitas_despesas',
-  'chart_contas_vencer',
-  'chart_dre',
-  'kpi_funcionarios',
-  'chart_ponto',
-  'alertas_ferias',
-  'chart_custos_folha',
+  'chart_receitas_despesas', 'chart_contas_vencer', 'chart_dre',
+  'kpi_funcionarios', 'chart_ponto', 'alertas_ferias', 'chart_custos_folha',
   // Tabelas
-  'pedidos_recentes',
-  'estoque_critico',
-  // Legado (layouts antigos)
-  'kpi_faturamento',
-  'kpi_pedidos',
-  'kpi_ops',
-  'kpi_estoque',
-  'kpi_ocs',
-  'kpi_notifs',
-  'grafico_vendas',
-  'grafico_financeiro',
-  'grafico_producao',
-  'pedidos_recentes',
-  'estoque_critico',
-  'alertas',
+  'pedidos_recentes', 'estoque_critico',
+  // Legado (layouts antigos — podem existir em layouts salvos)
+  'kpi_faturamento', 'kpi_pedidos', 'kpi_ops', 'kpi_estoque', 'kpi_ocs', 'kpi_notifs',
+  'grafico_vendas', 'grafico_financeiro', 'grafico_producao', 'alertas',
 ]);
+
+/**
+ * Mapeamento de widget legado → novo equivalente.
+ * Usado para migrar layouts antigos automaticamente.
+ */
+const LEGACY_TO_NEW: Record<string, string> = {
+  grafico_producao:  'chart_producao_mes',
+  grafico_vendas:    'chart_vendas_mes',
+  grafico_financeiro:'chart_receitas_despesas',
+  kpi_faturamento:   'kpi_vendas',
+  kpi_ops:           'kpi_producao',
+  kpi_pedidos:       'kpi_vendas',
+  kpi_estoque:       'kpi_vendas',
+  kpi_ocs:           'kpi_producao',
+  kpi_notifs:        'alertas_pedidos',
+  alertas:           'alertas_estoque',
+};
+
+/**
+ * Migra um layout salvo removendo IDs legados que já têm equivalente novo,
+ * e deduplicando entradas repetidas.
+ */
+export function migrateLegacyLayout(widgets: string[]): string[] {
+  if (!Array.isArray(widgets) || widgets.length === 0) return widgets;
+
+  const result: string[] = [];
+  const seen = new Set<string>();
+
+  for (const id of widgets) {
+    // Resolve legado → novo
+    const resolved = LEGACY_TO_NEW[id] ?? id;
+    // Só adiciona se conhecido e não duplicado
+    if (KNOWN_WIDGET_IDS.has(resolved) && !seen.has(resolved)) {
+      result.push(resolved);
+      seen.add(resolved);
+    }
+  }
+
+  return result.length > 0 ? result : widgets;
+}
 
 export function getDefaultDashboardWidgets(roleCode: string, _sectorName?: string | null): string[] {
   let base: string[];

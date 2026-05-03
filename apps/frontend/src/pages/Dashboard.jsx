@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   DollarSign, Factory, Package, Users, Settings, RotateCcw,
   Bell, ShoppingCart, Briefcase, TrendingUp, TrendingDown, RefreshCw,
@@ -299,7 +299,7 @@ export default function Dashboard() {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 auto-rows-min sm:auto-rows-[180px]">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 auto-rows-min">
           {activeWidgets.map((id) => (
             <div key={id} className={getColSpan(id)}>
               <DashboardWidget id={id} kpis={kpis} />

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, ShoppingCart, Truck, Factory,
@@ -18,6 +18,8 @@ const MENU_BLACKLIST = new Set([
   'tabela_preco','workflow','product','customer','supplier','purchase_order','sale_order',
   'work_order','stock_movement','inventory_count','location','employee','time_entry',
   'leave_request','payroll_run','fiscal_nfe_record',
+  // Entidades de sistema adicionais
+  'platform_settings','pedido_venda','fiscal_nfe_record',
 ]);
 
 // Agrupamento por seção (label de seção → array de items do menu)
