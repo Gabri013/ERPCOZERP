@@ -15,6 +15,7 @@ import { exportPdfReport } from '@/services/pdfExport';
 import { CONFIG } from '@/services/businessLogicApi';
 import { cozincaApi } from '@/services/cozincaApi';
 import { toast } from 'sonner';
+import { usePermissao } from '@/lib/PermissaoContext';
 
 const fmtR = (v) => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 const fmtD = (v) => v ? new Date(v + 'T00:00').toLocaleDateString('pt-BR') : '—';
@@ -84,6 +85,14 @@ const PROXIMOS = {
 
 export default function PedidosVenda() {
   const navigate = useNavigate();
+  const { pode } = usePermissao();
+  /** Perfil comercial puro: sem visão financeira/operacional — lista focada em status, prazo e valor. */
+  const visaoResumidaComercial =
+    pode('ver_pedidos') &&
+    !pode('ver_financeiro') &&
+    !pode('ver_op') &&
+    !pode('ver_estoque') &&
+    !pode('aprovar_financeiro');
   const [data, setData] = useState([]);
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState({});
@@ -158,28 +167,46 @@ export default function PedidosVenda() {
 
   const vendedores = useMemo(() => [...new Set(data.map((p) => p.vendedor).filter(Boolean))], [data]);
 
-  const columns = [
-    {
-      key: 'numero', label: 'Número', width: 110,
-      render: (v, row) => (
-        <button className="text-primary hover:underline font-medium" onClick={(e) => { e.stopPropagation(); setDetalhe(row); }}>
-          {v}
-        </button>
-      ),
-    },
-    { key: 'cliente_nome', label: 'Cliente' },
-    { key: 'data_emissao', label: 'Emissão', width: 90, render: fmtD },
-    { key: 'data_entrega', label: 'Entrega', width: 90, render: fmtD },
-    { key: 'vendedor', label: 'Vendedor', width: 120 },
-    { key: 'forma_pagamento', label: 'Pagamento', width: 110 },
-    { key: 'valor_total', label: 'Valor Total', width: 120, render: fmtR },
-    { key: 'status', label: 'Status', width: 150, render: (v) => <BadgeStatus status={v} />, sortable: false },
-  ];
+  const columns = visaoResumidaComercial
+    ? [
+      {
+        key: 'numero',
+        label: 'Número',
+        width: 110,
+        render: (v, row) => (
+          <button type="button" className="text-primary hover:underline font-medium" onClick={(e) => { e.stopPropagation(); setDetalhe(row); }}>
+            {v}
+          </button>
+        ),
+      },
+      { key: 'cliente_nome', label: 'Cliente' },
+      { key: 'data_entrega', label: 'Prazo (entrega)', width: 110, render: fmtD },
+      { key: 'valor_total', label: 'Valor', width: 120, render: fmtR },
+      { key: 'status', label: 'Status', width: 160, render: (v) => <BadgeStatus status={v} />, sortable: false },
+    ]
+    : [
+      {
+        key: 'numero', label: 'Número', width: 110,
+        render: (v, row) => (
+          <button type="button" className="text-primary hover:underline font-medium" onClick={(e) => { e.stopPropagation(); setDetalhe(row); }}>
+            {v}
+          </button>
+        ),
+      },
+      { key: 'cliente_nome', label: 'Cliente' },
+      { key: 'data_emissao', label: 'Emissão', width: 90, render: fmtD },
+      { key: 'data_entrega', label: 'Entrega', width: 90, render: fmtD },
+      { key: 'vendedor', label: 'Vendedor', width: 120 },
+      { key: 'forma_pagamento', label: 'Pagamento', width: 110 },
+      { key: 'valor_total', label: 'Valor Total', width: 120, render: fmtR },
+      { key: 'status', label: 'Status', width: 150, render: (v) => <BadgeStatus status={v} />, sortable: false },
+    ];
 
   return (
     <div className="space-y-4">
       <PageHeader
         title="Pedidos de Venda"
+        subtitle={visaoResumidaComercial ? 'Visão comercial: status, prazo e valor (sem dados operacionais/financeiros sensíveis).' : ''}
         breadcrumbs={['Início', 'Vendas', 'Pedidos de Venda']}
         actions={
           <div className="flex gap-2">
@@ -190,7 +217,14 @@ export default function PedidosVenda() {
             <button type="button"
               onClick={() => exportPdfReport({
                 title: 'Pedidos de Venda', subtitle: 'Listagem consolidada', filename: 'pedidos-venda.pdf',
-                table: { headers: ['Número', 'Cliente', 'Emissão', 'Entrega', 'Vendedor', 'Valor Total', 'Status'], rows: data.map((p) => [p.numero, p.cliente_nome, fmtD(p.data_emissao), fmtD(p.data_entrega), p.vendedor, fmtR(p.valor_total), p.status]) },
+                table: {
+                  headers: visaoResumidaComercial
+                    ? ['Número', 'Cliente', 'Prazo (entrega)', 'Valor', 'Status']
+                    : ['Número', 'Cliente', 'Emissão', 'Entrega', 'Vendedor', 'Valor Total', 'Status'],
+                  rows: visaoResumidaComercial
+                    ? data.map((p) => [p.numero, p.cliente_nome, fmtD(p.data_entrega), fmtR(p.valor_total), p.status])
+                    : data.map((p) => [p.numero, p.cliente_nome, fmtD(p.data_emissao), fmtD(p.data_entrega), p.vendedor, fmtR(p.valor_total), p.status]),
+                },
               })}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded hover:bg-muted">
               <Download size={13} /> Exportar
@@ -204,34 +238,52 @@ export default function PedidosVenda() {
       />
 
       {/* ── KPIs de status ────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <div className="erp-card px-4 py-3 sm:col-span-1">
-          <div className="text-xl font-bold text-primary">{fmtR(resumo.totalValor)}</div>
-          <div className="text-[11px] text-muted-foreground">Carteira Ativa</div>
+      {!visaoResumidaComercial ? (
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="erp-card px-4 py-3 sm:col-span-1">
+              <div className="text-xl font-bold text-primary">{fmtR(resumo.totalValor)}</div>
+              <div className="text-[11px] text-muted-foreground">Carteira Ativa</div>
+            </div>
+            {[
+              { label: 'Orçamentos', val: resumo.orcamento, color: 'text-muted-foreground' },
+              { label: 'Aguard. Aprovação', val: resumo.aguardando, color: 'text-yellow-600' },
+              { label: 'Aprovados', val: resumo.aprovado, color: 'text-blue-600' },
+            ].map((s) => (
+              <div key={s.label} className="erp-card px-4 py-3 text-center">
+                <div className={`text-xl font-bold ${s.color}`}>{s.val}</div>
+                <div className="text-[11px] text-muted-foreground">{s.label}</div>
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { label: 'Em Produção', val: resumo.producao, color: 'text-orange-600' },
+              { label: 'Faturados', val: resumo.faturado, color: 'text-purple-600' },
+              { label: 'Entregues', val: resumo.entregue, color: 'text-green-600' },
+            ].map((s) => (
+              <div key={s.label} className="erp-card px-4 py-3 text-center">
+                <div className={`text-xl font-bold ${s.color}`}>{s.val}</div>
+                <div className="text-[11px] text-muted-foreground">{s.label}</div>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {[
+            { label: 'Orçamentos', val: resumo.orcamento, color: 'text-muted-foreground' },
+            { label: 'Aguard. Aprovação', val: resumo.aguardando, color: 'text-yellow-600' },
+            { label: 'Aprovados', val: resumo.aprovado, color: 'text-blue-600' },
+            { label: 'Em andamento', val: resumo.producao + resumo.faturado, color: 'text-orange-600' },
+          ].map((s) => (
+            <div key={s.label} className="erp-card px-4 py-3 text-center">
+              <div className={`text-xl font-bold ${s.color}`}>{s.val}</div>
+              <div className="text-[11px] text-muted-foreground">{s.label}</div>
+            </div>
+          ))}
         </div>
-        {[
-          { label: 'Orçamentos', val: resumo.orcamento, color: 'text-muted-foreground' },
-          { label: 'Aguard. Aprovação', val: resumo.aguardando, color: 'text-yellow-600' },
-          { label: 'Aprovados', val: resumo.aprovado, color: 'text-blue-600' },
-        ].map((s) => (
-          <div key={s.label} className="erp-card px-4 py-3 text-center">
-            <div className={`text-xl font-bold ${s.color}`}>{s.val}</div>
-            <div className="text-[11px] text-muted-foreground">{s.label}</div>
-          </div>
-        ))}
-      </div>
-      <div className="grid grid-cols-3 gap-2">
-        {[
-          { label: 'Em Produção', val: resumo.producao, color: 'text-orange-600' },
-          { label: 'Faturados', val: resumo.faturado, color: 'text-purple-600' },
-          { label: 'Entregues', val: resumo.entregue, color: 'text-green-600' },
-        ].map((s) => (
-          <div key={s.label} className="erp-card px-4 py-3 text-center">
-            <div className={`text-xl font-bold ${s.color}`}>{s.val}</div>
-            <div className="text-[11px] text-muted-foreground">{s.label}</div>
-          </div>
-        ))}
-      </div>
+      )}
 
       {/* ── Tabela ────────────────────────────────────────────────────────── */}
       <div className="bg-white border border-border rounded-lg overflow-hidden">
@@ -239,7 +291,7 @@ export default function PedidosVenda() {
           search={search} onSearch={setSearch}
           filters={[
             { key: 'status', label: 'Status', options: ALL_STATUS.map((s) => ({ value: s.id, label: s.label })) },
-            { key: 'vendedor', label: 'Vendedor', options: vendedores.map((v) => ({ value: v, label: v })) },
+            ...(visaoResumidaComercial ? [] : [{ key: 'vendedor', label: 'Vendedor', options: vendedores.map((v) => ({ value: v, label: v })) }]),
           ]}
           activeFilters={filters}
           onFilterChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))}
@@ -259,12 +311,20 @@ export default function PedidosVenda() {
           onClose={() => setDetalhe(null)}
           onExport={() => exportPdfReport({
             title: `Pedido ${detalhe.numero}`, subtitle: detalhe.cliente_nome, filename: `${detalhe.numero}.pdf`,
-            fields: [
-              { label: 'Número', value: detalhe.numero }, { label: 'Cliente', value: detalhe.cliente_nome },
-              { label: 'Vendedor', value: detalhe.vendedor }, { label: 'Forma Pagamento', value: detalhe.forma_pagamento || '—' },
-              { label: 'Status', value: detalhe.status }, { label: 'Emissão', value: fmtD(detalhe.data_emissao) },
-              { label: 'Entrega', value: fmtD(detalhe.data_entrega) }, { label: 'Valor Total', value: fmtR(detalhe.valor_total) },
-            ],
+            fields: visaoResumidaComercial
+              ? [
+                { label: 'Número', value: detalhe.numero },
+                { label: 'Cliente', value: detalhe.cliente_nome },
+                { label: 'Status', value: detalhe.status },
+                { label: 'Prazo (entrega)', value: fmtD(detalhe.data_entrega) },
+                { label: 'Valor', value: fmtR(detalhe.valor_total) },
+              ]
+              : [
+                { label: 'Número', value: detalhe.numero }, { label: 'Cliente', value: detalhe.cliente_nome },
+                { label: 'Vendedor', value: detalhe.vendedor }, { label: 'Forma Pagamento', value: detalhe.forma_pagamento || '—' },
+                { label: 'Status', value: detalhe.status }, { label: 'Emissão', value: fmtD(detalhe.data_emissao) },
+                { label: 'Entrega', value: fmtD(detalhe.data_entrega) }, { label: 'Valor Total', value: fmtR(detalhe.valor_total) },
+              ],
             preview: true,
           })}
         >
@@ -276,25 +336,33 @@ export default function PedidosVenda() {
 
           {/* Dados do pedido */}
           <div className="grid grid-cols-2 gap-2.5 text-xs mb-4">
-            {[
-              ['Número', detalhe.numero], ['Cliente', detalhe.cliente_nome],
-              ['Vendedor', detalhe.vendedor], ['Forma Pagamento', detalhe.forma_pagamento || '—'],
-              ['Emissão', fmtD(detalhe.data_emissao)], ['Entrega Prevista', fmtD(detalhe.data_entrega)],
-              ['Valor Total', fmtR(detalhe.valor_total)],
-            ].map(([k, v]) => (
+            {(visaoResumidaComercial
+              ? [
+                ['Número', detalhe.numero],
+                ['Cliente', detalhe.cliente_nome],
+                ['Prazo (entrega)', fmtD(detalhe.data_entrega)],
+                ['Valor', fmtR(detalhe.valor_total)],
+              ]
+              : [
+                ['Número', detalhe.numero], ['Cliente', detalhe.cliente_nome],
+                ['Vendedor', detalhe.vendedor], ['Forma Pagamento', detalhe.forma_pagamento || '—'],
+                ['Emissão', fmtD(detalhe.data_emissao)], ['Entrega Prevista', fmtD(detalhe.data_entrega)],
+                ['Valor Total', fmtR(detalhe.valor_total)],
+              ]
+            ).map(([k, v]) => (
               <div key={k} className="flex justify-between border-b border-border pb-1.5">
                 <span className="text-muted-foreground">{k}</span>
-                <span className={`font-medium ${k === 'Valor Total' ? 'text-primary' : ''}`}>{v}</span>
+                <span className={`font-medium ${String(k).includes('Valor') ? 'text-primary' : ''}`}>{v}</span>
               </div>
             ))}
-            <div className="flex justify-between border-b border-border pb-1.5">
+            <div className="flex justify-between border-b border-border pb-1.5 col-span-2">
               <span className="text-muted-foreground">Status</span>
               <BadgeStatus status={detalhe.status} />
             </div>
           </div>
 
           {/* Alerta de aprovação */}
-          {detalhe.valor_total > (CONFIG?.LIMITE_APROVACAO || 50000) && detalhe.status === 'Aguardando Aprovação' && (
+          {!visaoResumidaComercial && detalhe.valor_total > (CONFIG?.LIMITE_APROVACAO || 50000) && detalhe.status === 'Aguardando Aprovação' && (
             <div className="mb-3 flex items-center gap-2 bg-yellow-50 border border-yellow-200 rounded px-3 py-2 text-xs text-yellow-800">
               <AlertTriangle size={12} /> Valor acima do limite — requer aprovação gerencial
             </div>
@@ -328,51 +396,61 @@ export default function PedidosVenda() {
             </div>
           )}
 
-          {/* Ações de integração */}
-          <div className="flex flex-wrap gap-2 pt-2 border-t border-border">
-            <button type="button"
-              onClick={async () => {
-                try { await cozincaApi.reservarEstoquePedido(detalhe.id); toast.success('Estoque reservado.'); await reload(); setDetalhe(null); }
-                catch (e) { toast.error(e?.message || 'Falha na reserva.'); }
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded hover:bg-muted">
-              <Factory size={11} /> Reservar Estoque
-            </button>
-            <button type="button"
-              onClick={async () => {
-                try {
-                  const ops = await cozincaApi.gerarOpPedido(detalhe.id);
-                  toast.success(`OPs: ${(ops || []).map((o) => o.numero).filter(Boolean).join(', ') || 'ok'}`);
-                  await reload(); setDetalhe(null);
-                } catch (e) { toast.error(e?.message || 'Falha ao gerar OP.'); }
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded hover:bg-muted">
-              <Factory size={11} /> Gerar OP
-            </button>
-            <button type="button"
-              onClick={async () => {
-                try { await cozincaApi.gerarContasReceberPedido(detalhe.id); toast.success('Contas a receber geradas.'); await reload(); }
-                catch (e) { toast.error(e?.message || 'Falha financeiro.'); }
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded hover:bg-muted">
-              <DollarSign size={11} /> Gerar Cobrança
-            </button>
-            <button type="button"
-              onClick={() => navigate('/financeiro/fiscal')}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded hover:bg-muted">
-              <FileText size={11} /> Emitir NF-e
-            </button>
-            <button type="button"
-              onClick={() => navigate(`/vendas/comissoes`)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded hover:bg-muted">
-              <DollarSign size={11} /> Ver Comissão
-            </button>
-            <button type="button"
-              onClick={() => { setEditando(detalhe); setDetalhe(null); }}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90">
-              Editar Pedido
-            </button>
-          </div>
+          {/* Ações de integração (operacional / financeiro — fora da visão comercial resumida) */}
+          {!visaoResumidaComercial ? (
+            <div className="flex flex-wrap gap-2 pt-2 border-t border-border">
+              <button type="button"
+                onClick={async () => {
+                  try { await cozincaApi.reservarEstoquePedido(detalhe.id); toast.success('Estoque reservado.'); await reload(); setDetalhe(null); }
+                  catch (e) { toast.error(e?.message || 'Falha na reserva.'); }
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded hover:bg-muted">
+                <Factory size={11} /> Reservar Estoque
+              </button>
+              <button type="button"
+                onClick={async () => {
+                  try {
+                    const ops = await cozincaApi.gerarOpPedido(detalhe.id);
+                    toast.success(`OPs: ${(ops || []).map((o) => o.numero).filter(Boolean).join(', ') || 'ok'}`);
+                    await reload(); setDetalhe(null);
+                  } catch (e) { toast.error(e?.message || 'Falha ao gerar OP.'); }
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded hover:bg-muted">
+                <Factory size={11} /> Gerar OP
+              </button>
+              <button type="button"
+                onClick={async () => {
+                  try { await cozincaApi.gerarContasReceberPedido(detalhe.id); toast.success('Contas a receber geradas.'); await reload(); }
+                  catch (e) { toast.error(e?.message || 'Falha financeiro.'); }
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded hover:bg-muted">
+                <DollarSign size={11} /> Gerar Cobrança
+              </button>
+              <button type="button"
+                onClick={() => navigate('/financeiro/fiscal')}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded hover:bg-muted">
+                <FileText size={11} /> Emitir NF-e
+              </button>
+              <button type="button"
+                onClick={() => navigate(`/vendas/comissoes`)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded hover:bg-muted">
+                <DollarSign size={11} /> Ver Comissão
+              </button>
+              <button type="button"
+                onClick={() => { setEditando(detalhe); setDetalhe(null); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90">
+                Editar Pedido
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2 pt-2 border-t border-border">
+              <button type="button"
+                onClick={() => navigate(`/vendas/comissoes`)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded hover:bg-muted">
+                <DollarSign size={11} /> Comissões
+              </button>
+            </div>
+          )}
         </DetalheModal>
       )}
     </div>

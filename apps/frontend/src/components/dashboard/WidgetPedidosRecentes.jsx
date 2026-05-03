@@ -2,34 +2,60 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import StatusBadge from '@/components/common/StatusBadge';
-import { recordsServiceApi } from '@/services/recordsServiceApi';
+import { listSaleOrders } from '@/services/salesApi';
 
-const fmtR = (v) => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+const fmtR = (v) =>
+  `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 
-export default function WidgetPedidosRecentes() {
+/** Status do Prisma/API → rótulo do badge (mesmo vocabulário da lista de pedidos). */
+const STATUS_PT = {
+  DRAFT: 'Orçamento',
+  APPROVED: 'Aprovado',
+  IN_PRODUCTION: 'Em Produção',
+  DELIVERED: 'Entregue',
+  INVOICED: 'Faturado',
+  CANCELLED: 'Cancelado',
+};
+
+function labelStatus(raw) {
+  if (!raw) return '—';
+  return STATUS_PT[raw] ?? raw;
+}
+
+function recentTimestamp(row) {
+  const c = row.createdAt ? new Date(row.createdAt).getTime() : 0;
+  const o = row.orderDate ? new Date(row.orderDate).getTime() : 0;
+  return Math.max(c, o || c);
+}
+
+export default function WidgetPedidosRecentes({ title = 'Últimos Pedidos de Venda' }) {
   const [pedidos, setPedidos] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let m = true;
+    let cancelled = false;
     (async () => {
+      setLoading(true);
       try {
-        const rows = await recordsServiceApi.list('pedido_venda');
-        if (!m) return;
-        setPedidos(rows.slice(0, 6));
+        const rows = await listSaleOrders({ take: 120 });
+        if (cancelled) return;
+        const sorted = [...rows].sort((a, b) => recentTimestamp(b) - recentTimestamp(a)).slice(0, 6);
+        setPedidos(sorted);
       } catch {
-        if (!m) return;
-        setPedidos([]);
+        if (!cancelled) setPedidos([]);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     })();
     return () => {
-      m = false;
+      cancelled = true;
     };
   }, []);
 
   return (
     <div className="bg-white border border-border rounded-lg h-full flex flex-col overflow-hidden">
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-border shrink-0">
-        <h3 className="text-sm font-semibold">Últimos Pedidos de Venda</h3>
+        <h3 className="text-sm font-semibold">{title}</h3>
         <Link
           to="/vendas/pedidos"
           className="text-xs text-primary flex items-center gap-1 hover:underline"
@@ -52,19 +78,23 @@ export default function WidgetPedidosRecentes() {
             </tr>
           </thead>
           <tbody>
-            {pedidos.length > 0 ? (
-              pedidos.map((p, i) => (
+            {loading ? (
+              <tr>
+                <td colSpan={4} className="text-center py-6 text-muted-foreground">
+                  Carregando…
+                </td>
+              </tr>
+            ) : pedidos.length > 0 ? (
+              pedidos.map((p) => (
                 <tr
-                  key={p.id || i}
+                  key={p.id}
                   className="border-b border-border hover:bg-nomus-blue-light transition-colors last:border-0"
                 >
-                  <td className="px-4 py-2 font-medium text-primary">{p.numero}</td>
-                  <td className="px-4 py-2 max-w-[120px] truncate">{p.cliente_nome}</td>
-                  <td className="px-4 py-2 font-medium whitespace-nowrap">
-                    {fmtR(p.valor_total)}
-                  </td>
+                  <td className="px-4 py-2 font-medium text-primary">{p.number}</td>
+                  <td className="px-4 py-2 max-w-[120px] truncate">{p.customer?.name ?? '—'}</td>
+                  <td className="px-4 py-2 font-medium whitespace-nowrap">{fmtR(p.totalAmount)}</td>
                   <td className="px-4 py-2">
-                    <StatusBadge status={p.status} />
+                    <StatusBadge status={labelStatus(p.status)} />
                   </td>
                 </tr>
               ))

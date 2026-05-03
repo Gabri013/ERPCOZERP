@@ -47,7 +47,16 @@ const ROLE_LABEL = {
 // ─── Mapeamento Widget ID → Componente ────────────────────────────────────────
 const WIDGET_COMPONENTS = {
   // KPIs
-  kpi_vendas:       ({ kpis }) => <WidgetKPI label="Vendas" value={kpis.totalVendas ?? 'R$ 0'} sub="Faturamento do período" icon={DollarSign} trend={kpis.trendVendas} trendVal={kpis.trendVendasVal} />,
+  kpi_vendas:       ({ kpis }) => (
+    <WidgetKPI
+      label={kpis?.dashboardScope === 'mine' ? 'Suas vendas' : 'Vendas'}
+      value={kpis.totalVendas ?? 'R$ 0'}
+      sub={kpis?.dashboardScope === 'mine' ? 'Valor dos seus pedidos (exc. rascunho/cancelados)' : 'Faturamento do período'}
+      icon={DollarSign}
+      trend={kpis.trendVendas}
+      trendVal={kpis.trendVendasVal}
+    />
+  ),
   kpi_producao:     ({ kpis }) => <WidgetKPI label="Produção" value={kpis.totalOPs ?? '0'} sub="OPs em andamento" icon={Factory} trend={kpis.trendOPs} trendVal={kpis.trendOPsVal} />,
   kpi_financeiro:   ({ kpis }) => <WidgetKPI label="Financeiro" value={kpis.saldoFinanceiro ?? 'R$ 0'} sub="Saldo (receber − pagar)" icon={DollarSign} />,
   kpi_projetos:     ({ kpis }) => <WidgetKPI label="Projetos" value={kpis.totalOPs ?? '0'} sub="Eng. / roteiros ativos" icon={Briefcase} />,
@@ -60,9 +69,40 @@ const WIDGET_COMPONENTS = {
   kpi_ocs:          ({ kpis }) => <WidgetKPI label="Ordens de compra" value={kpis.totalOCs ?? '0'} sub="Compras" icon={ShoppingCart} />,
   kpi_notifs:       ({ kpis }) => <WidgetKPI label="Notificações" value={kpis.unreadNotifs ?? '0'} sub={kpis.sector ? `Setor: ${kpis.sector}` : 'Alertas'} icon={Bell} badge={Number(kpis.unreadNotifs || 0)} />,
   // Gráficos
-  chart_vendas_mes:        ({ kpis }) => <WidgetGraficoVendas series={kpis?.series} />,
-  chart_conversao:         ({ kpis }) => <WidgetGraficoVendas series={kpis?.series} title="Conversão de Orçamentos" />,
-  chart_funil_vendas:      ({ kpis }) => <WidgetGraficoVendas series={kpis?.series} title="Funil de Vendas / CRM" />,
+  chart_vendas_mes:        ({ kpis }) => (
+    <WidgetGraficoVendas
+      series={kpis?.series}
+      mode="vendas_valor"
+      title={kpis?.dashboardScope === 'mine' ? 'Seu faturamento mensal' : 'Faturamento mensal'}
+      subtitle={kpis?.dashboardScope === 'mine' ? 'Seus pedidos (6 meses)' : 'Pedidos da empresa (6 meses)'}
+      linkTo="/vendas/pedidos"
+      linkLabel="Ver pedidos"
+    />
+  ),
+  chart_conversao:         ({ kpis }) => (
+    <WidgetGraficoVendas
+      series={kpis?.series}
+      mode="vendas_qtd"
+      title="Volume de pedidos"
+      subtitle="Quantidade por mês"
+      linkTo="/vendas/pedidos"
+      linkLabel="Ver pedidos"
+    />
+  ),
+  chart_funil_vendas: ({ kpis }) => (
+    <WidgetGraficoVendas
+      series={kpis?.series}
+      mode="clientes"
+      title={kpis?.dashboardScope === 'mine' ? 'Novos clientes (cadastro geral)' : 'Novos clientes'}
+      subtitle={
+        kpis?.dashboardScope === 'mine'
+          ? 'Consolidado da empresa não aparece na sua visão pessoal.'
+          : 'Cadastros nos últimos 6 meses'
+      }
+      linkTo="/vendas/clientes"
+      linkLabel={kpis?.dashboardScope === 'mine' ? '' : 'Ver clientes'}
+    />
+  ),
   chart_producao_mes:      ({ kpis }) => <WidgetGraficoProducao series={kpis?.series} />,
   chart_ops_hoje:          ({ kpis }) => <WidgetGraficoProducao series={kpis?.series} title="OPs do Dia" />,
   chart_lead_time:         ({ kpis }) => <WidgetGraficoProducao series={kpis?.series} title="Lead Time (meses)" />,
@@ -74,7 +114,7 @@ const WIDGET_COMPONENTS = {
   chart_receitas_despesas: () => <WidgetGraficoFinanceiro />,
   chart_contas_vencer:     () => <WidgetGraficoFinanceiro title="Contas a Vencer" />,
   chart_dre:               () => <WidgetGraficoFinanceiro title="DRE (Resumo)" />,
-  chart_ponto:             ({ kpis }) => <WidgetGraficoVendas series={kpis?.series} title="Ponto / Presença" />,
+  chart_ponto:             ({ kpis }) => <WidgetGraficoVendas series={kpis?.series} mode="clientes" title="Ponto / Presença" subtitle="Referência de período" />,
   chart_custos_folha:      () => <WidgetGraficoFinanceiro title="Custos de Folha" />,
   // Legado
   grafico_vendas:    ({ kpis }) => <WidgetGraficoVendas series={kpis?.series} />,
@@ -87,10 +127,10 @@ const WIDGET_COMPONENTS = {
   alertas_estoque:  () => <WidgetEstoqueCritico />,
   // Alertas
   alertas_financeiro: () => <WidgetAlertas tipo="financeiro" />,
-  alertas_pedidos:    () => <WidgetAlertas tipo="pedidos" />,
-  alertas_aprovacao:  () => <WidgetAlertas tipo="aprovacao" />,
-  alertas_ferias:     () => <WidgetAlertas tipo="ferias" />,
-  alertas:            () => <WidgetAlertas />,
+  alertas_pedidos: () => <WidgetAlertas tipo="pedidos" />,
+  alertas_aprovacao: () => <WidgetAlertas tipo="aprovacao" />,
+  alertas_ferias: () => <WidgetAlertas tipo="ferias" />,
+  alertas: () => <WidgetAlertas />,
 };
 
 function DashboardWidget({ id, kpis }) {
@@ -248,7 +288,10 @@ export default function Dashboard() {
         <div className="min-w-0">
           <h1 className="text-xl font-bold tracking-tight text-foreground">Dashboard</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {ROLE_LABEL[roleCode] || sectorLabel} — {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
+            {kpis?.dashboardScope === 'mine'
+              ? `${sectorLabel} — seus pedidos e metas comerciais`
+              : `${ROLE_LABEL[roleCode] || sectorLabel} — visão da empresa`}{' '}
+            · {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
           </p>
         </div>
         <div className="flex gap-2">

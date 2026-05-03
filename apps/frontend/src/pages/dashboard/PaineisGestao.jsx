@@ -13,6 +13,9 @@ import {
 } from 'lucide-react';
 import { api } from '@/services/api';
 import { toast } from 'sonner';
+import { useAuth } from '@/lib/AuthContext';
+import { usePermissao } from '@/lib/PermissaoContext';
+import { primaryRole } from '@/lib/rolePriority';
 
 // ─── Paleta de cores ──────────────────────────────────────────────────────────
 const COLORS = ['#0066cc', '#00aa5b', '#ff6b35', '#8b5cf6', '#ec4899', '#06b6d4', '#f59e0b', '#10b981'];
@@ -390,6 +393,42 @@ const PAINEIS_VENDAS = [
   },
 ];
 
+/** Vendedor/orçamentista: só carteira própria — sem R$, sem “faturamento empresa”, sem captura de clientes. */
+const PAINEIS_VENDAS_CARTEIRA = [
+  {
+    id: 'pedidos_carteira_mes',
+    titulo: 'Seus pedidos (quantidade) — por mês',
+    estrategia: 'Acompanhar seu volume',
+    metodologia: 'Quantidade de PV sob sua responsabilidade criados no mês',
+    dataKey: 'valor', nameKey: 'mes', defaultChartType: 'line', color: '#0066cc',
+    meta: 12, formato: 'num',
+  },
+  {
+    id: 'pv_aprovados_qtd_mes',
+    titulo: 'Pedidos aprovados — por mês (quantidade)',
+    estrategia: 'Evoluir fechamentos',
+    metodologia: 'Quantidade dos seus PV com status aprovado/entregue no mês',
+    dataKey: 'valor', nameKey: 'mes', defaultChartType: 'bar', color: '#00aa5b',
+    meta: 8, formato: 'num',
+  },
+  {
+    id: 'taxa_aprovacao_carteira',
+    titulo: '% dos seus PV aprovados (no mês)',
+    estrategia: 'Melhorar taxa de aprovação',
+    metodologia: 'Seus PV aprovados ÷ seus PV não cancelados no mês × 100',
+    dataKey: 'valor', nameKey: 'mes', defaultChartType: 'area', color: '#06b6d4',
+    meta: 65, formato: 'pct',
+  },
+  {
+    id: 'pv_rascunho_qtd_mes',
+    titulo: 'PV em orçamento/rascunho — por mês',
+    estrategia: 'Converter propostas',
+    metodologia: 'Quantidade dos seus PV em rascunho (DRAFT) no mês',
+    dataKey: 'valor', nameKey: 'mes', defaultChartType: 'bar', color: '#f59e0b',
+    meta: 4, formato: 'num',
+  },
+];
+
 const PAINEIS_FINANCEIRO = [
   {
     id: 'receitas_mes', titulo: 'Receitas — Evolução mensal',
@@ -433,20 +472,64 @@ const SECOES = [
   { id: 'qualidade', label: 'Qualidade',   paineis: PAINEIS_QUALIDADE,  icone: '✅' },
 ];
 
-// ─── Gera dados mensais simulados a partir de dados reais da API ───────────────
+const STATUS_PEDIDO_APROVADO = ['APPROVED', 'DELIVERED', 'INVOICED', 'IN_PRODUCTION', 'Aprovado', 'Faturado', 'Entregue', 'Em Produção'];
+
+function parseOrderMonth(o) {
+  const raw = o.orderDate ?? o.createdAt;
+  if (!raw) return null;
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function amt(o) {
+  const v = o.totalAmount;
+  if (v == null) return 0;
+  if (typeof v === 'object' && v !== null && 'toNumber' in v) return Number(v.toNumber());
+  return Number(v);
+}
+
+// ─── Gera dados mensais a partir de pedidos reais (data do pedido ou criação) ──
 function buildMonthlyData(orders, ano, getValue) {
   return MESES.map((mes, i) => {
     const filtered = (orders || []).filter((o) => {
-      const d = new Date(o.createdAt || o.orderDate || '');
-      return d.getFullYear() === ano && d.getMonth() === i;
+      const d = parseOrderMonth(o);
+      return d && d.getFullYear() === ano && d.getMonth() === i;
     });
     return { mes, valor: getValue(filtered) };
   });
 }
 
+function unwrapApiArray(res) {
+  const body = res?.data;
+  if (!body) return [];
+  if (Array.isArray(body)) return body;
+  if (typeof body === 'object' && Array.isArray(body.data)) return body.data;
+  return [];
+}
+
 // ─── Página principal ─────────────────────────────────────────────────────────
 export default function PaineisGestao() {
-  const [aba, setAba] = useState('producao');
+  const { user } = useAuth();
+  const { pode } = usePermissao();
+  const role = primaryRole(user?.roles);
+
+  const secoesComPaineis = useMemo(
+    () =>
+      SECOES.map((s) =>
+        s.id === 'vendas' && role === 'orcamentista_vendas' ? { ...s, paineis: PAINEIS_VENDAS_CARTEIRA } : s,
+      ),
+    [role],
+  );
+
+  const secoesVisiveis = useMemo(() => secoesComPaineis.filter((s) => {
+    if (s.id === 'producao') return pode('ver_op');
+    if (s.id === 'vendas') return pode('ver_pedidos');
+    if (s.id === 'financeiro') return pode('ver_financeiro');
+    if (s.id === 'qualidade') return pode('ver_qualidade');
+    return false;
+  }), [pode, secoesComPaineis]);
+
+  const [aba, setAba] = useState(() => (primaryRole(user?.roles) === 'orcamentista_vendas' ? 'vendas' : 'producao'));
   const [ano, setAno] = useState(new Date().getFullYear());
   const [loading, setLoading] = useState(true);
   const [tvMode, setTvMode] = useState(false);
@@ -457,13 +540,13 @@ export default function PaineisGestao() {
     setLoading(true);
     try {
       const [soRes, woRes] = await Promise.allSettled([
-        api.get('/api/sales/sale-orders?limit=1000'),
+        api.get('/api/sales/sale-orders?take=500'),
         api.get('/api/production/work-orders?limit=1000'),
       ]);
-      const so = soRes.status === 'fulfilled' ? (soRes.value?.data?.data ?? soRes.value?.data ?? []) : [];
-      const wo = woRes.status === 'fulfilled' ? (woRes.value?.data?.data ?? woRes.value?.data ?? []) : [];
-      setSaleOrders(Array.isArray(so) ? so : []);
-      setWorkOrders(Array.isArray(wo) ? wo : []);
+      const so = soRes.status === 'fulfilled' ? unwrapApiArray(soRes.value) : [];
+      const wo = woRes.status === 'fulfilled' ? unwrapApiArray(woRes.value) : [];
+      setSaleOrders(so);
+      setWorkOrders(wo);
     } catch {
       setSaleOrders([]); setWorkOrders([]);
     } finally {
@@ -473,43 +556,105 @@ export default function PaineisGestao() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Dados calculados por tipo de painel
+  useEffect(() => {
+    if (!secoesVisiveis.length) return;
+    if (!secoesVisiveis.some((s) => s.id === aba)) {
+      setAba(secoesVisiveis[0].id);
+    }
+  }, [secoesVisiveis, aba]);
+
+  useEffect(() => {
+    if (role === 'orcamentista_vendas') setAba('vendas');
+  }, [role]);
+
+  const initialYearSync = useRef(false);
+  useEffect(() => {
+    if (loading || initialYearSync.current || !saleOrders.length) return;
+    const years = new Set();
+    for (const o of saleOrders) {
+      const d = parseOrderMonth(o);
+      if (d) years.add(d.getFullYear());
+    }
+    if (years.size && !years.has(ano)) {
+      setAno(Math.max(...years));
+    }
+    initialYearSync.current = true;
+  }, [loading, saleOrders, ano]);
+
+  // Dados calculados por tipo de painel (vendedor: só carteira própria da API; sem R$ nos painéis de vendas)
   const dadosPaineis = useMemo(() => {
-    const aprovados = saleOrders.filter((o) => ['APPROVED', 'DELIVERED', 'INVOICED', 'Aprovado', 'Faturado', 'Entregue'].includes(o.status));
+    const aprovados = saleOrders.filter((o) => STATUS_PEDIDO_APROVADO.includes(o.status));
+    const rascunhos = saleOrders.filter((o) => o.status === 'DRAFT');
+
+    const producaoEq = {
+      qtd_produzida_mes: buildMonthlyData(workOrders, ano, (rows) => rows.reduce((s, o) => s + Number(o.quantity || o.plannedQty || 0), 0)),
+      ops_abertas: buildMonthlyData(workOrders, ano, (rows) => rows.filter((o) => ['ABERTA', 'EM_PRODUCAO', 'OPEN', 'IN_PROGRESS'].includes(o.status)).length),
+      ops_atrasadas: buildMonthlyData(workOrders, ano, (rows) => {
+        const hoje = new Date();
+        return rows.filter((o) => {
+          const d = new Date(o.deliveryDate || o.plannedEnd || '');
+          return d && d < hoje && ['ABERTA', 'EM_PRODUCAO', 'OPEN', 'IN_PROGRESS'].includes(o.status);
+        }).length;
+      }),
+      taxa_ocupacao: buildMonthlyData(workOrders, ano, (rows) =>
+        rows.length > 0 ? Math.min(Math.round((rows.filter((o) => ['EM_PRODUCAO', 'IN_PROGRESS'].includes(o.status)).length / Math.max(1, rows.length)) * 100), 100) : 0,
+      ),
+      nao_conformidades: buildMonthlyData(workOrders, ano, (rows) => Math.floor(rows.length * 0.05)),
+      indice_rejeicao: buildMonthlyData(workOrders, ano, (rows) => (rows.length > 0 ? Math.round(Math.random() * 3) : 0)),
+    };
+
+    if (role === 'orcamentista_vendas') {
+      return {
+        pedidos_carteira_mes: buildMonthlyData(saleOrders, ano, (rows) => rows.length),
+        pv_aprovados_qtd_mes: buildMonthlyData(aprovados, ano, (rows) => rows.length),
+        taxa_aprovacao_carteira: buildMonthlyData(saleOrders, ano, (rows) => {
+          const semCancel = rows.filter((o) => o.status !== 'CANCELLED');
+          const total = semCancel.length;
+          const ap = semCancel.filter((o) => STATUS_PEDIDO_APROVADO.includes(o.status)).length;
+          return total > 0 ? Math.round((ap / total) * 100) : 0;
+        }),
+        pv_rascunho_qtd_mes: buildMonthlyData(rascunhos, ano, (rows) => rows.length),
+        ...producaoEq,
+        receitas_mes: buildMonthlyData(aprovados, ano, () => 0),
+        despesas_mes: buildMonthlyData(aprovados, ano, () => 0),
+        margem_bruta: buildMonthlyData(aprovados, ano, () => 0),
+      };
+    }
 
     return {
-      faturamento_mes:      buildMonthlyData(aprovados, ano, (rows) => rows.reduce((s, o) => s + Number(o.totalAmount || 0), 0)),
-      pedidos_mes:          buildMonthlyData(saleOrders, ano, (rows) => rows.length),
-      ticket_medio:         buildMonthlyData(aprovados, ano, (rows) => rows.length > 0 ? rows.reduce((s, o) => s + Number(o.totalAmount || 0), 0) / rows.length : 0),
+      faturamento_mes: buildMonthlyData(aprovados, ano, (rows) => rows.reduce((s, o) => s + amt(o), 0)),
+      pedidos_mes: buildMonthlyData(saleOrders, ano, (rows) => rows.length),
+      ticket_medio: buildMonthlyData(aprovados, ano, (rows) =>
+        rows.length > 0 ? rows.reduce((s, o) => s + amt(o), 0) / rows.length : 0,
+      ),
       conversao_orcamentos: buildMonthlyData(saleOrders, ano, (rows) => {
-        const total = rows.length; const aprovados2 = rows.filter((o) => ['APPROVED', 'DELIVERED', 'INVOICED', 'Aprovado', 'Faturado', 'Entregue'].includes(o.status)).length;
+        const total = rows.length;
+        const aprovados2 = rows.filter((o) => STATUS_PEDIDO_APROVADO.includes(o.status)).length;
         return total > 0 ? Math.round((aprovados2 / total) * 100) : 0;
       }),
-      qtd_produzida_mes:    buildMonthlyData(workOrders, ano, (rows) => rows.reduce((s, o) => s + Number(o.quantity || o.plannedQty || 0), 0)),
-      ops_abertas:          buildMonthlyData(workOrders, ano, (rows) => rows.filter((o) => ['ABERTA', 'EM_PRODUCAO', 'OPEN', 'IN_PROGRESS'].includes(o.status)).length),
-      ops_atrasadas:        buildMonthlyData(workOrders, ano, (rows) => {
-        const hoje = new Date();
-        return rows.filter((o) => { const d = new Date(o.deliveryDate || o.plannedEnd || ''); return d && d < hoje && ['ABERTA', 'EM_PRODUCAO', 'OPEN', 'IN_PROGRESS'].includes(o.status); }).length;
-      }),
-      taxa_ocupacao:        buildMonthlyData(workOrders, ano, (rows) => rows.length > 0 ? Math.min(Math.round((rows.filter((o) => ['EM_PRODUCAO', 'IN_PROGRESS'].includes(o.status)).length / Math.max(1, rows.length)) * 100), 100) : 0),
-      receitas_mes:         buildMonthlyData(aprovados, ano, (rows) => rows.reduce((s, o) => s + Number(o.totalAmount || 0) * 0.9, 0)),
-      despesas_mes:         buildMonthlyData(aprovados, ano, (rows) => rows.reduce((s, o) => s + Number(o.totalAmount || 0) * 0.55, 0)),
-      margem_bruta:         buildMonthlyData(aprovados, ano, (rows) => {
-        const r = rows.reduce((s, o) => s + Number(o.totalAmount || 0), 0);
+      ...producaoEq,
+      receitas_mes: buildMonthlyData(aprovados, ano, (rows) => rows.reduce((s, o) => s + amt(o) * 0.9, 0)),
+      despesas_mes: buildMonthlyData(aprovados, ano, (rows) => rows.reduce((s, o) => s + amt(o) * 0.55, 0)),
+      margem_bruta: buildMonthlyData(aprovados, ano, (rows) => {
+        const r = rows.reduce((s, o) => s + amt(o), 0);
         const c = r * 0.55;
         return r > 0 ? Math.round(((r - c) / r) * 100) : 0;
       }),
-      nao_conformidades:    buildMonthlyData(workOrders, ano, (rows) => Math.floor(rows.length * 0.05)),
-      indice_rejeicao:      buildMonthlyData(workOrders, ano, (rows) => rows.length > 0 ? Math.round(Math.random() * 3) : 0),
     };
-  }, [saleOrders, workOrders, ano]);
+  }, [saleOrders, workOrders, ano, role]);
 
-  const secaoAtual = SECOES.find((s) => s.id === aba);
+  const secaoAtual = secoesVisiveis.find((s) => s.id === aba);
 
   const anosDisponiveis = useMemo(() => {
-    const y = new Date().getFullYear();
-    return [y, y - 1, y - 2];
-  }, []);
+    const ys = new Set();
+    const cur = new Date().getFullYear();
+    for (let k = 0; k <= 4; k++) ys.add(cur - k);
+    for (const o of saleOrders || []) {
+      const d = parseOrderMonth(o);
+      if (d) ys.add(d.getFullYear());
+    }
+    return Array.from(ys).sort((a, b) => b - a);
+  }, [saleOrders]);
 
   return (
     <div className={`${tvMode ? 'fixed inset-0 z-[9990] bg-gray-950 overflow-auto p-4' : 'space-y-4'}`}>
@@ -520,7 +665,9 @@ export default function PaineisGestao() {
             Painéis de Gestão
           </h1>
           <p className={`text-sm mt-0.5 ${tvMode ? 'text-gray-400' : 'text-muted-foreground'}`}>
-            Transforme dados em informação para tomar as decisões certas
+            {role === 'orcamentista_vendas'
+              ? 'Apenas os seus pedidos — quantidades e percentuais, sem faturamento nem indicadores da empresa'
+              : 'Transforme dados em informação para tomar as decisões certas'}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -548,9 +695,17 @@ export default function PaineisGestao() {
         </div>
       </div>
 
+      {!loading && role === 'orcamentista_vendas' && saleOrders.length === 0 && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 text-amber-900 px-4 py-3 text-xs">
+          Nenhum pedido de venda encontrado para o seu usuário nesta lista (responsável nos PV ou pedidos sem
+          responsável ainda). Confira se os PVs têm <strong>responsável comercial</strong> ou peça ao gestor para
+          associar os pedidos ao seu login — depois clique em <strong>Atualizar</strong>.
+        </div>
+      )}
+
       {/* ── Abas de seção ─────────────────────────────────────────────────── */}
       <div className={`flex gap-1 ${tvMode ? 'border-b border-gray-700 pb-0' : 'border-b border-border'}`}>
-        {SECOES.map((s) => (
+        {secoesVisiveis.map((s) => (
           <button key={s.id} type="button" onClick={() => setAba(s.id)}
             className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
               aba === s.id

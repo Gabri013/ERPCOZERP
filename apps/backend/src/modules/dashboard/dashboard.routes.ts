@@ -1,8 +1,10 @@
 import { Router } from 'express';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../infra/prisma.js';
 import { rolesCanSeeNotificationSector } from '../../lib/notificationVisibility.js';
 import { sortRolesByPriority } from '../../lib/roleOrder.js';
 import { getDefaultDashboardWidgets, migrateLegacyLayout } from '../../lib/defaultDashboardLayout.js';
+import { saleOrdersRestrictedToOwner } from '../../lib/saleOrderScope.js';
 
 export const dashboardRouter = Router();
 
@@ -94,11 +96,23 @@ function inferSectorFromRole(roleCode: string) {
 const fmtBRL = (val: number) =>
   `R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-async function getSaleOrdersKpis() {
+async function getSaleOrdersKpis(ownerUserId?: string | null) {
   try {
+    const scope: Prisma.SaleOrderWhereInput =
+      ownerUserId != null
+        ? { OR: [{ ownerUserId }, { ownerUserId: null }] }
+        : {};
     const [totalAtivos, sumResult] = await Promise.all([
-      prisma.saleOrder.count({ where: { status: { in: ['APPROVED', 'IN_PRODUCTION', 'DELIVERED', 'INVOICED'] } } }),
-      prisma.saleOrder.aggregate({ _sum: { totalAmount: true }, where: { status: { notIn: ['DRAFT', 'CANCELLED'] } } }),
+      prisma.saleOrder.count({
+        where: {
+          ...scope,
+          status: { in: ['APPROVED', 'IN_PRODUCTION', 'DELIVERED', 'INVOICED'] },
+        },
+      }),
+      prisma.saleOrder.aggregate({
+        _sum: { totalAmount: true },
+        where: { ...scope, status: { notIn: ['DRAFT', 'CANCELLED'] } },
+      }),
     ]);
     const total = Number(sumResult._sum.totalAmount || 0);
     return { count: totalAtivos, totalVendas: fmtBRL(total) };
@@ -163,11 +177,24 @@ async function getWorkOrdersByMonth(monthsBack = 6) {
   }
 }
 
-async function getSaleOrdersByMonth(monthsBack = 6) {
+async function getSaleOrdersByMonth(monthsBack = 6, ownerUserId?: string | null) {
   try {
     const months = lastNMonths(monthsBack);
     const from = months[0]?.start ?? new Date();
-    const rows = await prisma.$queryRaw<Array<{ ym: string; count: bigint; total: number }>>`
+    const rows =
+      ownerUserId != null
+        ? await prisma.$queryRaw<Array<{ ym: string; count: bigint; total: number }>>`
+      SELECT to_char(date_trunc('month', created_at), 'YYYY-MM') AS ym,
+             COUNT(*)::bigint AS count,
+             COALESCE(SUM(total_amount), 0)::float AS total
+      FROM sale_orders
+      WHERE created_at >= ${from}
+        AND status NOT IN ('DRAFT','CANCELLED')
+        AND (owner_user_id = ${ownerUserId}::uuid OR owner_user_id IS NULL)
+      GROUP BY ym
+      ORDER BY ym ASC;
+    `
+        : await prisma.$queryRaw<Array<{ ym: string; count: bigint; total: number }>>`
       SELECT to_char(date_trunc('month', created_at), 'YYYY-MM') AS ym,
              COUNT(*)::bigint AS count,
              COALESCE(SUM(total_amount), 0)::float AS total
@@ -195,6 +222,9 @@ dashboardRouter.get('/', async (req, res) => {
     : [];
   const roleCodesForNotifs = jwtRoles.length > 0 ? jwtRoles : roleCode ? [roleCode] : [];
 
+  const vendasMine =
+    jwtRoles.length && saleOrdersRestrictedToOwner(jwtRoles) ? userId : null;
+
   // Dados em paralelo (tolerante a falhas individuais)
   const [
     totalClientes,
@@ -209,16 +239,17 @@ dashboardRouter.get('/', async (req, res) => {
   ] = await Promise.all([
     countClientesAtivos(),
     countEntity('produto'),
-    getSaleOrdersKpis(),
+    getSaleOrdersKpis(vendasMine),
     getWorkOrdersKpis(),
     getPurchaseOrdersKpis(),
     getEmployeesKpis(),
     getEntityId('cliente'),
     getWorkOrdersByMonth(6),
-    getSaleOrdersByMonth(6),
+    getSaleOrdersByMonth(6, vendasMine),
   ]);
 
-  const clientesPorMes = clienteId ? await countRecordsByMonth(clienteId, 6) : [];
+  const clientesPorMes =
+    vendasMine != null ? [] : clienteId ? await countRecordsByMonth(clienteId, 6) : [];
 
   const unreadNotifRows = await prisma.userNotification.findMany({
     where: { userId, readAt: null },
@@ -249,6 +280,7 @@ dashboardRouter.get('/', async (req, res) => {
       saldoFinanceiro:   salesKpis.totalVendas, // fallback; financeiro usa businessLogicApi diretamente
       roleCode,
       sector,
+      dashboardScope: vendasMine != null ? ('mine' as const) : ('company' as const),
       unreadNotifs: String(unreadNotifs),
       series: {
         clientesPorMes,

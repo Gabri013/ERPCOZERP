@@ -9,6 +9,7 @@ import { usePermissao } from '@/lib/PermissaoContext';
 import { PERFIS_LABELS } from '@/lib/perfis';
 import { primaryRole } from '@/lib/rolePriority';
 import { roleCodeToPerfilUxKey } from '@/lib/roleToPerfil';
+import { repairUtf8Mojibake } from '@/utils/textEncoding';
 import { api } from '@/services/api';
 import {
   CommandDialog,
@@ -226,7 +227,7 @@ export default function Header({ onMenuToggle }) {
           .map((u) => {
             const role = primaryRole(u.roles);
             const perfil = roleCodeToPerfilUxKey(role);
-            const nome = u.full_name || u.email || 'Usuário';
+            const nome = repairUtf8Mojibake(u.full_name || u.email || 'Usuário');
 
             return {
               id: u.id,
@@ -356,9 +357,10 @@ export default function Header({ onMenuToggle }) {
     void api.post(`/api/notifications/${id}/read`, {});
   };
 
-  const nomeExibido =
+  const nomeExibido = repairUtf8Mojibake(
     (impersonando?.nome || impersonando?.full_name || impersonando?.email) ||
-    (usuarioAtual?.nome || user?.full_name || user?.email || 'Usuário');
+      (usuarioAtual?.nome || user?.full_name || user?.email || 'Usuário')
+  );
   const perfilBase =
     impersonando?.perfil ??
     usuarioAtual?.perfil ??

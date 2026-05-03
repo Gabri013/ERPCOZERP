@@ -1,7 +1,9 @@
+import { randomUUID } from 'node:crypto';
 import type { QuoteStatus } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../infra/prisma.js';
 import { decimalToNumber } from '../stock/stock.service.js';
+import { saleOrdersRestrictedToOwner } from '../../lib/saleOrderScope.js';
 
 function padSeq(n: number, len = 5) {
   return String(n).padStart(len, '0');
@@ -28,6 +30,21 @@ async function nextNumber(prefix: string, year: number, table: 'sale' | 'quote' 
   }
   let max = 0;
   const re = new RegExp(`^${prefix}-${year}-(\\d+)$`);
+  for (const r of rows) {
+    const m = r.number.match(re);
+    if (m) max = Math.max(max, parseInt(m[1], 10));
+  }
+  return `${start}${padSeq(max + 1)}`;
+}
+
+async function nextOpportunityNumber(year: number) {
+  const start = `OPP-${year}-`;
+  const rows = await prisma.salesOpportunity.findMany({
+    where: { number: { startsWith: start } },
+    select: { number: true },
+  });
+  let max = 0;
+  const re = new RegExp(`^OPP-${year}-(\\d+)$`);
   for (const r of rows) {
     const m = r.number.match(re);
     if (m) max = Math.max(max, parseInt(m[1], 10));
@@ -88,12 +105,21 @@ export async function patchCustomer(
   return prisma.customer.update({ where: { id }, data });
 }
 
-export async function listSaleOrders(q: { status?: string; customerId?: string; take?: number }) {
+export async function listSaleOrders(
+  q: { status?: string; customerId?: string; take?: number },
+  viewer?: { userId: string; roles: string[] },
+) {
   const take = q.take ?? 200;
+  const restrict = viewer && saleOrdersRestrictedToOwner(viewer.roles);
   return prisma.saleOrder.findMany({
     where: {
       ...(q.status ? { status: q.status } : {}),
       ...(q.customerId ? { customerId: q.customerId } : {}),
+      ...(restrict
+        ? {
+            OR: [{ ownerUserId: viewer!.userId }, { ownerUserId: null }],
+          }
+        : {}),
     },
     take,
     orderBy: [{ kanbanColumn: 'asc' }, { kanbanOrder: 'asc' }, { createdAt: 'desc' }],
@@ -101,11 +127,13 @@ export async function listSaleOrders(q: { status?: string; customerId?: string; 
       customer: true,
       items: { include: { product: true } },
       quote: { select: { id: true, number: true } },
+      owner: { select: { id: true, fullName: true, email: true } },
     },
   });
 }
 
-export async function getSaleOrder(id: string) {
+export async function getSaleOrder(id: string, viewer?: { userId: string; roles: string[] }) {
+  await assertSaleOrderAccessible(id, viewer);
   return prisma.saleOrder.findUnique({
     where: { id },
     include: {
@@ -114,6 +142,7 @@ export async function getSaleOrder(id: string) {
       quote: true,
       workOrders: { select: { id: true, number: true, status: true } },
       approvedBy: { select: { id: true, fullName: true, email: true } },
+      owner: { select: { id: true, fullName: true, email: true } },
     },
   });
 }
@@ -124,15 +153,18 @@ function parseOptDate(s: string | undefined | null) {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-export async function createSaleOrder(input: {
-  customerId: string;
-  status?: string;
-  kanbanColumn?: string;
-  orderDate?: string;
-  deliveryDate?: string | null;
-  notes?: string | null;
-  items: Array<{ productId: string; quantity: number; unitPrice: number; discountPct?: number | null }>;
-}) {
+export async function createSaleOrder(
+  input: {
+    customerId: string;
+    status?: string;
+    kanbanColumn?: string;
+    orderDate?: string;
+    deliveryDate?: string | null;
+    notes?: string | null;
+    items: Array<{ productId: string; quantity: number; unitPrice: number; discountPct?: number | null }>;
+  },
+  createdByUserId?: string | null,
+) {
   const year = new Date().getFullYear();
   const number = await nextNumber('PV', year, 'sale');
   let total = new Prisma.Decimal(0);
@@ -164,10 +196,20 @@ export async function createSaleOrder(input: {
       deliveryDate: parseOptDate(input.deliveryDate ?? undefined),
       notes: input.notes ?? null,
       totalAmount: total,
+      ownerUserId: createdByUserId ?? null,
       items: { create: itemRows },
     },
-    include: { customer: true, items: { include: { product: true } } },
+    include: { customer: true, items: { include: { product: true } }, owner: { select: { id: true, fullName: true, email: true } } },
   });
+}
+
+async function assertSaleOrderAccessible(id: string, viewer?: { userId: string; roles: string[] }) {
+  if (!viewer || !saleOrdersRestrictedToOwner(viewer.roles)) return;
+  const row = await prisma.saleOrder.findUnique({ where: { id }, select: { ownerUserId: true } });
+  if (!row) throw new Error('Pedido não encontrado');
+  if (row.ownerUserId != null && row.ownerUserId !== viewer.userId) {
+    throw new Error('Pedido não encontrado');
+  }
 }
 
 export async function patchSaleOrder(
@@ -181,7 +223,9 @@ export async function patchSaleOrder(
     notes: string | null;
     items: Array<{ productId: string; quantity: number; unitPrice: number; discountPct?: number | null }>;
   }>,
+  viewer?: { userId: string; roles: string[] },
 ) {
+  await assertSaleOrderAccessible(id, viewer);
   const existing = await prisma.saleOrder.findUnique({ where: { id } });
   if (!existing) throw new Error('Pedido não encontrado');
 
@@ -251,7 +295,12 @@ export async function patchSaleOrder(
   });
 }
 
-export async function approveSaleOrder(id: string, userId: string) {
+export async function approveSaleOrder(
+  id: string,
+  userId: string,
+  viewer?: { userId: string; roles: string[] },
+) {
+  await assertSaleOrderAccessible(id, viewer);
   const o = await prisma.saleOrder.findUnique({ where: { id } });
   if (!o) throw new Error('Pedido não encontrado');
   return prisma.saleOrder.update({
@@ -266,7 +315,13 @@ export async function approveSaleOrder(id: string, userId: string) {
   });
 }
 
-export async function patchKanban(id: string, kanbanColumn: string, kanbanOrder?: number) {
+export async function patchKanban(
+  id: string,
+  kanbanColumn: string,
+  kanbanOrder: number | undefined,
+  viewer?: { userId: string; roles: string[] },
+) {
+  await assertSaleOrderAccessible(id, viewer);
   return prisma.saleOrder.update({
     where: { id },
     data: {
@@ -277,7 +332,11 @@ export async function patchKanban(id: string, kanbanColumn: string, kanbanOrder?
   });
 }
 
-export async function generateWorkOrderStub(saleOrderId: string) {
+export async function generateWorkOrderStub(
+  saleOrderId: string,
+  viewer?: { userId: string; roles: string[] },
+) {
+  await assertSaleOrderAccessible(saleOrderId, viewer);
   const so = await prisma.saleOrder.findUnique({
     where: { id: saleOrderId },
     include: { items: true, workOrders: true },
@@ -309,11 +368,13 @@ export async function generateWorkOrderStub(saleOrderId: string) {
 
 export async function listQuotes() {
   return prisma.quote.findMany({
-    orderBy: { createdAt: 'desc' },
-    take: 200,
+    orderBy: [{ familyId: 'asc' }, { versionNumber: 'desc' }, { createdAt: 'desc' }],
+    take: 300,
     include: {
       customer: true,
+      opportunity: true,
       items: { include: { product: true } },
+      saleOrder: { select: { id: true, number: true } },
     },
   });
 }
@@ -321,18 +382,30 @@ export async function listQuotes() {
 export async function getQuote(id: string) {
   return prisma.quote.findUnique({
     where: { id },
-    include: { customer: true, items: { include: { product: true } }, saleOrder: true },
+    include: {
+      customer: true,
+      opportunity: true,
+      items: { include: { product: true } },
+      saleOrder: true,
+      activities: {
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+        include: { user: { select: { fullName: true, email: true } } },
+      },
+    },
   });
 }
 
 export async function createQuote(input: {
   customerId: string;
+  opportunityId?: string | null;
   validUntil?: string | null;
   notes?: string | null;
   items: Array<{ productId: string; quantity: number; unitPrice: number; discountPct?: number | null }>;
 }) {
   const year = new Date().getFullYear();
   const number = await nextNumber('ORC', year, 'quote');
+  const id = randomUUID();
   let total = new Prisma.Decimal(0);
   const itemRows = input.items.map((it) => {
     const qty = new Prisma.Decimal(it.quantity);
@@ -352,15 +425,19 @@ export async function createQuote(input: {
 
   return prisma.quote.create({
     data: {
+      id,
+      familyId: id,
+      versionNumber: 1,
       number,
       customerId: input.customerId,
+      opportunityId: input.opportunityId ?? null,
       status: 'RASCUNHO',
       validUntil: parseOptDate(input.validUntil ?? undefined),
       notes: input.notes ?? null,
       totalAmount: total,
       items: { create: itemRows },
     },
-    include: { customer: true, items: { include: { product: true } } },
+    include: { customer: true, opportunity: true, items: { include: { product: true } } },
   });
 }
 
@@ -371,10 +448,13 @@ export async function patchQuote(
     validUntil: string | null;
     notes: string | null;
     items: Array<{ productId: string; quantity: number; unitPrice: number; discountPct?: number | null }>;
+    technicalReview: string;
   }>,
 ) {
   const existing = await prisma.quote.findUnique({ where: { id } });
   if (!existing) throw new Error('Orçamento não encontrado');
+  if (existing.lockedAt) throw new Error('Proposta bloqueada — já foi convertida em pedido de venda.');
+  if (existing.status === 'CONVERTIDO') throw new Error('Orçamento já convertido.');
 
   return prisma.$transaction(async (tx) => {
     if (input.items?.length) {
@@ -411,6 +491,7 @@ export async function patchQuote(
                 : null,
           notes: input.notes === undefined ? undefined : input.notes,
           totalAmount: total,
+          technicalReview: input.technicalReview === undefined ? undefined : input.technicalReview,
         },
       });
     } else {
@@ -425,22 +506,24 @@ export async function patchQuote(
                 ? new Date(input.validUntil)
                 : null,
           notes: input.notes === undefined ? undefined : input.notes,
+          technicalReview: input.technicalReview === undefined ? undefined : input.technicalReview,
         },
       });
     }
     return tx.quote.findUnique({
       where: { id },
-      include: { customer: true, items: { include: { product: true } } },
+      include: { customer: true, opportunity: true, items: { include: { product: true } } },
     });
   });
 }
 
-export async function convertQuoteToSaleOrder(quoteId: string) {
+export async function convertQuoteToSaleOrder(quoteId: string, ownerUserId?: string | null) {
   const q = await prisma.quote.findUnique({
     where: { id: quoteId },
     include: { items: true, saleOrder: true },
   });
   if (!q) throw new Error('Orçamento não encontrado');
+  if (q.lockedAt) throw new Error('Proposta bloqueada — já foi convertida em pedido de venda.');
   if (q.status === 'CONVERTIDO' || q.saleOrder) throw new Error('Orçamento já convertido');
 
   const year = new Date().getFullYear();
@@ -468,15 +551,234 @@ export async function convertQuoteToSaleOrder(quoteId: string) {
         kanbanColumn: 'PEDIDO',
         orderDate: new Date(),
         totalAmount: total,
+        ownerUserId: ownerUserId ?? null,
         items: { create: itemCreates },
       },
       include: { items: { include: { product: true } }, customer: true },
     });
     await tx.quote.update({
       where: { id: quoteId },
-      data: { status: 'CONVERTIDO' },
+      data: { status: 'CONVERTIDO', lockedAt: new Date() },
+    });
+    await tx.salesActivity.create({
+      data: {
+        quoteId,
+        userId: ownerUserId ?? null,
+        type: 'CONVERT',
+        body: `Convertido em pedido ${so.number}`,
+        metadata: { saleOrderId: so.id } as object,
+      },
     });
     return so;
+  });
+}
+
+/** Nova versão da proposta (V2, V3…) — copia itens; não altera versões anteriores. */
+export async function createQuoteRevision(
+  quoteId: string,
+  editorUserId?: string | null,
+) {
+  const src = await prisma.quote.findUnique({
+    where: { id: quoteId },
+    include: { items: true },
+  });
+  if (!src) throw new Error('Orçamento não encontrado');
+  if (src.lockedAt) throw new Error('Proposta bloqueada — gere uma nova oportunidade ou duplique antes da conversão.');
+  if (src.status === 'CONVERTIDO') throw new Error('Orçamento já convertido.');
+
+  const maxV = await prisma.quote.aggregate({
+    where: { familyId: src.familyId },
+    _max: { versionNumber: true },
+  });
+  const nextV = (maxV._max.versionNumber ?? 1) + 1;
+  const year = new Date().getFullYear();
+  const number = await nextNumber('ORC', year, 'quote');
+  const newId = randomUUID();
+
+  let total = new Prisma.Decimal(0);
+  const creates = src.items.map((it) => {
+    const lt = lineTotal(it.quantity, it.unitPrice, it.discountPct);
+    total = total.add(lt);
+    return {
+      productId: it.productId,
+      quantity: it.quantity,
+      unitPrice: it.unitPrice,
+      discountPct: it.discountPct,
+    };
+  });
+
+  const created = await prisma.$transaction(async (tx) => {
+    const q = await tx.quote.create({
+      data: {
+        id: newId,
+        familyId: src.familyId,
+        versionNumber: nextV,
+        number,
+        customerId: src.customerId,
+        opportunityId: src.opportunityId,
+        status: 'RASCUNHO',
+        validUntil: src.validUntil,
+        notes: src.notes,
+        totalAmount: total,
+        technicalReview: src.technicalReview,
+        items: { create: creates },
+      },
+      include: { customer: true, items: { include: { product: true } }, opportunity: true },
+    });
+    await tx.salesActivity.create({
+      data: {
+        quoteId: newId,
+        userId: editorUserId ?? null,
+        type: 'VERSION',
+        body: `Nova versão V${nextV} criada a partir de ${src.number}`,
+        metadata: { fromQuoteId: src.id, versionNumber: nextV } as object,
+      },
+    });
+    return q;
+  });
+
+  return created;
+}
+
+// ─── Oportunidades comerciais ───────────────────────────────────────────────
+
+export async function listOpportunities(viewer?: { userId: string; roles: string[] }) {
+  const restrict = viewer && saleOrdersRestrictedToOwner(viewer.roles);
+  return prisma.salesOpportunity.findMany({
+    where: restrict ? { ownerUserId: viewer!.userId } : {},
+    orderBy: { updatedAt: 'desc' },
+    take: 200,
+    include: {
+      customer: true,
+      owner: { select: { id: true, fullName: true, email: true } },
+      quotes: { select: { id: true, number: true, status: true, versionNumber: true, totalAmount: true } },
+    },
+  });
+}
+
+export async function getOpportunity(id: string) {
+  return prisma.salesOpportunity.findUnique({
+    where: { id },
+    include: {
+      customer: true,
+      owner: { select: { id: true, fullName: true, email: true } },
+      quotes: { include: { items: { include: { product: true } } } },
+      activities: { orderBy: { createdAt: 'desc' }, take: 100, include: { user: { select: { fullName: true } } } },
+    },
+  });
+}
+
+export async function createOpportunity(input: {
+  customerId: string;
+  ownerUserId?: string | null;
+  title: string;
+  status?: string;
+  profileAbc?: string | null;
+  projectType?: string | null;
+  potential?: string | null;
+  scopeNotes?: string | null;
+  deliveryNotes?: string | null;
+}) {
+  const year = new Date().getFullYear();
+  const number = await nextOpportunityNumber(year);
+  return prisma.salesOpportunity.create({
+    data: {
+      number,
+      customerId: input.customerId,
+      ownerUserId: input.ownerUserId ?? null,
+      title: input.title,
+      status: input.status ?? 'LEAD',
+      profileAbc: input.profileAbc ?? null,
+      projectType: input.projectType ?? null,
+      potential: input.potential ?? null,
+      scopeNotes: input.scopeNotes ?? null,
+      deliveryNotes: input.deliveryNotes ?? null,
+    },
+    include: {
+      customer: true,
+      owner: { select: { id: true, fullName: true, email: true } },
+    },
+  });
+}
+
+export async function patchOpportunity(
+  id: string,
+  input: Partial<{
+    title: string;
+    status: string;
+    ownerUserId: string | null;
+    profileAbc: string | null;
+    projectType: string | null;
+    potential: string | null;
+    scopeNotes: string | null;
+    deliveryNotes: string | null;
+    lostReason: string | null;
+  }>,
+  actorUserId?: string | null,
+) {
+  const before = await prisma.salesOpportunity.findUnique({ where: { id } });
+  if (!before) throw new Error('Oportunidade não encontrada');
+
+  const updated = await prisma.salesOpportunity.update({
+    where: { id },
+    data: {
+      title: input.title,
+      status: input.status,
+      ownerUserId: input.ownerUserId,
+      profileAbc: input.profileAbc,
+      projectType: input.projectType,
+      potential: input.potential,
+      scopeNotes: input.scopeNotes,
+      deliveryNotes: input.deliveryNotes,
+      lostReason: input.lostReason,
+    },
+    include: {
+      customer: true,
+      owner: { select: { id: true, fullName: true, email: true } },
+    },
+  });
+
+  if (input.status && input.status !== before.status) {
+    await prisma.salesActivity.create({
+      data: {
+        opportunityId: id,
+        userId: actorUserId ?? null,
+        type: 'STATUS',
+        body: `Status: ${before.status} → ${input.status}`,
+        metadata: { from: before.status, to: input.status } as object,
+      },
+    });
+  }
+
+  return updated;
+}
+
+export async function listQuoteActivities(quoteId: string) {
+  return prisma.salesActivity.findMany({
+    where: { quoteId },
+    orderBy: { createdAt: 'desc' },
+    include: { user: { select: { fullName: true, email: true } } },
+  });
+}
+
+export async function addSalesActivity(input: {
+  opportunityId?: string | null;
+  quoteId?: string | null;
+  userId?: string | null;
+  type: string;
+  body: string;
+  metadata?: Record<string, unknown> | null;
+}) {
+  return prisma.salesActivity.create({
+    data: {
+      opportunityId: input.opportunityId ?? undefined,
+      quoteId: input.quoteId ?? undefined,
+      userId: input.userId ?? undefined,
+      type: input.type,
+      body: input.body,
+      metadata: input.metadata === undefined ? undefined : (input.metadata as object),
+    },
+    include: { user: { select: { fullName: true } } },
   });
 }
 

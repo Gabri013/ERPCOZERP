@@ -22,6 +22,7 @@ export type SaleOrderRow = {
   id: string;
   number: string;
   status: string;
+  createdAt?: string;
   kanbanColumn: string;
   kanbanOrder: number;
   orderDate: string;
@@ -44,10 +45,11 @@ export async function listSalesCustomers() {
   return unwrap<SalesCustomer[]>(res.data);
 }
 
-export async function listSaleOrders(params?: { status?: string; customerId?: string }) {
+export async function listSaleOrders(params?: { status?: string; customerId?: string; take?: number }) {
   const qs = new URLSearchParams();
   if (params?.status) qs.set('status', params.status);
   if (params?.customerId) qs.set('customerId', params.customerId);
+  if (params?.take != null) qs.set('take', String(params.take));
   const q = qs.toString();
   const res = await api.get(`/api/sales/sale-orders${q ? `?${q}` : ''}`);
   return unwrap<SaleOrderRow[]>(res.data);
@@ -76,8 +78,14 @@ export async function generateWorkOrderFromSale(id: string) {
 export type QuoteRow = {
   id: string;
   number: string;
+  familyId: string;
+  versionNumber: number;
+  lockedAt?: string | null;
+  technicalReview?: string;
   status: string;
   customer: SalesCustomer;
+  opportunity?: { id: string; number: string; title: string } | null;
+  saleOrder?: { id: string; number: string } | null;
   items: Array<{
     id: string;
     quantity: unknown;
@@ -87,14 +95,129 @@ export type QuoteRow = {
   totalAmount: unknown;
 };
 
+export type QuoteDetail = QuoteRow & {
+  validUntil?: string | null;
+  notes?: string | null;
+  activities?: SalesActivityRow[];
+  saleOrder?: { id: string; number: string; status?: string } | null;
+};
+
+export type SalesActivityRow = {
+  id: string;
+  type: string;
+  body: string;
+  createdAt: string;
+  metadata?: unknown;
+  user?: { fullName: string | null; email: string | null } | null;
+};
+
+export type SalesOpportunityRow = {
+  id: string;
+  number: string;
+  title: string;
+  status: string;
+  profileAbc?: string | null;
+  projectType?: string | null;
+  potential?: string | null;
+  scopeNotes?: string | null;
+  deliveryNotes?: string | null;
+  lostReason?: string | null;
+  customer: SalesCustomer;
+  owner?: { id: string; fullName: string | null; email: string | null } | null;
+  quotes: Array<{ id: string; number: string; status: string; versionNumber: number; totalAmount: unknown }>;
+};
+
 export async function listQuotes() {
   const res = await api.get('/api/sales/quotes');
   return unwrap<QuoteRow[]>(res.data);
 }
 
+export async function getQuote(id: string) {
+  const res = await api.get(`/api/sales/quotes/${id}`);
+  return unwrap<QuoteDetail>(res.data);
+}
+
+export async function patchQuote(
+  id: string,
+  body: Partial<{
+    status: string;
+    validUntil: string | null;
+    notes: string | null;
+    technicalReview: string;
+    items: Array<{ productId: string; quantity: number; unitPrice: number; discountPct?: number | null }>;
+  }>,
+) {
+  const res = await api.patch(`/api/sales/quotes/${id}`, body);
+  return unwrap<QuoteDetail>(res.data);
+}
+
 export async function convertQuote(id: string) {
   const res = await api.post(`/api/sales/quotes/${id}/convert`, {});
   return unwrap<SaleOrderRow>(res.data);
+}
+
+export async function createQuoteRevision(id: string) {
+  const res = await api.post(`/api/sales/quotes/${id}/revision`, {});
+  return unwrap<QuoteDetail>(res.data);
+}
+
+export async function listQuoteActivities(id: string) {
+  const res = await api.get(`/api/sales/quotes/${id}/activities`);
+  return unwrap<SalesActivityRow[]>(res.data);
+}
+
+export async function listOpportunities() {
+  const res = await api.get('/api/sales/opportunities');
+  return unwrap<SalesOpportunityRow[]>(res.data);
+}
+
+export async function getOpportunity(id: string) {
+  const res = await api.get(`/api/sales/opportunities/${id}`);
+  return unwrap<SalesOpportunityRow & { activities?: SalesActivityRow[] }>(res.data);
+}
+
+export async function createOpportunity(body: {
+  customerId: string;
+  title: string;
+  ownerUserId?: string | null;
+  status?: string;
+  profileAbc?: string | null;
+  projectType?: string | null;
+  potential?: string | null;
+  scopeNotes?: string | null;
+  deliveryNotes?: string | null;
+}) {
+  const res = await api.post('/api/sales/opportunities', body);
+  return unwrap<SalesOpportunityRow>(res.data);
+}
+
+export async function patchOpportunity(
+  id: string,
+  body: Partial<{
+    title: string;
+    status: string;
+    ownerUserId: string | null;
+    profileAbc: string | null;
+    projectType: string | null;
+    potential: string | null;
+    scopeNotes: string | null;
+    deliveryNotes: string | null;
+    lostReason: string | null;
+  }>,
+) {
+  const res = await api.patch(`/api/sales/opportunities/${id}`, body);
+  return unwrap<SalesOpportunityRow>(res.data);
+}
+
+export async function addSalesActivity(body: {
+  opportunityId?: string | null;
+  quoteId?: string | null;
+  type: string;
+  body: string;
+  metadata?: Record<string, unknown> | null;
+}) {
+  const res = await api.post('/api/sales/activities', body);
+  return unwrap<SalesActivityRow>(res.data);
 }
 
 export type PriceTableRow = {

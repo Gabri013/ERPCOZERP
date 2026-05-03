@@ -1,12 +1,16 @@
-﻿import { useNavigate } from 'react-router-dom';
+﻿import { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import PageHeader from '@/components/common/PageHeader';
-import { BarChart2, ShoppingCart, Package, Factory, DollarSign, ArrowRight, Users, FileText } from 'lucide-react';
+import { ShoppingCart, Package, Factory, DollarSign, ArrowRight, Users, FileText } from 'lucide-react';
+import { usePermissao } from '@/lib/PermissaoContext';
 
+/** `required`: uma permissão; `requiredAny`: qualquer uma da lista (produção / times diferentes). */
 const RELATORIOS = [
   {
     categoria: 'Vendas',
     icone: ShoppingCart,
     cor: 'bg-blue-100 text-blue-700',
+    required: 'ver_pedidos',
     items: [
       { nome: 'Faturamento por Período', desc: 'Resumo de vendas com comparativo mensal', path: '/vendas/relatorios' },
       { nome: 'Pedidos de Venda', desc: 'Lista de pedidos e status de aprovação', path: '/vendas/pedidos' },
@@ -18,6 +22,7 @@ const RELATORIOS = [
     categoria: 'Estoque',
     icone: Package,
     cor: 'bg-green-100 text-green-700',
+    required: 'ver_estoque',
     items: [
       { nome: 'Posição de Estoque', desc: 'Saldo atual por produto e localização', path: '/estoque/produtos' },
       { nome: 'Movimentações', desc: 'Entradas e saídas do período', path: '/estoque/movimentacoes' },
@@ -29,6 +34,7 @@ const RELATORIOS = [
     categoria: 'Produção',
     icone: Factory,
     cor: 'bg-orange-100 text-orange-700',
+    requiredAny: ['ver_op', 'ver_pcp', 'ver_kanban', 'apontar'],
     items: [
       { nome: 'Ordens de Produção', desc: 'Acompanhamento das OPs por status', path: '/producao/ordens' },
       { nome: 'PCP — Gantt da Semana', desc: 'Planejamento e controle visual', path: '/producao/pcp' },
@@ -40,6 +46,7 @@ const RELATORIOS = [
     categoria: 'Financeiro',
     icone: DollarSign,
     cor: 'bg-purple-100 text-purple-700',
+    required: 'ver_financeiro',
     items: [
       { nome: 'DRE Gerencial', desc: 'Demonstração de resultado simplificada', path: '/financeiro/dre' },
       { nome: 'Fluxo de Caixa', desc: 'Previsão de entradas e saídas', path: '/financeiro/fluxo-caixa' },
@@ -51,6 +58,7 @@ const RELATORIOS = [
     categoria: 'RH',
     icone: Users,
     cor: 'bg-teal-100 text-teal-700',
+    required: 'ver_rh',
     items: [
       { nome: 'Funcionários', desc: 'Cadastro e situação dos colaboradores', path: '/rh/funcionarios' },
       { nome: 'Ponto', desc: 'Registros de frequência e horas', path: '/rh/ponto' },
@@ -62,6 +70,7 @@ const RELATORIOS = [
     categoria: 'Fiscal',
     icone: FileText,
     cor: 'bg-red-100 text-red-700',
+    required: 'ver_fiscal',
     items: [
       { nome: 'Emissão de NF-e', desc: 'Notas fiscais emitidas e pendentes', path: '/fiscal/nfe' },
       { nome: 'Consulta NF-e', desc: 'Pesquisar notas por chave ou período', path: '/fiscal/nfe-consulta' },
@@ -70,14 +79,31 @@ const RELATORIOS = [
   },
 ];
 
+function categoriaVisivel(cat, pode) {
+  if (cat.requiredAny?.length) return cat.requiredAny.some((p) => pode(p));
+  if (cat.required) return pode(cat.required);
+  return true;
+}
+
 export default function Relatorios() {
   const navigate = useNavigate();
+  const { pode } = usePermissao();
+
+  const categorias = useMemo(
+    () => RELATORIOS.filter((cat) => categoriaVisivel(cat, pode)),
+    [pode],
+  );
 
   return (
     <div>
       <PageHeader title="Central de Relatórios" />
+      {categorias.length === 0 ? (
+        <p className="text-sm text-muted-foreground py-8 text-center">
+          Nenhuma categoria de relatório disponível para o seu perfil. Solicite permissões ao administrador.
+        </p>
+      ) : (
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-        {RELATORIOS.map(cat => (
+        {categorias.map(cat => (
           <div key={cat.categoria} className="bg-white border border-border rounded-lg overflow-hidden">
             <div className="px-4 py-3 border-b border-border flex items-center gap-2">
               <div className={`w-7 h-7 rounded flex items-center justify-center ${cat.cor}`}>
@@ -105,6 +131,7 @@ export default function Relatorios() {
           </div>
         ))}
       </div>
+      )}
     </div>
   );
 }

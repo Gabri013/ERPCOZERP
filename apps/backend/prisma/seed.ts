@@ -205,6 +205,11 @@ async function main() {
     'crm_atividade',
   ].flatMap((e) => [`${e}.view`, `${e}.create`, `${e}.edit`, `${e}.delete`]);
 
+  /** Granular comercial sem CRM (perfil vendedor não gerencia pipeline/leads no seed). */
+  const vendasGranularCodesComercial = ['cliente', 'pedido_venda', 'orcamento', 'tabela_preco'].flatMap((e) =>
+    [`${e}.view`, `${e}.create`, `${e}.edit`, `${e}.delete`],
+  );
+
   const producaoGranularCodes = ['ordem_producao', 'apontamento_producao', 'historico_op', 'produto', 'movimentacao_estoque'].flatMap((e) =>
     [`${e}.view`, `${e}.create`, `${e}.edit`, `${e}.delete`],
   );
@@ -270,20 +275,19 @@ async function main() {
       ...producaoGranularCodes,
     ],
 
-    // ── Vendas / Orçamentista: do orçamento ao pedido + CRM ──────────────────
+    // ── Vendas / Orçamentista: pedidos, clientes, orçamentos, catálogo somente leitura + relatórios — sem CRM, serviços, estoque operacional, eng., conhecimento ──
     orcamentista_vendas: [
-      'record.manage','entity.manage',
-      'ver_pedidos','criar_pedidos','editar_pedidos',
-      'ver_clientes','editar_clientes',
-      'ver_orcamentos','criar_orcamentos',
-      'ver_estoque','produto.view',
-      'ver_crm','crm.view','crm.pipeline','crm.dashboard',
-      'ver_crm_processos','editar_crm_processos',
-      'ver_projetos',
-      'ver_conhecimento',
-      'ver_servicos','editar_servicos',
-      'ver_relatorios','relatorios:view',
-      ...vendasGranularCodes,
+      'ver_pedidos',
+      'criar_pedidos',
+      'editar_pedidos',
+      'ver_clientes',
+      'editar_clientes',
+      'ver_orcamentos',
+      'criar_orcamentos',
+      'produto.view',
+      'ver_relatorios',
+      'relatorios:view',
+      ...vendasGranularCodesComercial,
     ],
 
     // ── Projetista / Engenharia: BOM, roteiros, produtos ─────────────────────
@@ -429,16 +433,16 @@ async function main() {
     return created;
   }
 
-  await ensureDemoUser('gerente@cozinha.com',          'Gerente Geral',          'gerente',            'Gerência');
-  await ensureDemoUser('gerente.producao@cozinha.com', 'Gerente Produção',        'gerente_producao',   'Produção');
-  await ensureDemoUser('vendas@cozinha.com',           'Vendas / Orçamento',      'orcamentista_vendas','Vendas');
+  await ensureDemoUser('gerente@cozinha.com',          'Gerente Geral',          'gerente',            'Ger\u00eancia');
+  await ensureDemoUser('gerente.producao@cozinha.com', 'Gerente Produ\u00e7\u00e3o', 'gerente_producao', 'Produ\u00e7\u00e3o');
+  await ensureDemoUser('vendas@cozinha.com',           'Vendas / Or\u00e7amento', 'orcamentista_vendas', 'Vendas');
   await ensureDemoUser('engenharia@cozinha.com',       'Engenharia / Projetos',   'projetista',         'Engenharia');
   await ensureDemoUser('compras@cozinha.com',          'Compras / Suprimentos',   'compras',            'Compras');
   await ensureDemoUser('laser@cozinha.com',            'Operador Laser',          'corte_laser',        'Corte Laser');
   await ensureDemoUser('dobra@cozinha.com',            'Operador Dobra/Montagem', 'dobra_montagem',     'Dobra e Montagem');
   await ensureDemoUser('solda@cozinha.com',            'Operador Solda',          'solda',              'Solda');
   await ensureDemoUser('qualidade@cozinha.com',        'Qualidade',               'qualidade',          'Qualidade');
-  await ensureDemoUser('expedicao@cozinha.com',        'Expedição',               'expedicao',          'Expedição');
+  await ensureDemoUser('expedicao@cozinha.com',        'Expedi\u00e7\u00e3o',     'expedicao',          'Expedi\u00e7\u00e3o');
   await ensureDemoUser('financeiro@cozinha.com',       'Financeiro',              'financeiro',         'Financeiro');
   await ensureDemoUser('rh@cozinha.com',               'RH Departamento',         'rh',                 'RH');
 
@@ -1224,6 +1228,7 @@ async function main() {
 
   // --- Vendas (Customer / Quote / SaleOrder Prisma) — 5 pedidos, 3 orçamentos quando vazio ---
   if ((await prisma.customer.count()) === 0 && (await prisma.product.count()) > 0) {
+    const vendasSeedOwner = await prisma.user.findUnique({ where: { email: 'vendas@cozinha.com' } });
     const products = await prisma.product.findMany({ orderBy: { code: 'asc' }, take: 8 });
     const c1 = await prisma.customer.create({
       data: {
@@ -1292,8 +1297,12 @@ async function main() {
           discountPct: it.discountPct,
         };
       });
+      const qid = randomUUID();
       await prisma.quote.create({
         data: {
+          id: qid,
+          familyId: qid,
+          versionNumber: 1,
           number: `ORC-${qs.num}`,
           customerId: qs.cust,
           status: 'ENVIADO',
@@ -1331,10 +1340,24 @@ async function main() {
           status: os.st,
           kanbanColumn: os.col,
           totalAmount: total,
+          ownerUserId: vendasSeedOwner?.id ?? null,
           items: { create: lines },
         },
       });
     }
+  }
+
+  // PVs sem responsável: associa ao usuário demo de vendas (escopo “minhas vendas” no dashboard)
+  try {
+    const vendasOwner = await prisma.user.findUnique({ where: { email: 'vendas@cozinha.com' } });
+    if (vendasOwner) {
+      await prisma.saleOrder.updateMany({
+        where: { ownerUserId: null },
+        data: { ownerUserId: vendasOwner.id },
+      });
+    }
+  } catch {
+    /* schema antigo sem owner_user_id */
   }
 
   // --- Compras (Supplier / PurchaseOrder) quando vazio ---

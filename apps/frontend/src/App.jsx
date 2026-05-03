@@ -22,6 +22,10 @@ const TabelaPrecos = lazy(() => import('@/pages/vendas/TabelaPrecos'));
 const RelatoriosVendas = lazy(() => import('@/pages/vendas/RelatoriosVendas'));
 const SolicitacoesCotacao = lazy(() => import('@/pages/vendas/SolicitacoesCotacao'));
 const ComissoesVendas = lazy(() => import('@/pages/vendas/Comissoes'));
+const VendasPropostas = lazy(() => import('@/pages/vendas/QuotesPage'));
+const VendasPropostaDetalhe = lazy(() => import('@/pages/vendas/QuoteDetailPage'));
+const VendasOportunidades = lazy(() => import('@/pages/vendas/SalesOpportunitiesPage'));
+const VendasOportunidadeDetalhe = lazy(() => import('@/pages/vendas/OpportunityDetailPage'));
 const PaineisGestao = lazy(() => import('@/pages/dashboard/PaineisGestao'));
 const ServicosOrcamentos = lazy(() => import('@/pages/servicos/ServicosOrcamentos'));
 const ServicosPropostas = lazy(() => import('@/pages/servicos/ServicosPropostas'));
@@ -206,17 +210,21 @@ const AuthenticatedApp = () => {
           <Route path="/vendas/pedidos" element={<PermissaoRoute acao="ver_pedidos"><PedidosVenda /></PermissaoRoute>} />
           <Route path="/vendas/clientes" element={<PermissaoRoute acao="ver_clientes"><Clientes /></PermissaoRoute>} />
           <Route path="/vendas/orcamentos" element={<PermissaoRoute acao="ver_pedidos"><Orcamentos /></PermissaoRoute>} />
+          <Route path="/vendas/propostas" element={<PermissaoRoute acao="ver_pedidos"><VendasPropostas /></PermissaoRoute>} />
+          <Route path="/vendas/propostas/:id" element={<PermissaoRoute acao="ver_pedidos"><VendasPropostaDetalhe /></PermissaoRoute>} />
+          <Route path="/vendas/oportunidades" element={<PermissaoRoute acao="ver_pedidos"><VendasOportunidades /></PermissaoRoute>} />
+          <Route path="/vendas/oportunidades/:id" element={<PermissaoRoute acao="ver_pedidos"><VendasOportunidadeDetalhe /></PermissaoRoute>} />
           <Route path="/vendas/tabela-precos" element={<PermissaoRoute acao="ver_pedidos"><TabelaPrecos /></PermissaoRoute>} />
           <Route path="/vendas/relatorios" element={<PermissaoRoute acao="relatorios:view"><RelatoriosVendas /></PermissaoRoute>} />
           <Route path="/vendas/solicitacoes-cotacao" element={<PermissaoRoute acao="ver_pedidos"><SolicitacoesCotacao /></PermissaoRoute>} />
           <Route path="/vendas/comissoes" element={<PermissaoRoute acao="ver_pedidos"><ComissoesVendas /></PermissaoRoute>} />
           <Route path="/paineis-gestao" element={<PermissaoRoute acao="relatorios:view"><PaineisGestao /></PermissaoRoute>} />
-          <Route path="/servicos/solicitacoes" element={<PermissaoRoute acao="ver_pedidos"><ServicosOrcamentos /></PermissaoRoute>} />
-          <Route path="/servicos/propostas" element={<PermissaoRoute acao="ver_pedidos"><ServicosPropostas /></PermissaoRoute>} />
-          <Route path="/servicos/pedidos" element={<PermissaoRoute acao="ver_pedidos"><ServicosPedidos /></PermissaoRoute>} />
-          <Route path="/servicos/nfse" element={<PermissaoRoute acao="ver_pedidos"><NfseGestao /></PermissaoRoute>} />
-          <Route path="/servicos/recorrentes" element={<PermissaoRoute acao="ver_pedidos"><ServicosRecorrentes /></PermissaoRoute>} />
-          <Route path="/servicos/tabela-precos" element={<PermissaoRoute acao="ver_pedidos"><TabelaPrecosServicos /></PermissaoRoute>} />
+          <Route path="/servicos/solicitacoes" element={<PermissaoRoute acao="ver_servicos"><ServicosOrcamentos /></PermissaoRoute>} />
+          <Route path="/servicos/propostas" element={<PermissaoRoute acao="ver_servicos"><ServicosPropostas /></PermissaoRoute>} />
+          <Route path="/servicos/pedidos" element={<PermissaoRoute acao="ver_servicos"><ServicosPedidos /></PermissaoRoute>} />
+          <Route path="/servicos/nfse" element={<PermissaoRoute acao="ver_servicos"><NfseGestao /></PermissaoRoute>} />
+          <Route path="/servicos/recorrentes" element={<PermissaoRoute acao="ver_servicos"><ServicosRecorrentes /></PermissaoRoute>} />
+          <Route path="/servicos/tabela-precos" element={<PermissaoRoute acao="ver_servicos"><TabelaPrecosServicos /></PermissaoRoute>} />
           <Route
             path="/estoque/produtos/bom/:id"
             element={(
@@ -225,9 +233,9 @@ const AuthenticatedApp = () => {
               </PermissaoRoute>
             )}
           />
-          <Route path="/estoque/produtos/novo" element={<PermissaoRoute acao="ver_estoque"><ProductForm /></PermissaoRoute>} />
-          <Route path="/estoque/produtos/:id" element={<PermissaoRoute acao="ver_estoque"><ProductForm /></PermissaoRoute>} />
-          <Route path="/estoque/produtos" element={<PermissaoRoute acao="ver_estoque"><ProductsPage /></PermissaoRoute>} />
+          <Route path="/estoque/produtos/novo" element={<PermissaoRoute anyOf={['ver_estoque', 'produto.update', 'produto.create']}><ProductForm /></PermissaoRoute>} />
+          <Route path="/estoque/produtos/:id" element={<PermissaoRoute anyOf={['ver_estoque', 'produto.view', 'produto.update']}><ProductForm /></PermissaoRoute>} />
+          <Route path="/estoque/produtos" element={<PermissaoRoute anyOf={['ver_estoque', 'produto.view']}><ProductsPage /></PermissaoRoute>} />
           <Route path="/estoque/movimentacoes" element={<PermissaoRoute acao="ver_estoque"><StockMovementsPage /></PermissaoRoute>} />
           <Route path="/estoque/inventario" element={<PermissaoRoute acao="ver_estoque"><InventoryPage /></PermissaoRoute>} />
           <Route path="/estoque/inventario/:id" element={<PermissaoRoute acao="ver_estoque"><InventoryCountDetail /></PermissaoRoute>} />

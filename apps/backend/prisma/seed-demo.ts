@@ -345,6 +345,7 @@ async function main() {
   ];
 
   const createdSaleOrders: Record<string, string> = {}; // orderNum → id
+  const demoVendasOwner = await prisma.user.findUnique({ where: { email: 'vendas@cozinha.com' } });
 
   for (const flow of SALE_FLOWS) {
     const custId = customers[flow.custCode];
@@ -363,9 +364,16 @@ async function main() {
     // Cria orçamento vinculado
     const quote = await prisma.quote.findFirst({ where: { number: flow.quoteNum } });
     if (!quote) {
+      const qid = uuid();
       await prisma.quote.create({
         data: {
-          id: uuid(), number: flow.quoteNum, customerId: custId, status: 'CONVERTIDO', totalAmount: total,
+          id: qid,
+          familyId: qid,
+          versionNumber: 1,
+          number: flow.quoteNum,
+          customerId: custId,
+          status: 'CONVERTIDO',
+          totalAmount: total,
           items: { create: lines.map((l) => ({ productId: l.productId!, quantity: l.quantity, unitPrice: l.unitPrice, discountPct: null })) },
         },
       });
@@ -378,6 +386,7 @@ async function main() {
         customer: custId ? { connect: { id: custId } } : undefined,
         status: flow.status, kanbanColumn: flow.kanban, totalAmount: total,
         deliveryDate: daysFrom(flow.daysDelivery),
+        ownerUserId: demoVendasOwner?.id ?? null,
         items: { create: lines as any },
       },
     });

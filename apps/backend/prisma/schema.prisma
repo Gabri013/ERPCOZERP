@@ -33,6 +33,9 @@ model User {
   stockMovements           StockMovement[]
   approvedInventoryCounts  InventoryCount[] @relation("InventoryCountApprovedBy")
   approvedSaleOrders       SaleOrder[]      @relation("SaleOrderApprovedBy")
+  ownedSaleOrders          SaleOrder[]      @relation("SaleOrderOwner")
+  ownedOpportunities       SalesOpportunity[] @relation("OpportunityOwner")
+  salesActivities          SalesActivity[]
   responsibleWorkOrders    WorkOrder[]      @relation("WorkOrderResponsible")
   workOrderStatusHistory   WorkOrderStatusHistory[]
   employeeProfile        Employee?
@@ -436,10 +439,60 @@ model Customer {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  saleOrders SaleOrder[]
-  quotes     Quote[]
+  saleOrders     SaleOrder[]
+  quotes         Quote[]
+  opportunities  SalesOpportunity[]
 
   @@map("customers")
+}
+
+/// Funil comercial (pré-orçamento) — qualificação e rastreio.
+model SalesOpportunity {
+  id            String   @id @default(uuid()) @db.Uuid
+  number        String   @unique
+  customerId    String   @map("customer_id") @db.Uuid
+  ownerUserId   String?  @map("owner_user_id") @db.Uuid
+  title         String
+  /// LEAD | QUALIFYING | PROPOSAL | WON | LOST | NURTURE | DISCARDED
+  status        String   @default("LEAD")
+  profileAbc    String?  @map("profile_abc")
+  projectType   String?  @map("project_type")
+  potential     String?
+  scopeNotes    String?  @map("scope_notes") @db.Text
+  deliveryNotes String?  @map("delivery_notes") @db.Text
+  lostReason    String?  @map("lost_reason") @db.Text
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  owner      User?     @relation("OpportunityOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  quotes     Quote[]
+  activities SalesActivity[]
+
+  @@index([customerId], map: "idx_opportunities_customer")
+  @@index([ownerUserId], map: "idx_opportunities_owner")
+  @@index([status], map: "idx_opportunities_status")
+  @@map("sales_opportunities")
+}
+
+/// Linha do tempo: notas, ligação, e-mail, mudança de status.
+model SalesActivity {
+  id              String   @id @default(uuid()) @db.Uuid
+  opportunityId   String?  @map("opportunity_id") @db.Uuid
+  quoteId         String?  @map("quote_id") @db.Uuid
+  userId          String?  @map("user_id") @db.Uuid
+  type            String
+  body            String   @db.Text
+  metadata        Json?
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  opportunity SalesOpportunity? @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  quote       Quote?          @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  user        User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([opportunityId], map: "idx_sales_act_opp")
+  @@index([quoteId], map: "idx_sales_act_quote")
+  @@map("sales_activities")
 }
 
 enum QuoteStatus {
@@ -460,10 +513,24 @@ model Quote {
   createdAt  DateTime    @default(now()) @map("created_at")
   updatedAt  DateTime    @updatedAt @map("updated_at")
 
-  customer   Customer    @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  items      QuoteItem[]
-  saleOrder  SaleOrder?
+  /** Vínculo opcional ao funil comercial */
+  opportunityId String?  @map("opportunity_id") @db.Uuid
+  /** Mesmo UUID em todas as versões da proposta (V1, V2…) */
+  familyId      String    @map("family_id") @db.Uuid
+  versionNumber Int       @default(1) @map("version_number")
+  /** Preenchido ao converter em PV — bloqueia edição */
+  lockedAt      DateTime? @map("locked_at")
+  /** NOT_REQUIRED | PENDING | APPROVED | NEEDS_ADJUSTMENT */
+  technicalReview String  @default("NOT_REQUIRED") @map("technical_review")
 
+  customer     Customer    @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  opportunity  SalesOpportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  items        QuoteItem[]
+  saleOrder    SaleOrder?
+  activities   SalesActivity[]
+
+  @@index([opportunityId], map: "idx_quotes_opportunity")
+  @@index([familyId], map: "idx_quotes_family")
   @@map("quotes")
 }
 
@@ -527,16 +594,20 @@ model SaleOrder {
   totalAmount    Decimal?  @map("total_amount") @db.Decimal(14, 2)
   approvedAt     DateTime? @map("approved_at")
   approvedById   String?   @map("approved_by_id") @db.Uuid
+  /** Comercial responsável pelo PV (escopo “minhas vendas” no dashboard / lista). */
+  ownerUserId    String?   @map("owner_user_id") @db.Uuid
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
 
   customer    Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
   quote       Quote?       @relation(fields: [quoteId], references: [id], onDelete: SetNull)
   approvedBy  User?        @relation("SaleOrderApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  owner       User?        @relation("SaleOrderOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
   workOrders  WorkOrder[]
   items       SaleOrderItem[]
 
   @@index([status], map: "idx_sale_orders_status")
+  @@index([ownerUserId], map: "idx_sale_orders_owner")
   @@map("sale_orders")
 }
 

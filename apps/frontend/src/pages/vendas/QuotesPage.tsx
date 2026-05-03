@@ -1,5 +1,6 @@
 // @ts-nocheck — shadcn/jsx UI components without TS props
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import PageHeader from '@/components/common/PageHeader';
 import DataTable from '@/components/common/DataTable';
 import { Button } from '@/components/ui/button.jsx';
@@ -15,6 +16,7 @@ function money(v: unknown) {
 }
 
 export default function QuotesPage() {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const qc = useQueryClient();
   const q = useQuery({
@@ -35,9 +37,28 @@ export default function QuotesPage() {
   const columns = [
     { key: 'number', label: 'Nº', width: 140 },
     {
+      key: 'versionNumber',
+      label: 'Ver.',
+      width: 56,
+      render: (_: unknown, row: QuoteRow) => `V${row.versionNumber ?? 1}`,
+    },
+    {
+      key: 'lockedAt',
+      label: '',
+      width: 56,
+      render: (_: unknown, row: QuoteRow) =>
+        row.lockedAt || row.status === 'CONVERTIDO' ? '🔒' : '',
+    },
+    {
       key: 'customer',
       label: 'Cliente',
       render: (_: unknown, row: QuoteRow) => row.customer?.name ?? '—',
+    },
+    {
+      key: 'technicalReview',
+      label: 'Val. técnica',
+      width: 120,
+      render: (_: unknown, row: QuoteRow) => row.technicalReview ?? '—',
     },
     { key: 'status', label: 'Status', width: 120 },
     {
@@ -52,7 +73,7 @@ export default function QuotesPage() {
       sortable: false,
       width: 120,
       render: (_: unknown, row: QuoteRow) =>
-        row.status !== 'CONVERTIDO' ? (
+        row.status !== 'CONVERTIDO' && !row.lockedAt ? (
           <PodeRender acao="editar_pedidos">
             <Button
               type="button"
@@ -75,13 +96,23 @@ export default function QuotesPage() {
 
   return (
     <div>
-      <PageHeader title="Orçamentos" subtitle="" breadcrumbs={['Início', 'Vendas', 'Orçamentos']} actions={null} />
+      <PageHeader
+        title="Propostas comerciais"
+        subtitle="Orçamentos versionados (mesma família = V1, V2…). «Orçamentos» no menu continua no cadastro dinâmico, se usado."
+        breadcrumbs={['Início', 'Vendas', 'Propostas']}
+        actions={null}
+      />
       {q.isLoading ? (
         <div className="flex justify-center py-16 text-muted-foreground">
           <Loader2 className="animate-spin" />
         </div>
       ) : (
-        <DataTable columns={columns} data={q.data ?? []} loading={false} />
+        <DataTable
+          columns={columns}
+          data={q.data ?? []}
+          loading={false}
+          onRowClick={(row: QuoteRow) => navigate(`/vendas/propostas/${row.id}`)}
+        />
       )}
     </div>
   );

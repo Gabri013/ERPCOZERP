@@ -4,11 +4,12 @@
 import { useImpersonation } from '@/contexts/ImpersonationContext';
 import { Eye, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { repairUtf8Mojibake } from '@/utils/textEncoding';
 
 function nomeExibicao(u) {
   if (!u) return '';
   const n = u.full_name || u.fullName;
-  if (n && String(n).trim()) return String(n).trim();
+  if (n && String(n).trim()) return repairUtf8Mojibake(String(n).trim());
   return u.email || '';
 }
 

@@ -119,9 +119,8 @@ export function getDefaultWidgetsByRole(roleCode, sectorName) {
         'kpi_vendas',
         'chart_vendas_mes',
         'chart_conversao',
-        'top_produtos',
+        'pedidos_recentes',
         'alertas_pedidos',
-        'chart_funil_vendas',
       ];
       break;
     case 'projetista':

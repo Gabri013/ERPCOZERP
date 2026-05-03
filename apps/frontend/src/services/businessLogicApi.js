@@ -1,4 +1,5 @@
 import { recordsServiceApi } from '@/services/recordsServiceApi';
+import { listSaleOrders } from '@/services/salesApi';
 
 export const CONFIG = {
   LIMITE_APROVACAO: 20000,
@@ -12,6 +13,15 @@ function normStatus(v) {
 export async function fetchPedidosAguardandoAp() {
   const rows = await recordsServiceApi.list('pedido_venda');
   return rows.filter((p) => String(p.status || '') === 'Aguardando Aprovação');
+}
+
+/**
+ * PV em DRAFT com valor acima do limite de aprovação (mesma regra da tela de aprovação).
+ * O backend já limita a lista ao comercial responsável quando aplicável.
+ */
+export async function fetchPedidosDraftParaAprovacaoPrisma() {
+  const rows = await listSaleOrders({ status: 'DRAFT', take: 500 });
+  return rows.filter((o) => Number(o.totalAmount ?? 0) >= CONFIG.LIMITE_APROVACAO);
 }
 
 export async function aprovarPedidoGerencialApi(id) {

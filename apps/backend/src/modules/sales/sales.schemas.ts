@@ -1,10 +1,18 @@
 import { z } from 'zod';
 
-export const listSaleOrdersQuerySchema = z.object({
-  status: z.string().optional(),
-  customerId: z.string().uuid().optional(),
-  take: z.coerce.number().min(1).max(500).optional(),
-});
+/** `limit` é alias de `take` (compatível com chamadas antigas do frontend). */
+export const listSaleOrdersQuerySchema = z
+  .object({
+    status: z.string().optional(),
+    customerId: z.string().uuid().optional(),
+    take: z.coerce.number().min(1).max(500).optional(),
+    limit: z.coerce.number().min(1).max(500).optional(),
+  })
+  .transform((q) => ({
+    status: q.status,
+    customerId: q.customerId,
+    take: q.take ?? q.limit,
+  }));
 
 export const createCustomerSchema = z.object({
   code: z.string().max(64).optional(),
@@ -59,6 +67,7 @@ export const quoteItemInputSchema = z.object({
 
 export const createQuoteSchema = z.object({
   customerId: z.string().uuid(),
+  opportunityId: z.string().uuid().optional().nullable(),
   validUntil: z.union([z.string(), z.null()]).optional(),
   notes: z.string().max(10000).optional().nullable(),
   items: z.array(quoteItemInputSchema).min(1),
@@ -69,6 +78,29 @@ export const patchQuoteSchema = z.object({
   validUntil: z.union([z.string(), z.null()]).optional(),
   notes: z.string().max(10000).optional().nullable(),
   items: z.array(quoteItemInputSchema).optional(),
+  technicalReview: z.enum(['NOT_REQUIRED', 'PENDING', 'APPROVED', 'NEEDS_ADJUSTMENT']).optional(),
+});
+
+export const createOpportunitySchema = z.object({
+  customerId: z.string().uuid(),
+  ownerUserId: z.string().uuid().optional().nullable(),
+  title: z.string().min(1).max(500),
+  status: z.string().max(80).optional(),
+  profileAbc: z.string().max(8).optional().nullable(),
+  projectType: z.string().max(120).optional().nullable(),
+  potential: z.string().max(120).optional().nullable(),
+  scopeNotes: z.string().max(20000).optional().nullable(),
+  deliveryNotes: z.string().max(20000).optional().nullable(),
+});
+
+export const patchOpportunitySchema = createOpportunitySchema.partial().omit({ customerId: true });
+
+export const addSalesActivitySchema = z.object({
+  opportunityId: z.string().uuid().optional().nullable(),
+  quoteId: z.string().uuid().optional().nullable(),
+  type: z.string().min(1).max(80),
+  body: z.string().min(1).max(20000),
+  metadata: z.record(z.string(), z.unknown()).optional().nullable(),
 });
 
 export const createPriceTableSchema = z.object({
