@@ -5,8 +5,8 @@
  *   npm run sync:cozinca-team
  *   cd apps/backend && npm run sync:cozinca-team
  *
- * Se `DATABASE_URL` estiver ausente e NODE_ENV !== 'production', usa o mesmo
- * padrão do docker-compose (Postgres em 127.0.0.1, porta publicada).
+ * Se `DATABASE_URL` estiver ausente e NODE_ENV !== 'production`, usa o padrão
+ * local (Postgres em 127.0.0.1:5432, user/db erpcoz).
  *
  * Senha padrão: 123456 (ou COZINCA_SYNC_PASSWORD)
  *
@@ -23,7 +23,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '../../../.env') });
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
-/** Defaults alinhados a `docker-compose.yml` (conexão do host → porta publicada). */
+/** Defaults para Postgres local (mesmos valores sugeridos no README / `.env.example`). */
 function resolveDatabaseUrl(): string {
   const explicit = process.env.DATABASE_URL?.trim();
   if (explicit) return explicit;

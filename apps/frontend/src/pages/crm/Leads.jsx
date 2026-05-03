@@ -6,6 +6,9 @@ import FormModal, { inp, lbl, req } from '@/components/common/FormModal';
 import DetalheModal from '@/components/common/DetalheModal';
 import { Plus, Instagram, Facebook, Globe, MessageCircle, Users, Phone, Mail, ArrowRight } from 'lucide-react';
 import { recordsServiceApi } from '@/services/recordsServiceApi';
+import { metaApi } from '@/services/metaApi';
+import DynamicForm from '@/components/meta/DynamicForm';
+import { useAuth } from '@/lib/AuthContext';
 import { toast } from 'sonner';
 
 // ─── Origens de leads ─────────────────────────────────────────────────────────
@@ -49,13 +52,22 @@ function BadgeQualif({ q }) {
 }
 
 const FORM_EMPTY = {
-  nome: '', empresa: '', cargo: '', email: '', telefone: '',
-  origem: 'Instagram', qualificacao: 'Morno', responsavel: '',
-  observacoes: '', produto_interesse: '',
+  nome: '',
+  empresa: '',
+  cargo: '',
+  email: '',
+  telefone: '',
+  origem: 'Instagram',
+  qualificacao: 'Morno',
+  responsavel: '',
+  responsavelId: '',
+  observacoes: '',
+  produto_interesse: '',
 };
 
 export default function Leads() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -65,8 +77,12 @@ export default function Leads() {
   const [search, setSearch] = useState('');
   const [filtroOrigem, setFiltroOrigem] = useState('');
   const [filtroQualif, setFiltroQualif] = useState('');
+  const [metaFields, setMetaFields] = useState([]);
+  const [dynValues, setDynValues] = useState({});
 
   const upd = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  const dynUpd = (code, v) => setDynValues((d) => ({ ...d, [code]: v }));
 
   async function load() {
     setLoading(true);
@@ -79,11 +95,65 @@ export default function Leads() {
 
   useEffect(() => { load(); }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const items = await metaApi.listFields('crm_lead');
+        if (!cancelled) setMetaFields(items);
+      } catch {
+        if (!cancelled) setMetaFields([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!showModal) return;
+    setForm({
+      ...FORM_EMPTY,
+      responsavelId: user?.id || '',
+      responsavel: user?.fullName || '',
+    });
+    const init = {};
+    for (const f of metaFields) {
+      init[f.fieldCode] = f.dataType === 'checkbox' ? false : '';
+    }
+    setDynValues(init);
+  }, [showModal, user, metaFields]);
+
   const handleSave = async () => {
     if (!form.nome) return toast.error('Informe o nome do lead');
+    const rid = form.responsavelId || user?.id || '';
+    if (!rid && !String(form.responsavel || '').trim()) {
+      return toast.error('Defina o responsável pelo lead.');
+    }
+    for (const f of metaFields) {
+      if (!f.required) continue;
+      const v = dynValues[f.fieldCode];
+      if (f.dataType === 'checkbox') {
+        if (v !== true) return toast.error(`Marque o campo obrigatório: ${f.label}`);
+        continue;
+      }
+      const empty = v === '' || v === null || v === undefined || (typeof v === 'string' && !v.trim());
+      if (empty) return toast.error(`Preencha o campo: ${f.label}`);
+    }
+    const dynPayload = {};
+    for (const f of metaFields) {
+      const v = dynValues[f.fieldCode];
+      if (v === '' || v === undefined) continue;
+      if (f.dataType === 'checkbox') dynPayload[f.fieldCode] = Boolean(v);
+      else if (f.dataType === 'numero' && v !== '') dynPayload[f.fieldCode] = Number(v);
+      else dynPayload[f.fieldCode] = v;
+    }
     setSaving(true);
     try {
-      await recordsServiceApi.create('crm_lead', form);
+      await recordsServiceApi.create('crm_lead', {
+        ...form,
+        ...dynPayload,
+        responsavelId: rid || form.responsavelId,
+        responsavel: form.responsavel || user?.fullName || '',
+      });
       await load();
       setShowModal(false);
       setForm(FORM_EMPTY);
@@ -100,9 +170,10 @@ export default function Leads() {
         empresa: lead.empresa || '',
         contato: lead.nome,
         valor: 0,
-        estagio: 'Qualificação',
-        probabilidade: 30,
+        estagio: 'Novo',
+        probabilidade: 10,
         responsavel: lead.responsavel || '',
+        responsavelId: lead.responsavelId || '',
         lead_id: lead.id,
       });
       toast.success('Lead convertido em Oportunidade!');
@@ -268,6 +339,9 @@ export default function Leads() {
               <label className={lbl}>Observações</label>
               <textarea className={`${inp} resize-none`} rows={2} value={form.observacoes} onChange={(e) => upd('observacoes', e.target.value)} placeholder="Informações adicionais, contexto da conversa..." />
             </div>
+            {metaFields.length > 0 && (
+              <DynamicForm fields={metaFields} values={dynValues} onChange={dynUpd} className="pt-2 border-t border-border" />
+            )}
           </div>
         </FormModal>
       )}
@@ -311,6 +385,28 @@ export default function Leads() {
             <div className="mb-4 p-3 bg-muted/50 rounded-md">
               <p className="text-[11px] font-semibold text-muted-foreground mb-1">Observações</p>
               <p className="text-xs text-foreground/70">{detalhe.observacoes}</p>
+            </div>
+          )}
+          {metaFields.length > 0 &&
+            metaFields.some((f) => {
+              const raw = detalhe[f.fieldCode];
+              return !(raw === '' || raw === undefined || raw === null);
+            }) && (
+            <div className="mb-4 p-3 border border-border rounded-md space-y-2">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Campos personalizados</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                {metaFields.map((f) => {
+                  const raw = detalhe[f.fieldCode];
+                  if (raw === '' || raw === undefined || raw === null) return null;
+                  const display = f.dataType === 'checkbox' ? (raw ? 'Sim' : 'Não') : String(raw);
+                  return (
+                    <div key={f.fieldCode} className="flex justify-between gap-2 border-b border-border pb-1.5">
+                      <span className="text-muted-foreground shrink-0">{f.label}</span>
+                      <span className="font-medium text-right break-all">{display}</span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
           <div className="flex flex-wrap gap-2">

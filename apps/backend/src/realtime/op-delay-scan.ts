@@ -1,8 +1,10 @@
 import { prisma } from '../infra/prisma.js';
+import { logInfo } from '../infra/logger.js';
 import { getIO } from './io.js';
 
 let timer: NodeJS.Timeout | null = null;
 let scanCount = 0;
+let lastDbWarnAt = 0;
 
 async function scanOverdueOrders() {
   const io = getIO();
@@ -51,11 +53,19 @@ async function scanOverdueOrders() {
       });
     }
   } catch {
-    // silenciar scan periódico
+    const now = Date.now();
+    if (now - lastDbWarnAt > 60_000) {
+      lastDbWarnAt = now;
+      logInfo(
+        '[op-delay-scan] não foi possível consultar o banco (PostgreSQL em 127.0.0.1:5432?). Suba o Postgres ou use docker-compose.infra.yml.',
+      );
+    }
   }
 }
 
+/** Cronômetro de OPs atrasadas. Defina `SKIP_OVERDUE_OP_SCAN=1` para desligar (ambientes sem DB). */
 export function scheduleOverdueProductionScan(intervalMs = 180_000) {
+  if (process.env.SKIP_OVERDUE_OP_SCAN === '1') return;
   if (timer) clearInterval(timer);
   void scanOverdueOrders();
   timer = setInterval(() => void scanOverdueOrders(), intervalMs);

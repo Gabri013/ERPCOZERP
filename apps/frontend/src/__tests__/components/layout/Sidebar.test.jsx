@@ -6,7 +6,7 @@ import Sidebar from '../../../components/layout/Sidebar.jsx';
 vi.mock('@/lib/PermissaoContext', () => ({
   usePermissao: () => ({
     pode: () => true,
-    permissoes: ['ver_pedidos', 'ver_estoque', 'ver_op', 'ver_financeiro', 'relatorios:view'],
+    permissoes: ['ver_pedidos', 'ver_crm', 'ver_estoque', 'ver_op', 'ver_financeiro', 'relatorios:view'],
   }),
 }));
 
@@ -75,10 +75,10 @@ describe('Sidebar Component', () => {
     expect(setIsOpen).toHaveBeenCalledWith(true);
   });
 
-  it('expande grupo Vendas ao clicar', () => {
+  it('expande grupo Principal (vendas) ao clicar', () => {
     renderSidebar(true);
-    const vendasBtn = screen.getByText('Vendas');
-    fireEvent.click(vendasBtn);
+    const principalBtn = screen.getByRole('button', { name: /Principal/i });
+    fireEvent.click(principalBtn);
     expect(screen.getByText('Pedidos de Venda')).toBeTruthy();
   });
 
@@ -91,10 +91,10 @@ describe('Sidebar Component', () => {
 
   it('colapsa grupo ao clicar novamente', () => {
     renderSidebar(true);
-    const vendasBtn = screen.getByText('Vendas');
-    fireEvent.click(vendasBtn); // abre
+    const principalBtn = screen.getByRole('button', { name: /Principal/i });
+    fireEvent.click(principalBtn); // abre
     expect(screen.getByText('Pedidos de Venda')).toBeTruthy();
-    fireEvent.click(vendasBtn); // fecha
+    fireEvent.click(principalBtn); // fecha
     expect(screen.queryByText('Pedidos de Venda')).toBeNull();
   });
 

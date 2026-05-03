@@ -27,7 +27,7 @@ Stack: **React 18 + Vite**, **Node.js + Express + Prisma**, **PostgreSQL**, **Re
 
 - **`apps/frontend`** — SPA React + Vite, responsiva (375px–1440px), com Metadata Studio, Dashboards configuráveis, visualizador 3D (Three.js) e Socket.IO em tempo real.
 - **`apps/backend`** — API REST, RBAC granular, registros dinâmicos (`/api/records`), todos os módulos industriais integrados.
-- **`docker-compose.yml`** — um único arquivo para subir Postgres 15, Redis 7, API e frontend (nginx).
+- **`docker-compose.yml`** — opcional: stack completa em containers (demo/deploy); o desenvolvimento diário pode usar **Postgres e Redis instalados no sistema**.
 
 ### APIs por domínio (resumo)
 
@@ -57,48 +57,61 @@ Documentação detalhada: **`docs/modules/`** (`04-producao.md` … `09-engenhar
 |--------|--------|
 | Frontend | React 18, Vite 6, Tailwind, shadcn/ui, Zustand, React Router, Socket.IO client |
 | Backend | Node 18+, Express, Prisma, PostgreSQL, Redis, Socket.IO, JWT |
-| Infra | Docker Compose, nginx (assets estáticos + proxy `/api` e `/socket.io`) |
+| Infra | PostgreSQL, Redis (local ou em servidor); nginx em deploy (assets + proxy `/api` e `/socket.io`) |
 
 ## Pré-requisitos
 
-- **Docker** + Docker Compose v2 (recomendado para produção e demo).
-- **Node.js 18+** e npm (desenvolvimento local sem Docker).
+- **Node.js 18+** e npm
+- **PostgreSQL 15+** (recomendado) com uma base acessível em `127.0.0.1` (ou ajuste `DATABASE_URL`)
+- **Redis 7+** (opcional no dev: sem `REDIS_URL` a API sobe, mas recursos que dependem de fila/cache podem faltar)
+- **Docker** + Docker Compose v2 — apenas se quiser a stack em containers (veja fim desta seção)
 
-## Configuração rápida
+## Configuração rápida (sem Docker)
 
-```bash
-cp .env.example .env
-# Defina JWT_SECRET com string longa e aleatória
-```
+1. **PostgreSQL** — crie usuário, senha e banco (exemplo alinhado ao Prisma/seed; ajuste se preferir outro nome):
 
-## Docker (recomendado)
+   ```sql
+   CREATE USER erpcoz WITH PASSWORD 'erpcozpass';
+   CREATE DATABASE erpcoz OWNER erpcoz;
+   ```
 
-```bash
-docker compose up -d --build
-```
+   No Windows, use o **pgAdmin**, o `psql` que vem com o [installer EDB](https://www.postgresql.org/download/windows/) ou `winget install PostgreSQL.PostgreSQL` (siga o assistente e anote a porta, em geral **5432**).
 
-| Serviço | Container | URL / porta no host (padrão) |
-|---------|-----------|-------------------------------|
-| Frontend | `erp_frontend` | http://localhost:5173 |
-| API | `erp_backend` | http://localhost:3001 |
-| Postgres | `erp_postgres` | localhost:5432 (usuário/base `erpcoz`) |
-| Redis | `erp_redis` | localhost:6379 |
+2. Copie variáveis de ambiente:
 
-Variáveis opcionais no `.env`: `POSTGRES_PUBLISH_PORT`, `REDIS_PUBLISH_PORT`, `BACKEND_PUBLISH_PORT`, `FRONTEND_PUBLISH_PORT`, `POSTGRES_PASSWORD`, etc.
+   ```bash
+   cp .env.example .env
+   cp apps/backend/.env.example apps/backend/.env
+   ```
 
-Parar:
+   Em **`apps/backend/.env`** defina pelo menos:
 
-```bash
-docker compose down
-```
+   - `DATABASE_URL=postgresql://erpcoz:erpcozpass@127.0.0.1:5432/erpcoz`
+   - `JWT_SECRET` — string longa e aleatória  
+   - Opcional: `REDIS_URL=redis://127.0.0.1:6379` se o Redis estiver rodando localmente.
 
-### Seed via container
+   O ficheiro `.env` na **raiz** é útil para scripts e espelhar `JWT_SECRET` / `DATABASE_URL`; o backend carrega **`apps/backend/.env`** em primeiro lugar.
 
-```bash
-npm run docker:seed
-```
+3. **Migrações e seed** (a partir da raiz do repo):
 
-### Migração de dados legados (MySQL / MariaDB)
+   ```bash
+   npm install
+   npm install --prefix apps/frontend
+   npm install --prefix apps/backend
+   cd apps/backend && npx prisma migrate dev && cd ../..
+   ```
+
+   Para popular dados de demonstração (respeita `SEED_ENABLED` no `.env`):
+
+   ```bash
+   cd apps/backend && npx tsx prisma/seed.ts && cd ../..
+   ```
+
+   Ou, com `SEED_ENABLED=true` no `apps/backend/.env`: `npm run prisma:seed --prefix apps/backend`.
+
+4. Inicie API + frontend: `npm run dev` (API **3001**, Vite **5173**).
+
+## Migração de dados legados (MySQL / MariaDB)
 
 O dump phpMyAdmin do sistema antigo (por exemplo `127_0_0_1.sql` na raiz do repositório) pode ser importado para o PostgreSQL atual. O ERP persiste cadastros em **Entity / EntityRecord** (JSON); usuários legados recebem `users.legacy_id`.
 
@@ -110,22 +123,37 @@ set LEGACY_SQL_PATH=127_0_0_1.sql
 npm run migrate:legacy
 ```
 
-O relatório é gravado em **`docs/archive/reports/MIGRATION_REPORT.md`** (contagens, notas e tempo). O seed normal de desenvolvimento (`SEED_ENABLED`, `npm run docker:seed`) **não** é executado por este comando; rode o seed antes ou depois conforme o ambiente.
+O relatório é gravado em **`docs/archive/reports/MIGRATION_REPORT.md`** (contagens, notas e tempo). O seed de desenvolvimento (`npm run prisma:seed --prefix apps/backend`) **não** é executado por este comando; rode migrações/seed antes ou depois conforme o ambiente.
 
-## Desenvolvimento local (sem Docker da API)
+## Desenvolvimento diário
 
-Dois terminais ou um comando:
+Com dependências instaladas e **Postgres** acessível (`DATABASE_URL` em `apps/backend/.env`):
 
 ```bash
-npm install
-npm install --prefix apps/frontend
-npm install --prefix apps/backend
-
 npm run dev
 ```
 
-- Frontend Vite: porta **5173**, proxy `/api` → `VITE_BACKEND_URL` ou `http://127.0.0.1:3001`.
-- Backend: `apps/backend` (`tsx watch`), porta **3001**.
+- Frontend Vite: **5173**, proxy `/api` e WebSocket → `VITE_BACKEND_URL` ou `http://127.0.0.1:3001`.
+- Backend: `apps/backend` (`tsx watch`), **3001**.
+
+### Docker (opcional)
+
+Se preferir **toda** a stack em containers (Postgres, Redis, API, nginx):
+
+```bash
+docker compose up -d --build
+```
+
+| Serviço | Container | URL / porta no host (padrão) |
+|---------|-----------|-------------------------------|
+| Frontend | `erp_frontend` | http://localhost:5173 |
+| API | `erp_backend` | http://localhost:3001 |
+| Postgres | `erp_postgres` | localhost:5432 |
+| Redis | `erp_redis` | localhost:6379 |
+
+Parar: `docker compose down`. Seed no container: `npm run docker:seed`.
+
+O ficheiro **`docker-compose.infra.yml`** só sobe Postgres + Redis (útil se alguém da equipa ainda quiser DB em container com API no host); **não é obrigatório** se o Postgres estiver instalado no sistema.
 
 Scripts úteis na raiz:
 
@@ -137,7 +165,7 @@ Scripts úteis na raiz:
 | `npm run smoke` | Typecheck backend + build frontend (sem API, sem Prisma generate) |
 | `npm run test` | Smoke HTTP (`tests/smoke/test-all-endpoints.cjs`) |
 | `npm run test:e2e` | Playwright (`tests/e2e`) |
-| `npm run docker:up` / `docker:down` / `docker:logs` | Compose |
+| `npm run docker:up` / `docker:down` / `docker:logs` | Compose (opcional) |
 | `npm run migrate:legacy` | Importa dump SQL legado (`scripts/migrate-legacy-data.js`) |
 
 ## Credenciais de demonstração
@@ -160,13 +188,15 @@ Perfis e permissões documentados em `apps/backend/prisma/seed.ts`.
 
 ## Backup e restore
 
-Scripts bash (`scripts/backup.sh`, `scripts/restore.sh`): usam `docker compose` e `pg_dump` / `psql`. Cron exemplo:
+Os scripts bash (`scripts/backup.sh`, `scripts/restore.sh`) assumem `docker compose` para aceder ao Postgres. **Sem Docker**, use `pg_dump` / `psql` apontando para o mesmo host/porta de `DATABASE_URL` (ex.: `pg_dump -h 127.0.0.1 -U erpcoz erpcoz > backup.sql`).
+
+Cron exemplo (ajuste o comando se não usar compose):
 
 ```cron
 0 2 * * * cd /caminho/ERPCOZERP && ./scripts/backup.sh >> /var/log/erp-backup.log 2>&1
 ```
 
-Seed local sem Docker: `./scripts/seed-dev.sh` (requer DB configurado em `apps/backend`).
+Seed com Postgres local: `./scripts/seed-dev.sh` ou `npm run prisma:seed --prefix apps/backend` (requer DB em `apps/backend/.env`).
 
 ## Testes
 

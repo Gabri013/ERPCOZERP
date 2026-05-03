@@ -21,6 +21,7 @@ const GRANULAR_ENTITY_CODES = [
   'crm_lead',
   'crm_oportunidade',
   'crm_atividade',
+  'crm_rules',
   'cotacao_compra',
   'historico_op',
   'workflow',
@@ -275,7 +276,7 @@ async function main() {
       ...producaoGranularCodes,
     ],
 
-    // ── Vendas / Orçamentista: pedidos, clientes, orçamentos, catálogo somente leitura + relatórios — sem CRM, serviços, estoque operacional, eng., conhecimento ──
+    // ── Vendas / Orçamentista: CRM + pedidos, clientes, orçamentos, catálogo + cadastro de produto para pronta entrega ──
     orcamentista_vendas: [
       'ver_pedidos',
       'criar_pedidos',
@@ -284,7 +285,10 @@ async function main() {
       'editar_clientes',
       'ver_orcamentos',
       'criar_orcamentos',
+      'ver_crm',
       'produto.view',
+      'produto.create',
+      'produto.update',
       'ver_relatorios',
       'relatorios:view',
       ...vendasGranularCodesComercial,
@@ -729,7 +733,15 @@ async function main() {
         { id: 'ld.cargo', code: 'cargo', label: 'Cargo', data_type: 'text' },
         { id: 'ld.email', code: 'email', label: 'E-mail', data_type: 'text' },
         { id: 'ld.telefone', code: 'telefone', label: 'Telefone', data_type: 'text' },
-        { id: 'ld.origem', code: 'origem', label: 'Origem', data_type: 'select', data_type_params: { options: ['Site', 'Telefone', 'Indicação', 'Evento', 'Outros'] } },
+        {
+          id: 'ld.origem',
+          code: 'origem',
+          label: 'Origem',
+          data_type: 'select',
+          data_type_params: {
+            options: ['WhatsApp', 'Instagram', 'Site', 'Telefone', 'Indicação', 'Evento', 'Outros'],
+          },
+        },
         {
           id: 'ld.qualificacao',
           code: 'qualificacao',
@@ -738,6 +750,30 @@ async function main() {
           data_type_params: { options: ['Frio', 'Morno', 'Quente'] },
         },
         { id: 'ld.responsavel', code: 'responsavel', label: 'Responsável', data_type: 'text' },
+        { id: 'ld.responsavelId', code: 'responsavelId', label: 'Responsável (usuário)', data_type: 'text' },
+        {
+          id: 'ld.tipo_projeto',
+          code: 'tipo_projeto',
+          label: 'Tipo de projeto',
+          data_type: 'select',
+          data_type_params: { options: ['padrão', 'sob medida'] },
+        },
+      ],
+    },
+    crm_rules: {
+      fields: [
+        { id: 'cr.code', code: 'code', label: 'Código', data_type: 'text', required: true },
+        { id: 'cr.name', code: 'name', label: 'Nome', data_type: 'text', required: true },
+        {
+          id: 'cr.tipo',
+          code: 'tipo',
+          label: 'Tipo de regra',
+          data_type: 'select',
+          required: true,
+          data_type_params: { options: ['assignment', 'alert', 'validation'] },
+        },
+        { id: 'cr.config', code: 'config', label: 'Config (JSON)', data_type: 'json', required: true },
+        { id: 'cr.ativo', code: 'ativo', label: 'Ativo', data_type: 'boolean' },
       ],
     },
     crm_oportunidade: {
@@ -751,11 +787,34 @@ async function main() {
           code: 'estagio',
           label: 'Estágio',
           data_type: 'select',
-          data_type_params: { options: ['Lead', 'Qualificação', 'Proposta', 'Negociação', 'Fechado', 'Ganho', 'Perdido'] },
+          data_type_params: {
+            options: [
+              'Novo',
+              'Qualificado',
+              'Em orçamento',
+              'Proposta enviada',
+              'Negociação',
+              'Aguardando cliente',
+              'Fechado ganho',
+              'Fechado perdido',
+            ],
+          },
         },
+        { id: 'op2.responsavelId', code: 'responsavelId', label: 'Responsável (usuário)', data_type: 'text' },
         { id: 'op2.probabilidade', code: 'probabilidade', label: 'Probabilidade (%)', data_type: 'number' },
         { id: 'op2.fechamento', code: 'fechamento', label: 'Data prev. fechamento', data_type: 'date' },
         { id: 'op2.responsavel', code: 'responsavel', label: 'Responsável', data_type: 'text' },
+        { id: 'op2.lead_id', code: 'lead_id', label: 'Lead (ID)', data_type: 'text' },
+        {
+          id: 'op2.origem',
+          code: 'origem',
+          label: 'Origem',
+          data_type: 'select',
+          data_type_params: {
+            options: ['WhatsApp', 'Instagram', 'Site', 'Telefone', 'Indicação', 'Evento', 'Outros'],
+          },
+        },
+        { id: 'op2.motivo_perda', code: 'motivo_perda', label: 'Motivo da perda', data_type: 'textarea' },
         { id: 'op2.orcamento_id', code: 'orcamento_id', label: 'Orçamento (ID)', data_type: 'text' },
         { id: 'op2.pedido_id', code: 'pedido_id', label: 'Pedido (ID)', data_type: 'text' },
       ],
@@ -769,11 +828,25 @@ async function main() {
           label: 'Tipo',
           data_type: 'select',
           required: true,
-          data_type_params: { options: ['Tarefa', 'Ligação', 'E-mail', 'Visita', 'Outro'] },
+          data_type_params: {
+            options: [
+              'Ligação',
+              'WhatsApp',
+              'Reunião',
+              'Follow-up',
+              'E-mail',
+              'Visita',
+              'Tarefa',
+              'Acompanhamento pós-venda',
+              'Outro',
+            ],
+          },
         },
-        { id: 'ca.data', code: 'data', label: 'Data/Hora', data_type: 'text' },
+        { id: 'ca.data_atividade', code: 'data_atividade', label: 'Data/Hora', data_type: 'text' },
+        { id: 'ca.data', code: 'data', label: 'Data/Hora (legado)', data_type: 'text' },
         { id: 'ca.responsavel', code: 'responsavel', label: 'Responsável', data_type: 'text' },
         { id: 'ca.relacionamento', code: 'relacionamento', label: 'Lead/Oportunidade', data_type: 'text' },
+        { id: 'ca.oportunidade_id', code: 'oportunidade_id', label: 'Oportunidade (ID)', data_type: 'text' },
         { id: 'ca.observacao', code: 'observacao', label: 'Observação', data_type: 'textarea' },
         {
           id: 'ca.status',
@@ -1049,19 +1122,106 @@ async function main() {
     { entity_id: '', code: 'aprovacao_pedido_venda', name: 'Aprovação de Pedido de Venda', description: 'Fluxo simples de aprovação', is_active: true, trigger_type: 'manual', config: { requireApproval: true }, steps: [{ id: 'st1', code: 'orcamento', label: 'Orçamento', sort_order: 1 }, { id: 'st2', code: 'aprovado', label: 'Aprovado', sort_order: 2 }] },
   ]);
 
+  await seedEntityRecordsIfEmpty('crm_rules', 'CRM — Regras de automação', [
+    {
+      code: 'rr_leads_default',
+      name: 'Distribuição leads (round-robin exemplo)',
+      tipo: 'assignment',
+      ativo: true,
+      config: { type: 'round_robin', usuarios: [] },
+    },
+  ]);
+
   await seedEntityRecordsIfEmpty('crm_lead', 'CRM Leads', [
     { nome:'Fabricio Nunes', empresa:'Mec. Nunes Ltda', cargo:'Diretor', email:'fabricio@nunes.com', telefone:'(11) 9 8765-4321', origem:'Site', qualificacao:'Quente', responsavel:'Carlos Silva' },
     { nome:'Lúcia Barros', empresa:'Ind. Barros', cargo:'Gerente Compras', email:'lucia@barros.com', telefone:'(13) 9 7654-3210', origem:'Indicação', qualificacao:'Morno', responsavel:'Ana Paula' },
   ]);
 
   await seedEntityRecordsIfEmpty('crm_oportunidade', 'CRM Oportunidades', [
-    { titulo:'Fornecimento anual rolamentos', empresa:'Metalúrgica ABC', contato:'Márcio Lima', valor:180000, estagio:'Proposta', probabilidade:70, fechamento:'2026-05-30', responsavel:'Carlos Silva', orcamento_id: '' },
-    { titulo:'Projeto eixos transmissão lote', empresa:'SiderTech S/A', contato:'Ana Ramos', valor:95000, estagio:'Negociação', probabilidade:85, fechamento:'2026-04-30', responsavel:'Rafael Costa', orcamento_id: '' },
+    {
+      titulo: 'Fornecimento anual rolamentos',
+      empresa: 'Metalúrgica ABC',
+      contato: 'Márcio Lima',
+      valor: 180000,
+      estagio: 'Novo',
+      probabilidade: 20,
+      fechamento: '2026-05-30',
+      responsavel: 'Carlos Silva',
+      origem: 'Site',
+      lead_id: '',
+      motivo_perda: '',
+      orcamento_id: '',
+    },
+    {
+      titulo: 'Projeto eixos transmissão lote',
+      empresa: 'SiderTech S/A',
+      contato: 'Ana Ramos',
+      valor: 95000,
+      estagio: 'Novo',
+      probabilidade: 20,
+      fechamento: '2026-04-30',
+      responsavel: 'Rafael Costa',
+      origem: 'WhatsApp',
+      lead_id: '',
+      motivo_perda: '',
+      orcamento_id: '',
+    },
   ]);
 
+  try {
+    const leadEnt = await prisma.entity.findUnique({ where: { code: 'crm_lead' } });
+    const oppEnt = await prisma.entity.findUnique({ where: { code: 'crm_oportunidade' } });
+    if (leadEnt && oppEnt) {
+      const lr = await prisma.entityRecord.findFirst({
+        where: { entityId: leadEnt.id, deletedAt: null },
+        orderBy: { createdAt: 'asc' },
+      });
+      const or = await prisma.entityRecord.findFirst({
+        where: { entityId: oppEnt.id, deletedAt: null },
+        orderBy: { createdAt: 'asc' },
+      });
+      if (lr && or && or.data && typeof or.data === 'object' && !Array.isArray(or.data)) {
+        const d = or.data as Record<string, unknown>;
+        if (!String(d.lead_id ?? d.leadId ?? '').trim()) {
+          await prisma.entityRecord.update({
+            where: { id: or.id },
+            data: {
+              data: {
+                ...d,
+                lead_id: lr.id,
+                origem: String(d.origem || 'Site'),
+              } as object,
+              updatedBy: master.id,
+            },
+          });
+        }
+      }
+    }
+  } catch {
+    /* demo link opcional */
+  }
+
   await seedEntityRecordsIfEmpty('crm_atividade', 'CRM Atividades', [
-    { titulo: 'Retornar lead Metal ABC', tipo: 'Ligação', data: '2026-05-02T10:00:00Z', responsavel: 'Carlos Silva', relacionamento: 'Lead Fabricio', observacao: '', status: 'Pendente' },
-    { titulo: 'Enviar proposta revisada', tipo: 'E-mail', data: '2026-05-03T14:00:00Z', responsavel: 'Ana Paula', relacionamento: 'Opp. SiderTech', observacao: '', status: 'Pendente' },
+    {
+      titulo: 'Retornar lead Metal ABC',
+      tipo: 'Ligação',
+      data_atividade: '2026-05-02T10:00:00.000Z',
+      data: '2026-05-02T10:00:00.000Z',
+      responsavel: 'Carlos Silva',
+      relacionamento: 'Lead Fabricio',
+      observacao: '',
+      status: 'Pendente',
+    },
+    {
+      titulo: 'Enviar proposta revisada',
+      tipo: 'E-mail',
+      data_atividade: '2026-05-03T14:00:00.000Z',
+      data: '2026-05-03T14:00:00.000Z',
+      responsavel: 'Ana Paula',
+      relacionamento: 'Opp. SiderTech',
+      observacao: '',
+      status: 'Pendente',
+    },
   ]);
 
   await seedEntityRecordsIfEmpty('cotacao_compra', 'Cotações de Compra', [
@@ -2027,6 +2187,46 @@ async function main() {
         await prisma.entityRecord.create({ data: { entityId: pontosEnt.id, data: p, createdBy: master.id, updatedBy: master.id } });
       }
     }
+  }
+
+  // ── No-code: exemplo de campo dinâmico em Lead (opcional; visível no Form Builder / CRM Leads) ──
+  try {
+    await prisma.ncMetaField.upsert({
+      where: {
+        entityCode_fieldCode: { entityCode: 'crm_lead', fieldCode: 'nc_demo_segmento' },
+      },
+      create: {
+        id: randomUUID(),
+        entityCode: 'crm_lead',
+        fieldCode: 'nc_demo_segmento',
+        label: 'Segmento (demo no-code)',
+        dataType: 'select',
+        sortOrder: 0,
+        required: false,
+        active: true,
+        options: {
+          choices: [
+            { value: 'foodservice', label: 'Foodservice' },
+            { value: 'industria', label: 'Indústria' },
+            { value: 'varejo', label: 'Varejo' },
+          ],
+        },
+      },
+      update: {
+        label: 'Segmento (demo no-code)',
+        dataType: 'select',
+        active: true,
+        options: {
+          choices: [
+            { value: 'foodservice', label: 'Foodservice' },
+            { value: 'industria', label: 'Indústria' },
+            { value: 'varejo', label: 'Varejo' },
+          ],
+        },
+      },
+    });
+  } catch {
+    // tabela pode ainda não existir se migração não foi aplicada
   }
 
   // garante roles existirem (sem atribuir)

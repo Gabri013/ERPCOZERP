@@ -78,6 +78,7 @@ const Oportunidades = lazy(() => import('@/pages/crm/Oportunidades'));
 const Leads = lazy(() => import('@/pages/crm/Leads'));
 const Atividades = lazy(() => import('@/pages/crm/Atividades'));
 const CrmDashboard = lazy(() => import('@/pages/crm/CrmDashboard'));
+const CrmInbox = lazy(() => import('@/pages/crm/Inbox'));
 const Funcionarios = lazy(() => import('@/pages/rh/Funcionarios'));
 const Ponto = lazy(() => import('@/pages/rh/Ponto'));
 const FolhaPagamento = lazy(() => import('@/pages/rh/FolhaPagamento'));
@@ -106,6 +107,7 @@ const Parametros = lazy(() => import('@/pages/configuracoes/Parametros'));
 const ModeloOP = lazy(() => import('@/pages/configuracoes/ModeloOP'));
 const MetadataStudio = lazy(() => import('@/pages/configuracoes/MetadataStudio'));
 const WorkflowBuilder = lazy(() => import('@/pages/configuracoes/WorkflowBuilder'));
+const FormBuilder = lazy(() => import('@/pages/configuracoes/FormBuilder'));
 const FluxoPedido = lazy(() => import('@/pages/configuracoes/FluxoPedido'));
 const EntityDynamicPage = lazy(() => import('@/pages/dinamico/EntityDynamicPage'));
 const ContasReceber = lazy(() => import('@/pages/financeiro/ContasReceber'));
@@ -233,7 +235,7 @@ const AuthenticatedApp = () => {
               </PermissaoRoute>
             )}
           />
-          <Route path="/estoque/produtos/novo" element={<PermissaoRoute anyOf={['ver_estoque', 'produto.update', 'produto.create']}><ProductForm /></PermissaoRoute>} />
+          <Route path="/estoque/produtos/novo" element={<PermissaoRoute anyOf={['produto.create', 'editar_produtos']}><ProductForm /></PermissaoRoute>} />
           <Route path="/estoque/produtos/:id" element={<PermissaoRoute anyOf={['ver_estoque', 'produto.view', 'produto.update']}><ProductForm /></PermissaoRoute>} />
           <Route path="/estoque/produtos" element={<PermissaoRoute anyOf={['ver_estoque', 'produto.view']}><ProductsPage /></PermissaoRoute>} />
           <Route path="/estoque/movimentacoes" element={<PermissaoRoute acao="ver_estoque"><StockMovementsPage /></PermissaoRoute>} />
@@ -290,6 +292,7 @@ const AuthenticatedApp = () => {
           <Route path="/crm/leads" element={<PermissaoRoute acao="ver_crm"><Leads /></PermissaoRoute>} />
           <Route path="/crm/atividades" element={<PermissaoRoute acao="ver_crm"><Atividades /></PermissaoRoute>} />
           <Route path="/crm/dashboard" element={<PermissaoRoute acao="ver_crm"><CrmDashboard /></PermissaoRoute>} />
+          <Route path="/crm/inbox" element={<PermissaoRoute acao="ver_crm"><CrmInbox /></PermissaoRoute>} />
           <Route path="/rh/funcionarios" element={<PermissaoRoute acao="ver_rh"><Funcionarios /></PermissaoRoute>} />
           <Route path="/rh/ponto" element={<PermissaoRoute acao="ver_rh"><Ponto /></PermissaoRoute>} />
           <Route path="/rh/folha-pagamento" element={<PermissaoRoute acao="ver_folha"><FolhaPagamento /></PermissaoRoute>} />
@@ -341,6 +344,7 @@ const AuthenticatedApp = () => {
           <Route path="/configuracoes/parametros" element={<PermissaoRoute acao="editar_config"><Parametros /></PermissaoRoute>} />
           <Route path="/configuracoes/modelo-op" element={<PermissaoRoute acao="editar_config"><ModeloOP /></PermissaoRoute>} />
           <Route path="/configuracoes/metadata-studio" element={<PermissaoRoute acao="editar_config"><MetadataStudio /></PermissaoRoute>} />
+          <Route path="/configuracoes/form-builder" element={<PermissaoRoute acao="editar_config"><FormBuilder /></PermissaoRoute>} />
           <Route path="/configuracoes/workflows" element={<PermissaoRoute acao="editar_config"><WorkflowBuilder /></PermissaoRoute>} />
           <Route path="/configuracoes/fluxo-pedido" element={<FluxoPedido />} />
         </Route>
@@ -358,7 +362,7 @@ function App() {
         <ImpersonationProvider>
           <PermissaoProvider>
             <QueryClientProvider client={queryClientInstance}>
-              <Router future={{ v7_relativeSplatPath: true }}>
+              <Router future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
                 <AppRouteErrorBoundary>
                   <AuthenticatedApp />
                 </AppRouteErrorBoundary>

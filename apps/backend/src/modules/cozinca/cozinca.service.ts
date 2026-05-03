@@ -330,6 +330,8 @@ export async function gerarPedidoDeOrcamento(orcamentoId: string, userId: string
   const pedidos = await listRecords('pedido_venda');
   const numero = nextNumero('PV', pedidos as any, /^PV-(\d+)/i);
 
+  const oppLinkedId = String((orc as Record<string, unknown>).oportunidade_id ?? '').trim();
+
   const pedido = await createRecord(
     'pedido_venda',
     {
@@ -343,6 +345,7 @@ export async function gerarPedidoDeOrcamento(orcamentoId: string, userId: string
       forma_pagamento: 'A definir',
       observacoes: `Gerado do ${orc.numero}`,
       orcamento_id: orcamentoId,
+      oportunidade_id: oppLinkedId || undefined,
       itens: orc.itens || [],
     },
     userId,
@@ -357,7 +360,9 @@ export async function gerarPedidoDeOrcamento(orcamentoId: string, userId: string
 
   const oportunidades = await listRecords('crm_oportunidade');
   const opMatch = oportunidades.find(
-    (o) => String((o as any).orcamento_id || '') === String(orcamentoId),
+    (o) =>
+      String((o as Record<string, unknown>).orcamento_id || '') === String(orcamentoId) ||
+      (oppLinkedId && String((o as { id?: string }).id) === oppLinkedId),
   );
   if (opMatch) {
     await updateRecord(
@@ -365,8 +370,10 @@ export async function gerarPedidoDeOrcamento(orcamentoId: string, userId: string
       String(opMatch.id),
       {
         ...opMatch,
-        estagio: 'Fechado',
+        estagio: 'Fechado ganho',
+        stage: 'Fechado ganho',
         pedido_id: pedido.id,
+        orcamento_id: orcamentoId,
       },
       userId,
     );

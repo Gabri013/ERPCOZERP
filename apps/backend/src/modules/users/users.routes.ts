@@ -3,7 +3,7 @@ import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import type { RequestHandler } from 'express';
 import { prisma } from '../../infra/prisma.js';
-import { sortRolesByPriority } from '../../lib/roleOrder.js';
+import { roleCodesFromUserRoleRows } from '../../lib/roleOrder.js';
 import { requirePermission } from '../../middleware/auth.js';
 
 export const usersRouter = Router();
@@ -67,7 +67,7 @@ usersRouter.get('/', manageUsersGate, async (req, res) => {
       email: u.email,
       full_name: u.fullName,
       active: u.active,
-      roles: sortRolesByPriority(u.roles.map((r) => r.role.code)),
+      roles: roleCodesFromUserRoleRows(u.roles),
       created_at: u.createdAt,
     })),
   });

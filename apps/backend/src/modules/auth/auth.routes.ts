@@ -1,11 +1,14 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import jwt, { type SignOptions } from 'jsonwebtoken';
+import { Prisma } from '@prisma/client';
 
 import { prisma } from '../../infra/prisma.js';
 import { env } from '../../config/env.js';
-import { sortRolesByPriority } from '../../lib/roleOrder.js';
+import { roleCodesFromUserRoleRows } from '../../lib/roleOrder.js';
+import { getEffectivePermissionCodesForUserId } from '../../lib/effectivePermissions.js';
+import { logInfo } from '../../infra/logger.js';
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -22,49 +25,87 @@ authRouter.post('/login', async (req, res) => {
 
   const { email, password } = parsed.data;
 
-  const user = await prisma.user.findUnique({
-    where: { email },
-    include: {
-      roles: {
-        include: { role: true },
+  try {
+    const user = await prisma.user.findUnique({
+      where: { email },
+      include: {
+        roles: {
+          include: { role: true },
+        },
       },
-    },
-  });
+    });
 
-  if (!user || !user.active) {
-    return res.status(401).json({ error: 'Credenciais inválidas' });
+    if (!user || !user.active) {
+      return res.status(401).json({ error: 'Credenciais inválidas' });
+    }
+
+    const ok = await bcrypt.compare(password, user.passwordHash);
+    if (!ok) {
+      return res.status(401).json({ error: 'Credenciais inválidas' });
+    }
+
+    const roles = roleCodesFromUserRoleRows(user.roles);
+    const permissions = await getEffectivePermissionCodesForUserId(user.id);
+    const secret = env.JWT_SECRET || process.env.JWT_SECRET || 'dev_change_me';
+    const expiresIn = env.JWT_EXPIRES_IN;
+
+    const token = jwt.sign(
+      { sub: user.id, email: user.email, roles, permissions },
+      secret as jwt.Secret,
+      { expiresIn: expiresIn as SignOptions['expiresIn'] }
+    );
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date(), failedLoginAttempts: 0, lockedUntil: null },
+    });
+
+    return res.json({
+      success: true,
+      token,
+      accessToken: token,
+      access_token: token,
+      user: {
+        id: user.id,
+        email: user.email,
+        full_name: user.fullName,
+        sector: user.sector ?? null,
+        roles,
+      },
+    });
+  } catch (err) {
+    if (isDatabaseUnavailable(err)) {
+      logInfo('[auth/login] base de dados indisponível', err);
+      return res.status(503).json({
+        error:
+          'Servidor de base de dados indisponível. Confirme que o PostgreSQL está a correr e que DATABASE_URL em apps/backend/.env está correto.',
+      });
+    }
+
+    if (err instanceof Prisma.PrismaClientKnownRequestError && ['P2021', 'P2010', 'P2022'].includes(err.code)) {
+      logInfo('[auth/login] schema Prisma desatualizado ou em falta', { code: err.code });
+      return res.status(503).json({
+        error:
+          'Base de dados sem tabelas ou desatualizada. Na pasta apps/backend execute: npx prisma migrate dev',
+      });
+    }
+
+    const message = err instanceof Error ? err.message : String(err);
+    logInfo('[auth/login] erro interno', { message, stack: err instanceof Error ? err.stack : undefined });
+
+    return res.status(500).json({
+      error: 'Erro interno ao iniciar sessão.',
+      ...(env.NODE_ENV !== 'production' && { detail: message }),
+    });
   }
-
-  const ok = await bcrypt.compare(password, user.passwordHash);
-  if (!ok) {
-    return res.status(401).json({ error: 'Credenciais inválidas' });
-  }
-
-  const roles = sortRolesByPriority(user.roles.map((ur) => ur.role.code));
-  const secret = env.JWT_SECRET || process.env.JWT_SECRET || 'dev_change_me';
-  const expiresIn = env.JWT_EXPIRES_IN;
-
-  const token = jwt.sign(
-    { sub: user.id, email: user.email, roles },
-    secret as jwt.Secret,
-    { expiresIn: expiresIn as any }
-  );
-
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { lastLoginAt: new Date(), failedLoginAttempts: 0, lockedUntil: null },
-  });
-
-  return res.json({
-    success: true,
-    token,
-    user: {
-      id: user.id,
-      email: user.email,
-      full_name: user.fullName,
-      sector: user.sector ?? null,
-      roles,
-    },
-  });
 });
+
+function isDatabaseUnavailable(err: unknown): boolean {
+  if (err instanceof Prisma.PrismaClientInitializationError) return true;
+  if (err instanceof Prisma.PrismaClientKnownRequestError) {
+    return ['P1000', 'P1001', 'P1002', 'P1003', 'P1017'].includes(err.code);
+  }
+  if (!(err instanceof Error)) return false;
+  return /Can't reach database|connection refused|ECONNREFUSED|P1001/i.test(err.message);
+}
 

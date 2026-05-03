@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 
 import PageHeader from '@/components/common/PageHeader';
 
@@ -240,7 +240,7 @@ export default function Usuarios() {
 
       if (editando?.id) {
 
-        await api.put(`/api/users/${editando.id}`, {
+        const body = {
 
           full_name: form.nome,
 
@@ -248,7 +248,15 @@ export default function Usuarios() {
 
           roles: [PERFIL_TO_ROLE[form.perfil] || 'user'],
 
-        });
+        };
+
+        if (form.password && String(form.password).length >= 6) {
+
+          body.password = form.password;
+
+        }
+
+        await api.put(`/api/users/${editando.id}`, body);
 
         toast.success('Usuário atualizado.');
 
@@ -504,6 +512,34 @@ function UsuarioModal({ usuario, onClose, onSave, saving }) {
 
         )}
 
+        {usuario && (
+
+          <div className="sm:col-span-2">
+
+            <label className={lbl}>Nova senha (opcional)</label>
+
+            <input
+
+              type="password"
+
+              className={inp}
+
+              autoComplete="new-password"
+
+              placeholder="Deixe em branco para manter"
+
+              value={form.password || ''}
+
+              onChange={(e) => upd('password', e.target.value)}
+
+            />
+
+            <p className="mt-1 text-[10px] text-muted-foreground">Requer permissão de administrador no servidor.</p>
+
+          </div>
+
+        )}
+
         <div className="sm:col-span-2"><label className={lbl}>Perfil principal</label>
 
           <select
@@ -562,6 +598,16 @@ function PermissoesModal({ usuario, onClose }) {
 
   const [selectedRoles, setSelectedRoles] = useState(() => [...(usuario.roles || [])]);
 
+  const [extraGrants, setExtraGrants] = useState([]);
+
+  const [tab, setTab] = useState('roles');
+
+  const [qRoles, setQRoles] = useState('');
+
+  const [qExtras, setQExtras] = useState('');
+
+  const [qSummary, setQSummary] = useState('');
+
 
 
   useEffect(() => {
@@ -592,6 +638,24 @@ function PermissoesModal({ usuario, onClose }) {
 
         setRolesCatalog(Array.isArray(rl?.data?.data) ? rl.data.data : []);
 
+        let grantCodes = [];
+
+        try {
+
+          const gr = await api.get(`/api/permissions/users/${usuario.id}/grants`);
+
+          grantCodes = Array.isArray(gr?.data?.data?.codes) ? gr.data.data.codes : [];
+
+        } catch {
+
+          grantCodes = [];
+
+        }
+
+        if (!ok) return;
+
+        setExtraGrants(grantCodes);
+
       } catch {
 
         if (ok) toast.error('Não foi possível carregar permissões.');
@@ -618,6 +682,14 @@ function PermissoesModal({ usuario, onClose }) {
 
 
 
+  const toggleExtra = (code) => {
+
+    setExtraGrants((prev) => (prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]));
+
+  };
+
+
+
   const handleSave = async () => {
 
     if (!selectedRoles.length) {
@@ -638,13 +710,25 @@ function PermissoesModal({ usuario, onClose }) {
 
       });
 
-      toast.success('Papéis do usuário atualizados.');
+      await api.put(`/api/permissions/users/${usuario.id}/grants`, { codes: extraGrants });
+
+      toast.success('Papéis e permissões extras atualizados. O usuário deve atualizar a página (F5) para ver menus novos.');
 
       onClose();
 
     } catch (e) {
 
-      toast.error(e?.response?.data?.error || e?.message || 'Falha ao salvar.');
+      const b = e?.body;
+      const detail = typeof b === 'object' && b?.details ? String(b.details) : '';
+      const msg =
+        (typeof b === 'object' && b?.error && detail ? `${b.error} ${detail}` : null) ||
+        (typeof b === 'object' && b?.error) ||
+        e?.response?.data?.error ||
+        e?.response?.data?.missing?.join?.(', ') ||
+        e?.message ||
+        'Falha ao salvar.';
+
+      toast.error(msg);
 
     } finally {
 
@@ -659,6 +743,78 @@ function PermissoesModal({ usuario, onClose }) {
   const permSet = new Set(effective?.permissions || []);
 
   const byCat = catalog?.byCategory || {};
+
+  const flatPerms = catalog?.flat || [];
+
+  const needle = (s, q) => {
+
+    const t = String(q || '').trim().toLowerCase();
+
+    if (!t) return true;
+
+    const hay = `${s.code} ${s.name} ${s.category || ''} ${s.description || ''}`.toLowerCase();
+
+    return hay.includes(t);
+
+  };
+
+  const filteredRoles = useMemo(() => {
+
+    const t = qRoles.trim().toLowerCase();
+
+    if (!t) return rolesCatalog;
+
+    return rolesCatalog.filter((r) => `${r.name} ${r.code}`.toLowerCase().includes(t));
+
+  }, [rolesCatalog, qRoles]);
+
+  const filteredExtrasList = useMemo(() => {
+
+    return flatPerms.filter((p) => needle(p, qExtras));
+
+  }, [flatPerms, qExtras]);
+
+  const sortedCategories = useMemo(() => {
+
+    const keys = Object.keys(byCat);
+
+    const rank = (c) => {
+
+      if (c === 'core') return 0;
+
+      if (c === 'vendas') return 1;
+
+      if (c === 'estoque') return 2;
+
+      if (c === 'producao') return 3;
+
+      if (c.startsWith('entity.')) return 50;
+
+      return 20;
+
+    };
+
+    return keys.sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+
+  }, [byCat]);
+
+  const filteredSummaryCats = useMemo(() => {
+
+    const t = qSummary.trim().toLowerCase();
+
+    return sortedCategories
+
+      .map((cat) => {
+
+        const rows = (byCat[cat] || []).filter((p) => needle(p, qSummary));
+
+        return { cat, rows };
+
+      })
+
+      .filter((x) => x.rows.length > 0);
+
+  }, [sortedCategories, byCat, qSummary]);
 
 
 
@@ -680,7 +836,7 @@ function PermissoesModal({ usuario, onClose }) {
 
             <p className="text-[11px] text-muted-foreground">
 
-              As permissões efetivas vêm dos papéis abaixo (catálogo no banco). Ajuste os papéis e salve.
+              Papéis somam permissões do catálogo. Em &quot;Extras&quot; você adiciona permissões pontuais (ex.: editar produtos) sem criar novo papel.
 
             </p>
 
@@ -690,23 +846,73 @@ function PermissoesModal({ usuario, onClose }) {
 
 
 
-        <div className="flex-1 space-y-4 overflow-y-auto px-5 py-3">
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
 
-          {loading && <p className="text-xs text-muted-foreground">Carregando…</p>}
+          <div className="flex shrink-0 gap-1 border-b border-border px-5 pt-2">
+
+            {[
+
+              { id: 'roles', label: 'Papéis' },
+
+              { id: 'extras', label: 'Permissões extras' },
+
+              { id: 'summary', label: 'Resumo efetivo' },
+
+            ].map((t) => (
+
+              <button
+
+                key={t.id}
+
+                type="button"
+
+                onClick={() => setTab(t.id)}
+
+                className={`rounded-t px-3 py-1.5 text-xs font-medium ${
+
+                  tab === t.id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
+
+                }`}
+
+              >
+
+                {t.label}
+
+              </button>
+
+            ))}
+
+          </div>
 
 
 
-          {!loading && (
+          <div className="flex-1 space-y-3 overflow-y-auto px-5 py-3">
 
-            <>
+            {loading && <p className="text-xs text-muted-foreground">Carregando…</p>}
 
-              <div>
 
-                <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Papéis (roles)</div>
 
-                <div className="grid max-h-40 grid-cols-1 gap-1.5 overflow-y-auto sm:grid-cols-2">
+            {!loading && tab === 'roles' && (
 
-                  {rolesCatalog.map((r) => (
+              <>
+
+                <input
+
+                  type="search"
+
+                  placeholder="Buscar papel por nome ou código…"
+
+                  className={inp}
+
+                  value={qRoles}
+
+                  onChange={(e) => setQRoles(e.target.value)}
+
+                />
+
+                <div className="grid max-h-[52vh] grid-cols-1 gap-1.5 overflow-y-auto sm:grid-cols-2">
+
+                  {filteredRoles.map((r) => (
 
                     <label key={r.code} className="flex cursor-pointer items-center gap-2 rounded border border-border p-2 text-xs hover:bg-muted">
 
@@ -736,17 +942,121 @@ function PermissoesModal({ usuario, onClose }) {
 
                 </div>
 
-              </div>
+              </>
+
+            )}
 
 
 
-              <div>
+            {!loading && tab === 'extras' && (
 
-                <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Permissões efetivas (somente leitura)</div>
+              <>
 
-                <div className="space-y-3">
+                <p className="text-[11px] text-muted-foreground">
 
-                  {Object.entries(byCat).map(([cat, rows]) => (
+                  Marque permissões que somam às dos papéis. Busque por nome, código ou categoria (ex.: <span className="font-mono">editar_produtos</span>, estoque,{' '}
+
+                  <span className="font-mono">produto.edit</span>).
+
+                </p>
+
+                <input
+
+                  type="search"
+
+                  placeholder="Buscar no catálogo completo…"
+
+                  className={inp}
+
+                  value={qExtras}
+
+                  onChange={(e) => setQExtras(e.target.value)}
+
+                />
+
+                <div className="max-h-[52vh] space-y-1 overflow-y-auto rounded border border-border p-2">
+
+                  {filteredExtrasList.length === 0 ? (
+
+                    <p className="text-xs text-muted-foreground">Nenhuma permissão encontrada.</p>
+
+                  ) : (
+
+                    filteredExtrasList.map((p) => (
+
+                      <label
+
+                        key={p.code}
+
+                        className={`flex cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-[11px] hover:bg-muted/60 ${
+
+                          extraGrants.includes(p.code) ? 'bg-primary/5' : ''
+
+                        }`}
+
+                      >
+
+                        <input
+
+                          type="checkbox"
+
+                          className="accent-primary mt-0.5"
+
+                          checked={extraGrants.includes(p.code)}
+
+                          onChange={() => toggleExtra(p.code)}
+
+                        />
+
+                        <span className="min-w-0 flex-1">
+
+                          <span className="font-medium">{p.name}</span>
+
+                          <span className="ml-1 font-mono text-[10px] text-muted-foreground">{p.code}</span>
+
+                          {p.category ? (
+
+                            <span className="mt-0.5 block text-[10px] text-muted-foreground">{p.category}</span>
+
+                          ) : null}
+
+                        </span>
+
+                      </label>
+
+                    ))
+
+                  )}
+
+                </div>
+
+              </>
+
+            )}
+
+
+
+            {!loading && tab === 'summary' && (
+
+              <>
+
+                <input
+
+                  type="search"
+
+                  placeholder="Filtrar permissões efetivas…"
+
+                  className={inp}
+
+                  value={qSummary}
+
+                  onChange={(e) => setQSummary(e.target.value)}
+
+                />
+
+                <div className="max-h-[52vh] space-y-3 overflow-y-auto pr-1">
+
+                  {filteredSummaryCats.map(({ cat, rows }) => (
 
                     <div key={cat}>
 
@@ -754,13 +1064,13 @@ function PermissoesModal({ usuario, onClose }) {
 
                       <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
 
-                        {(rows || []).map((p) => (
+                        {rows.map((p) => (
 
                           <div
 
                             key={p.code}
 
-                            className={`flex items-center gap-2 rounded border px-2 py-1.5 text-[11px] ${
+                            className={`flex flex-col gap-0.5 rounded border px-2 py-1.5 text-[11px] ${
 
                               permSet.has(p.code) ? 'border-green-200 bg-green-50' : 'border-border bg-muted/40 text-muted-foreground'
 
@@ -768,9 +1078,9 @@ function PermissoesModal({ usuario, onClose }) {
 
                           >
 
-                            <input type="checkbox" checked={permSet.has(p.code)} readOnly className="accent-primary" />
+                            <span className="font-medium">{p.name}</span>
 
-                            <span>{p.name}</span>
+                            <span className="font-mono text-[10px] text-muted-foreground">{p.code}</span>
 
                           </div>
 
@@ -784,11 +1094,11 @@ function PermissoesModal({ usuario, onClose }) {
 
                 </div>
 
-              </div>
+              </>
 
-            </>
+            )}
 
-          )}
+          </div>
 
         </div>
 
@@ -814,7 +1124,7 @@ function PermissoesModal({ usuario, onClose }) {
 
           >
 
-            {saving ? 'Salvando…' : 'Salvar papéis'}
+            {saving ? 'Salvando…' : 'Salvar papéis e extras'}
 
           </button>
 

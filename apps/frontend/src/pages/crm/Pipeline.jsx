@@ -10,7 +10,7 @@ function parseRecord(row) {
     id: row.id,
     titulo: String(d.titulo || d.title || '—'),
     empresa: String(d.empresa || d.company || '—'),
-    valor: Number(d.valor || d.value || 0),
+    valor: Number(d.valor || d.value || 0) || 0,
     responsavel: String(d.responsavel || d.owner || '—'),
     estagio: String(d.estagio || d.stage || ''),
   };
@@ -29,6 +29,7 @@ export default function Pipeline() {
   const [loading, setLoading] = useState(true);
   const [stages, setStages] = useState([]);
   const [columns, setColumns] = useState({});
+  const [columnTotals, setColumnTotals] = useState({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -38,6 +39,9 @@ export default function Pipeline() {
       if (!body?.success) throw new Error('Resposta inválida');
       const st = Array.isArray(body.data?.stages) ? body.data.stages : [];
       const cols = body.data?.columns && typeof body.data.columns === 'object' ? body.data.columns : {};
+      setColumnTotals(
+        body.data?.columnTotals && typeof body.data.columnTotals === 'object' ? body.data.columnTotals : {},
+      );
       setStages(st);
       const mapped = {};
       for (const s of st) {
@@ -45,7 +49,7 @@ export default function Pipeline() {
       }
       setColumns(mapped);
     } catch (e) {
-      toast.error(e?.response?.data?.error || e?.message || 'Erro ao carregar pipeline.');
+      toast.error((e?.body && e.body.error) || e?.message || 'Erro ao carregar pipeline.');
       setStages([]);
       setColumns({});
     } finally {
@@ -87,7 +91,7 @@ export default function Pipeline() {
       toast.success('Oportunidade atualizada.');
       await load();
     } catch (e) {
-      toast.error(e?.response?.data?.error || e?.message || 'Falha ao mover.');
+      toast.error((e?.body && e.body.error) || e?.message || 'Falha ao mover.');
       await load();
     }
   };
@@ -113,6 +117,13 @@ export default function Pipeline() {
                 <div className="text-xs font-bold">{e.nome}</div>
                 <div className="text-[10px] text-muted-foreground">
                   {(columns[e.nome] || []).length} oportunidade(s)
+                </div>
+                <div className="text-[10px] font-semibold text-primary">
+                  Σ R${' '}
+                  {Number(columnTotals[e.nome] || 0).toLocaleString('pt-BR', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
                 </div>
               </div>
               <Droppable droppableId={e.nome}>

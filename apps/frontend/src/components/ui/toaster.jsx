@@ -9,13 +9,14 @@ import {
 } from "@/components/ui/toast";
 
 export function Toaster() {
-  const { toasts } = useToast();
+  const { toasts, dismiss } = useToast();
 
   return (
     <ToastProvider>
-      {toasts.map(function ({ id, title, description, action, ...props }) {
+      {toasts.map(function ({ id, title, description, action, open, ...props }) {
+        if (open === false) return null;
         return (
-          <Toast key={id} {...props}>
+          <Toast key={id} {...props} data-state="open">
             <div className="grid gap-1">
               {title && <ToastTitle>{title}</ToastTitle>}
               {description && (
@@ -23,7 +24,11 @@ export function Toaster() {
               )}
             </div>
             {action}
-            <ToastClose />
+            <ToastClose
+              type="button"
+              onClick={() => dismiss(id)}
+              aria-label="Fechar notificação"
+            />
           </Toast>
         );
       })}

@@ -144,9 +144,12 @@ export default function TabelaPrecos() {
     { key: 'preco_custo', label: 'Custo', width: 110, render: fmtR },
     { key: 'preco_venda', label: 'Venda', width: 110, render: fmtR },
     {
-      key: 'preco_venda', label: 'Margem %', width: 90,
-      render: (v, row) => {
-        const m = Number(calcMargem(row.preco_custo, v));
+      key: 'margem_pct',
+      label: 'Margem %',
+      width: 90,
+      sortable: false,
+      render: (_v, row) => {
+        const m = Number(calcMargem(row.preco_custo, row.preco_venda));
         const minima = row.margem_minima || 20;
         return (
           <div className="flex items-center gap-1">

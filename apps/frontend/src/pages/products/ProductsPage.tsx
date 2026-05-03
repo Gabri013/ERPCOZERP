@@ -9,7 +9,7 @@ import DataTable from '@/components/common/DataTable';
 import StatusBadge from '@/components/common/StatusBadge';
 import { Button } from '@/components/ui/button.jsx';
 import { listStockProducts, type StockProduct } from '@/services/stockApi';
-import { PodeRender, usePermissions } from '@/lib/PermissaoContext';
+import { usePermissions } from '@/lib/PermissaoContext';
 
 const fmtR = (v: number | null | undefined) =>
   v != null ? `R$ ${Number(v).toFixed(2).replace('.', ',')}` : '—';
@@ -91,19 +91,30 @@ export default function ProductsPage() {
   return (
     <div>
       <PageHeader
-        title="Produtos (catálogo)"
+        title={pode('ver_estoque') ? 'Produtos (catálogo)' : 'Produtos — pronta entrega'}
         breadcrumbs={['Início', 'Estoque', 'Produtos']}
         actions={(
-          <PodeRender acao="editar_produtos">
+          (pode('editar_produtos') || pode('produto.create')) ? (
             <Button asChild size="sm">
               <Link to="/estoque/produtos/novo">
                 <Plus size={14} />
                 Novo
               </Link>
             </Button>
-          </PodeRender>
+          ) : null
         )}
       />
+
+      {pode('produto.view') &&
+        !pode('produto.create') &&
+        !pode('editar_produtos') && (
+          <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+            Para cadastrar novos produtos no catálogo, o administrador precisa conceder a permissão{' '}
+            <strong>Catálogo — criar produto</strong> (<code className="text-xs">produto.create</code>) ou{' '}
+            <strong>Editar produtos</strong> (<code className="text-xs">editar_produtos</code>). Depois, faça logout e login
+            de novo (ou rode o seed atualizado se for ambiente de demonstração).
+          </div>
+        )}
 
       {semEstoque > 0 && (
         <div className="mb-3 flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
@@ -150,7 +161,7 @@ export default function ProductsPage() {
       {!q.isLoading && !q.isError && filtered.length === 0 && (
         <div className="rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground">
           Nenhum produto encontrado.{' '}
-          {pode('editar_produtos') && (
+          {(pode('editar_produtos') || pode('produto.create')) && (
             <Link className="text-primary underline" to="/estoque/produtos/novo">
               Cadastrar o primeiro
             </Link>

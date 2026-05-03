@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../infra/prisma.js';
 import { rolesCanSeeNotificationSector } from '../../lib/notificationVisibility.js';
-import { sortRolesByPriority } from '../../lib/roleOrder.js';
+import { roleCodesFromUserRoleRows } from '../../lib/roleOrder.js';
 import { getDefaultDashboardWidgets, migrateLegacyLayout } from '../../lib/defaultDashboardLayout.js';
 import { saleOrdersRestrictedToOwner } from '../../lib/saleOrderScope.js';
 
@@ -73,7 +73,7 @@ async function getUserPrimaryRoleCode(userId: string) {
     include: { roles: { include: { role: true } } },
   });
   if (!user) return 'user';
-  return sortRolesByPriority(user.roles.map((r) => r.role.code))[0] || 'user';
+  return roleCodesFromUserRoleRows(user.roles)[0] || 'user';
 }
 
 function inferSectorFromRole(roleCode: string) {
@@ -337,7 +337,7 @@ dashboardRouter.post('/layout/reset', async (req, res) => {
   });
   if (!user) return res.status(401).json({ error: 'Authentication required' });
 
-  const roleCode = sortRolesByPriority(user.roles.map((r) => r.role.code))[0] || 'user';
+  const roleCode = roleCodesFromUserRoleRows(user.roles)[0] || 'user';
   const widgets = getDefaultDashboardWidgets(roleCode, user.sector);
 
   const saved = await prisma.dashboardLayout.upsert({

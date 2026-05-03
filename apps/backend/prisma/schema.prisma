@@ -39,8 +39,99 @@ model User {
   responsibleWorkOrders    WorkOrder[]      @relation("WorkOrderResponsible")
   workOrderStatusHistory   WorkOrderStatusHistory[]
   employeeProfile        Employee?
+  crmLogs                CrmLog[]
+  crmInboxConversations  CrmConversation[] @relation("CrmConversationResponsible")
+  permissionGrants       UserPermissionGrant[]
 
   @@map("users")
+}
+
+/// Auditoria de eventos do CRM (Fase A — rastreabilidade para automações futuras).
+model CrmLog {
+  id             String   @id @default(uuid()) @db.Uuid
+  eventType      String   @map("event_type")
+  entityCode     String   @map("entity_code")
+  entityRecordId String   @map("entity_record_id") @db.Uuid
+  userId         String?  @map("user_id") @db.Uuid
+  payload        Json?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([entityCode, entityRecordId], map: "idx_crm_logs_entity_record")
+  @@index([createdAt], map: "idx_crm_logs_created")
+  @@map("crm_logs")
+}
+
+/// Histórico de atribuição de responsáveis (CRM Fase B — automação).
+model CrmAssignmentLog {
+  id                String   @id @default(uuid()) @db.Uuid
+  entityCode        String   @map("entity_code")
+  entityRecordId    String   @map("entity_record_id") @db.Uuid
+  antigoResponsavel String?  @map("antigo_responsavel")
+  novoResponsavel   String   @map("novo_responsavel")
+  reason            String?  @map("reason")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@index([entityRecordId], map: "idx_crm_assignment_record")
+  @@index([entityCode, createdAt], map: "idx_crm_assignment_entity_created")
+  @@map("crm_assignment_logs")
+}
+
+/// Inbox multicanal (Fase C) — conversas fora de EntityRecord.
+model CrmConversation {
+  id                 String    @id @default(uuid()) @db.Uuid
+  channel            String    @db.VarChar(32)
+  contatoNome        String    @map("contato_nome")
+  contatoTelefone    String    @map("contato_telefone")
+  contatoId          String?   @map("contato_id") @db.Uuid
+  leadId             String?   @map("lead_id") @db.Uuid
+  opportunityId      String?   @map("opportunity_id") @db.Uuid
+  responsavelId      String?   @map("responsavel_id") @db.Uuid
+  status             String    @default("novo") @db.VarChar(32)
+  lastInboundAt      DateTime? @map("last_inbound_at")
+  lastOutboundAt     DateTime? @map("last_outbound_at")
+  lastMessageAt      DateTime? @map("last_message_at")
+  lastMessagePreview String?   @map("last_message_preview") @db.VarChar(512)
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  responsavel User?        @relation("CrmConversationResponsible", fields: [responsavelId], references: [id], onDelete: SetNull)
+  messages    CrmMessage[]
+
+  @@unique([channel, contatoTelefone], map: "uq_crm_conversation_channel_phone")
+  @@index([status, updatedAt], map: "idx_crm_conversation_status_updated")
+  @@index([responsavelId], map: "idx_crm_conversation_responsavel")
+  @@map("crm_conversations")
+}
+
+model CrmMessage {
+  id             String   @id @default(uuid()) @db.Uuid
+  conversationId String   @map("conversation_id") @db.Uuid
+  direction      String   @db.VarChar(16)
+  message        String   @db.Text
+  messageType    String   @default("text") @map("message_type") @db.VarChar(32)
+  externalId     String?  @map("external_id") @db.VarChar(256)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  conversation CrmConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt], map: "idx_crm_message_conversation_created")
+  @@map("crm_messages")
+}
+
+/// Histórico de mudanças de estágio (CRM Fase D — analytics).
+model CrmStageHistory {
+  id             String   @id @default(uuid()) @db.Uuid
+  oportunidadeId String   @map("oportunidade_id") @db.Uuid
+  stageFrom      String   @map("stage_from") @db.VarChar(64)
+  stageTo        String   @map("stage_to") @db.VarChar(64)
+  usuarioId      String?  @map("usuario_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([oportunidadeId, createdAt], map: "idx_crm_stage_hist_opp_created")
+  @@index([createdAt], map: "idx_crm_stage_hist_created")
+  @@map("crm_stage_history")
 }
 
 model Role {
@@ -69,9 +160,26 @@ model Permission {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  roles RolePermission[]
+  roles      RolePermission[]
+  userGrants UserPermissionGrant[]
 
   @@map("permissions")
+}
+
+/// Permissões atribuídas diretamente ao usuário (somam-se às dos papéis).
+model UserPermissionGrant {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  permissionId String   @map("permission_id") @db.Uuid
+  assignedBy   String?  @map("assigned_by") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, permissionId], map: "uq_user_permission_grant")
+  @@index([userId], map: "idx_user_permission_grant_user")
+  @@map("user_permission_grants")
 }
 
 model UserRole {
@@ -1397,5 +1505,76 @@ model ProductStandardCost {
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   @@map("product_standard_costs")
+}
+
+// ── No-code / metadata engine (camada opcional sobre EntityRecord) ───────────
+
+model NcMetaConfig {
+  id        String   @id @default(uuid()) @db.Uuid
+  scope     String   @db.VarChar(256)
+  key       String   @db.VarChar(128)
+  value     Json
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([scope, key], map: "nc_meta_configs_scope_key_key")
+  @@map("nc_meta_configs")
+}
+
+model NcMetaField {
+  id         String   @id @default(uuid()) @db.Uuid
+  entityCode String   @map("entity_code") @db.VarChar(128)
+  fieldCode  String   @map("field_code") @db.VarChar(128)
+  label      String   @db.VarChar(256)
+  dataType   String   @map("data_type") @db.VarChar(32)
+  sortOrder  Int      @default(0) @map("sort_order")
+  required   Boolean  @default(false)
+  options    Json?
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@unique([entityCode, fieldCode], map: "nc_meta_fields_entity_field_key")
+  @@index([entityCode, active, sortOrder], map: "idx_nc_meta_fields_entity")
+  @@map("nc_meta_fields")
+}
+
+model NcMetaLayout {
+  id         String   @id @default(uuid()) @db.Uuid
+  entityCode String?  @map("entity_code") @db.VarChar(128)
+  scope      String   @db.VarChar(64)
+  name       String   @db.VarChar(256)
+  layout     Json
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([entityCode, scope], map: "idx_nc_meta_layouts_entity_scope")
+  @@map("nc_meta_layouts")
+}
+
+model NcMetaWorkflow {
+  id         String   @id @default(uuid()) @db.Uuid
+  code       String   @unique @db.VarChar(128)
+  name       String   @db.VarChar(256)
+  entityCode String?  @map("entity_code") @db.VarChar(128)
+  definition Json
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("nc_meta_workflows")
+}
+
+model NcMetaTheme {
+  id        String   @id @default(uuid()) @db.Uuid
+  tokenKey  String   @unique @map("token_key") @db.VarChar(128)
+  value     Json
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("nc_meta_themes")
 }
 

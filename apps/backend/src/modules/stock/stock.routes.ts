@@ -1,6 +1,8 @@
+import type { Request } from 'express';
 import { Router } from 'express';
 import { authenticate, requirePermission } from '../../middleware/auth.js';
 import * as svc from './stock.service.js';
+import { isExcludedSalesCatalogProductType } from './product-catalog-scope.js';
 import {
   createInventoryCountSchema,
   createLocationSchema,
@@ -18,9 +20,25 @@ export const stockRouter = Router();
 
 stockRouter.use(authenticate);
 
+/** Perfil comercial: vê catálogo para venda sem permissão operacional de estoque — lista só produtos pronta entrega (sem insumo/MP). */
+function isSalesCatalogOnlyUser(req: Request): boolean {
+  if (!req.user?.permissions?.length) return false;
+  if (req.user.roles?.includes('master')) return false;
+  const p = req.user.permissions;
+  return p.includes('produto.view') && !p.includes('ver_estoque');
+}
+
 function handleError(res: import('express').Response, e: unknown) {
   const msg = e instanceof Error ? e.message : 'Erro interno';
-  if (msg.includes('não encontrad') || msg.includes('já em uso') || msg.includes('insuficiente')) {
+  if (msg.includes('Sem permissão')) {
+    return res.status(403).json({ error: msg });
+  }
+  if (
+    msg.includes('não encontrad') ||
+    msg.includes('já em uso') ||
+    msg.includes('insuficiente') ||
+    msg.includes('Tipo não permitido')
+  ) {
     return res.status(400).json({ error: msg });
   }
   return res.status(500).json({ error: msg });
@@ -35,7 +53,8 @@ stockRouter.get(
       return res.status(400).json({ error: 'Parâmetros inválidos', details: parsed.error.flatten() });
     }
     try {
-      const data = await svc.listProducts(parsed.data);
+      const salesCatalogOnly = isSalesCatalogOnlyUser(req);
+      const data = await svc.listProducts({ ...parsed.data, salesCatalogOnly });
       res.json({ success: true, data });
     } catch (e) {
       handleError(res, e);
@@ -52,7 +71,20 @@ stockRouter.post(
       return res.status(400).json({ error: 'Dados inválidos', details: parsed.error.flatten() });
     }
     try {
-      const data = await svc.createProduct(parsed.data);
+      let body = parsed.data;
+      if (isSalesCatalogOnlyUser(req)) {
+        if (isExcludedSalesCatalogProductType(body.productType ?? null)) {
+          return res.status(400).json({
+            error:
+              'Tipo não permitido para cadastro comercial. Cadastre apenas produtos para venda (ex.: Produto ou Serviço), não insumos ou matéria-prima.',
+          });
+        }
+        body = {
+          ...body,
+          productType: body.productType?.trim() ? body.productType : 'Produto',
+        };
+      }
+      const data = await svc.createProduct(body);
       res.status(201).json({ success: true, data });
     } catch (e) {
       handleError(res, e);
@@ -65,7 +97,8 @@ stockRouter.get(
   requirePermission(['produto.view', 'ver_estoque']),
   async (req, res) => {
     try {
-      const data = await svc.getProductById(req.params.id);
+      const salesCatalogOnly = isSalesCatalogOnlyUser(req);
+      const data = await svc.getProductById(req.params.id, { salesCatalogOnly });
       if (!data) return res.status(404).json({ error: 'Produto não encontrado' });
       res.json({ success: true, data });
     } catch (e) {
@@ -83,7 +116,8 @@ stockRouter.patch(
       return res.status(400).json({ error: 'Dados inválidos', details: parsed.error.flatten() });
     }
     try {
-      const data = await svc.updateProduct(req.params.id, parsed.data);
+      const salesCatalogOnly = isSalesCatalogOnlyUser(req);
+      const data = await svc.updateProduct(req.params.id, parsed.data, { salesCatalogOnly });
       res.json({ success: true, data });
     } catch (e) {
       handleError(res, e);

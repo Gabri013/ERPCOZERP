@@ -1,6 +1,7 @@
-﻿import { useState } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import FormModal, { inp, lbl, req } from '@/components/common/FormModal';
+import { recordsServiceApi } from '@/services/recordsServiceApi';
 
 const CLIENTES = ['Metalúrgica ABC Ltda','Ind. XYZ S/A','Comércio Beta','Grupo Delta','TechParts Ltda','SiderTech S/A'];
 const VENDEDORES = ['Carlos Silva','Ana Paula','Rafael Costa'];
@@ -15,15 +16,49 @@ const FORMAS_PAG = ['À Vista','Boleto 30 dias','Boleto 30/60','Boleto 30/60/90'
 
 const EMPTY_ITEM = { produto_codigo:'', produto_descricao:'', quantidade:1, preco_unitario:0, desconto:0 };
 
-export default function ModalPedidoVenda({ pedido, onClose, onSave }) {
+const EMPTY_ORCAMENTO = {
+  cliente_nome: '',
+  vendedor: '',
+  data_emissao: new Date().toISOString().slice(0, 10),
+  validade: '',
+  oportunidade_id: '',
+  data_entrega: '',
+  forma_pagamento: 'À Vista',
+  status: 'Orçamento',
+  observacoes: '',
+};
+
+const EMPTY_PEDIDO = {
+  cliente_nome: '',
+  vendedor: '',
+  data_emissao: new Date().toISOString().slice(0, 10),
+  data_entrega: '',
+  forma_pagamento: 'À Vista',
+  status: 'Orçamento',
+  observacoes: '',
+};
+
+export default function ModalPedidoVenda({ pedido, onClose, onSave, moduloOrcamento }) {
   const isEdicao = !!pedido;
-  const [form, setForm] = useState(pedido || {
-    cliente_nome:'', vendedor:'', data_emissao: new Date().toISOString().slice(0,10),
-    data_entrega:'', forma_pagamento:'À Vista', status:'Orçamento', observacoes:''
-  });
+  const [form, setForm] = useState(pedido || (moduloOrcamento ? EMPTY_ORCAMENTO : EMPTY_PEDIDO));
+  const [opps, setOpps] = useState([]);
   const [itens, setItens] = useState(pedido?.itens || [{ ...EMPTY_ITEM }]);
   const [saving, setSaving] = useState(false);
   const upd = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  useEffect(() => {
+    if (!moduloOrcamento) return;
+    let ok = true;
+    (async () => {
+      try {
+        const list = await recordsServiceApi.list('crm_oportunidade');
+        if (ok) setOpps(Array.isArray(list) ? list : []);
+      } catch {
+        if (ok) setOpps([]);
+      }
+    })();
+    return () => { ok = false; };
+  }, [moduloOrcamento]);
 
   const addItem = () => setItens(i=>[...i, {...EMPTY_ITEM}]);
   const removeItem = (idx) => setItens(i=>i.filter((_,j)=>j!==idx));
@@ -39,9 +74,16 @@ export default function ModalPedidoVenda({ pedido, onClose, onSave }) {
   },0);
 
   const handleSave = async () => {
-    if(!form.cliente_nome) return alert('Informe o cliente');
+    if (!form.cliente_nome) return alert('Informe o cliente');
+    if (moduloOrcamento && !String(form.oportunidade_id || '').trim()) {
+      return alert('Selecione a oportunidade CRM vinculada a este orçamento.');
+    }
     setSaving(true);
-    await onSave({...form, itens, valor_total:total});
+    const payload = { ...form, itens, valor_total: total };
+    if (moduloOrcamento && form.validade) {
+      payload.validade = form.validade;
+    }
+    await onSave(payload);
     setSaving(false);
     onClose();
   };
@@ -49,11 +91,29 @@ export default function ModalPedidoVenda({ pedido, onClose, onSave }) {
   const fmtR = v => `R$ ${Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
 
   return (
-    <FormModal title={isEdicao?`Editar Pedido — ${pedido.numero}`:'Novo Pedido de Venda'}
+    <FormModal title={isEdicao ? (moduloOrcamento ? `Editar Orçamento — ${pedido.numero}` : `Editar Pedido — ${pedido.numero}`) : (moduloOrcamento ? 'Novo Orçamento' : 'Novo Pedido de Venda')}
       onClose={onClose} onSave={handleSave} saving={saving} size="xl">
       <div className="space-y-4">
         {/* Cabeçalho */}
         <div className="grid grid-cols-3 gap-3">
+          {moduloOrcamento && (
+            <div className="col-span-3">
+              <label className={lbl}>Oportunidade CRM {req}</label>
+              <select
+                className={inp}
+                value={form.oportunidade_id || ''}
+                onChange={(e) => upd('oportunidade_id', e.target.value)}
+              >
+                <option value="">Selecione a oportunidade...</option>
+                {opps.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {(o.titulo || '—') + (o.empresa ? ` — ${o.empresa}` : '')}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[10px] text-muted-foreground mt-1">Obrigatório para rastrear orçamento → pedido (exceto administradores).</p>
+            </div>
+          )}
           <div className="col-span-2">
             <label className={lbl}>Cliente {req}</label>
             <select className={inp} value={form.cliente_nome} onChange={e=>upd('cliente_nome',e.target.value)}>
@@ -78,10 +138,17 @@ export default function ModalPedidoVenda({ pedido, onClose, onSave }) {
             <label className={lbl}>Data Emissão</label>
             <input type="date" className={inp} value={form.data_emissao} onChange={e=>upd('data_emissao',e.target.value)}/>
           </div>
-          <div>
-            <label className={lbl}>Data Entrega</label>
-            <input type="date" className={inp} value={form.data_entrega} onChange={e=>upd('data_entrega',e.target.value)}/>
-          </div>
+          {moduloOrcamento ? (
+            <div>
+              <label className={lbl}>Validade proposta</label>
+              <input type="date" className={inp} value={form.validade || ''} onChange={(e) => upd('validade', e.target.value)} />
+            </div>
+          ) : (
+            <div>
+              <label className={lbl}>Data Entrega</label>
+              <input type="date" className={inp} value={form.data_entrega} onChange={e=>upd('data_entrega',e.target.value)}/>
+            </div>
+          )}
           <div>
             <label className={lbl}>Forma Pagamento</label>
             <select className={inp} value={form.forma_pagamento} onChange={e=>upd('forma_pagamento',e.target.value)}>

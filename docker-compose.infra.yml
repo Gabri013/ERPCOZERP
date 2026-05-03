@@ -1,5 +1,5 @@
-# Infraestrutura local de desenvolvimento: apenas Postgres + Redis
-# Backend e Frontend rodam diretamente com "npm run dev" (hot-reload)
+# OPCIONAL — Postgres + Redis em containers (se não usar instalação nativa no sistema).
+# Backend e frontend continuam com "npm run dev" no host.
 #
 # Uso:
 #   docker compose -f docker-compose.infra.yml up -d
@@ -39,8 +39,9 @@ services:
       timeout: 3s
       retries: 10
 
+# Nomes fixos: `docker compose up` cria os volumes se não existirem (sem `external: true`)
 volumes:
   erpcozerp_pg_data:
-    external: true
+    name: erpcozerp_pg_data
   erpcozerp_redis_data:
-    external: true
+    name: erpcozerp_redis_data

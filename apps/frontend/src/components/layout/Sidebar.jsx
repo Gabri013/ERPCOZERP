@@ -22,7 +22,7 @@ const MENU_BLACKLIST = new Set([
   'platform_settings','pedido_venda','fiscal_nfe_record',
 ]);
 
-// Agrupamento por seção (label de seção → array de items do menu)
+// Agrupamento por fluxo de trabalho: CRM → Vendas → Comercial → Serviços → Operacional ···
 const MENU_SECTIONS = [
   {
     sectionLabel: null,
@@ -32,34 +32,71 @@ const MENU_SECTIONS = [
     ],
   },
   {
-    sectionLabel: 'OPERACIONAL',
+    sectionLabel: 'CRM',
     items: [
       {
-        label: 'Vendas', icon: ShoppingCart, children: [
-          { label: 'Pedidos de Venda',         path: '/vendas/pedidos',               required: 'ver_pedidos' },
-          { label: 'Clientes',                 path: '/vendas/clientes',              required: 'ver_clientes' },
-          { label: 'Orçamentos',               path: '/vendas/orcamentos',            required: 'ver_pedidos' },
-          { label: 'Propostas (comercial)',   path: '/vendas/propostas',            required: 'ver_pedidos' },
-          { label: 'Oportunidades',            path: '/vendas/oportunidades',         required: 'ver_pedidos' },
-          { label: 'Solicitações de Cotação',  path: '/vendas/solicitacoes-cotacao',  required: 'ver_pedidos' },
-          { label: 'Comissões',                path: '/vendas/comissoes',             required: 'ver_pedidos' },
-          { label: 'Tabela de Preços',         path: '/vendas/tabela-precos',         required: 'ver_pedidos' },
-          { label: 'Catálogo de produtos',     path: '/estoque/produtos',             required: 'produto.view' },
-          { label: 'Relatórios',               path: '/vendas/relatorios',            required: 'relatorios:view' },
+        label: 'Qualificação',
+        icon: Users,
+        children: [
+          { label: 'Dashboard', path: '/crm/dashboard', required: 'ver_crm' },
+          { label: 'Inbox', path: '/crm/inbox', required: 'ver_crm' },
+          { label: 'Leads', path: '/crm/leads', required: 'ver_crm' },
+          { label: 'Oportunidades', path: '/crm/oportunidades', required: 'ver_crm' },
+          { label: 'Pipeline', path: '/crm/pipeline', required: 'ver_crm' },
+          { label: 'Atividades', path: '/crm/atividades', required: 'ver_crm' },
+          { label: 'Gestão de processos', path: '/crm', required: 'ver_vendas' },
+          { label: 'Funil pré-venda (ERP)', path: '/vendas/oportunidades', required: 'ver_pedidos' },
         ],
       },
+    ],
+  },
+  {
+    sectionLabel: 'Vendas',
+    items: [
+      {
+        label: 'Principal',
+        icon: ShoppingCart,
+        children: [
+          { label: 'Orçamentos', path: '/vendas/orcamentos', required: 'ver_pedidos' },
+          { label: 'Propostas (ORC)', path: '/vendas/propostas', required: 'ver_pedidos' },
+          { label: 'Pedidos de Venda', path: '/vendas/pedidos', required: 'ver_pedidos' },
+          { label: 'Clientes', path: '/vendas/clientes', required: 'ver_clientes' },
+          { label: 'Tabela de Preços', path: '/vendas/tabela-precos', required: 'ver_pedidos' },
+          { label: 'Catálogo de produtos', path: '/estoque/produtos', required: 'produto.view' },
+        ],
+      },
+    ],
+  },
+  {
+    sectionLabel: 'Comercial',
+    items: [
+      {
+        label: 'Apoio',
+        icon: FileText,
+        children: [
+          { label: 'Solicitações de Cotação', path: '/vendas/solicitacoes-cotacao', required: 'ver_pedidos' },
+          { label: 'Comissões', path: '/vendas/comissoes', required: 'ver_pedidos' },
+          { label: 'Relatórios', path: '/vendas/relatorios', required: 'relatorios:view' },
+        ],
+      },
+    ],
+  },
+  {
+    sectionLabel: 'Serviços',
+    items: [
       {
         label: 'Serviços',
         icon: Briefcase,
         children: [
-          { label: 'Solicitações de Cotação', path: '/servicos/solicitacoes', required: 'ver_servicos' },
           { label: 'Propostas Comerciais', path: '/servicos/propostas', required: 'ver_servicos' },
           { label: 'Pedidos de Serviço', path: '/servicos/pedidos', required: 'ver_servicos' },
-          { label: 'Emissão de NFS-e', path: '/servicos/nfse', required: 'ver_servicos' },
-          { label: 'Serviços Recorrentes', path: '/servicos/recorrentes', required: 'ver_servicos' },
-          { label: 'Tabela de Preços', path: '/servicos/tabela-precos', required: 'ver_servicos' },
         ],
       },
+    ],
+  },
+  {
+    sectionLabel: 'OPERACIONAL',
+    items: [
       {
         label: 'Compras', icon: Truck, children: [
           { label: 'Fornecedores',       path: '/compras/fornecedores',        required: 'ver_compras' },
@@ -84,11 +121,6 @@ const MENU_SECTIONS = [
         ],
       },
       {
-        label: 'CRM', icon: Users, children: [
-          { label: 'Gestão de Processos', path: '/crm', required: 'ver_vendas' },
-        ],
-      },
-      {
         label: 'Conhecimento', icon: BookOpen, children: [
           { label: 'Base de Conhecimento', path: '/conhecimento', required: 'ver_vendas' },
           { label: 'Como Funciona / Módulos', path: '/sobre',       required: 'ver_vendas' },
@@ -102,14 +134,11 @@ const MENU_SECTIONS = [
       },
       {
         label: 'Estoque', icon: Boxes, children: [
-          { label: 'Produtos',            path: '/estoque/produtos',            required: 'ver_estoque' },
+          { label: 'Produtos',            path: '/estoque/produtos',            required: ['ver_estoque', 'produto.view'] },
           { label: 'Movimentações',       path: '/estoque/movimentacoes',       required: 'ver_estoque' },
           { label: 'Estoque Projetado',   path: '/estoque/projetado',           required: 'ver_estoque' },
           { label: 'Lotes e Séries',      path: '/estoque/lotes-series',        required: 'ver_estoque' },
-          { label: 'Req. de Consumo',     path: '/estoque/requisicao-consumo',  required: 'ver_estoque' },
           { label: 'Transferências',      path: '/estoque/transferencias',      required: 'ver_estoque' },
-          { label: 'Inventário',          path: '/estoque/inventario',          required: 'ver_estoque' },
-          { label: 'Endereçamento',       path: '/estoque/enderecamento',       required: 'ver_estoque' },
         ],
       },
       {
@@ -151,15 +180,6 @@ const MENU_SECTIONS = [
   {
     sectionLabel: 'GESTÃO',
     items: [
-      {
-        label: 'CRM', icon: Users, children: [
-          { label: 'Dashboard', path: '/crm/dashboard', required: 'ver_crm' },
-          { label: 'Leads', path: '/crm/leads', required: 'ver_crm' },
-          { label: 'Oportunidades', path: '/crm/oportunidades', required: 'ver_crm' },
-          { label: 'Pipeline', path: '/crm/pipeline', required: 'ver_crm' },
-          { label: 'Atividades', path: '/crm/atividades', required: 'ver_crm' },
-        ],
-      },
       {
         label: 'RH', icon: Users, children: [
           { label: 'Funcionários', path: '/rh/funcionarios', required: 'ver_rh' },
@@ -217,6 +237,7 @@ const MENU_SECTIONS = [
           { label: 'Parâmetros', path: '/configuracoes/parametros', required: 'editar_config' },
           { label: 'Modelo OP', path: '/configuracoes/modelo-op', required: 'editar_config' },
           { label: 'Metadata Studio', path: '/configuracoes/metadata-studio', required: 'editar_config' },
+          { label: 'Form Builder', path: '/configuracoes/form-builder', required: 'editar_config' },
           { label: 'Workflows', path: '/configuracoes/workflows', required: 'editar_config' },
           { label: 'Fluxo do Pedido', path: '/configuracoes/fluxo-pedido', required: ['ver_pedidos', 'editar_config'] },
         ],
@@ -307,6 +328,14 @@ export default function Sidebar({ isOpen, setIsOpen, onNavigate, mobileDrawer = 
     if (item.alwaysShow) return true;
     if (!item.required) return true;
     return Array.isArray(item.required) ? item.required.some(pode) : pode(item.required);
+  };
+
+  /** Grupos sem `required` no pai passavam em canSee com 0 filhos visíveis — escondia itens mas mantinha o título da seção (ex.: GESTÃO). */
+  const itemHasVisibleContent = (item) => {
+    if (item.children?.length) {
+      return item.children.filter(canSee).length > 0;
+    }
+    return canSee(item);
   };
 
   const handleClose = () => setIsOpen(false);
@@ -509,7 +538,7 @@ export default function Sidebar({ isOpen, setIsOpen, onNavigate, mobileDrawer = 
       {/* ── Nav ─────────────────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden py-2 scrollbar-thin scrollbar-thumb-white/10">
         {MENU_SECTIONS.map((section, si) => {
-          const visibleItems = section.items.filter(canSee);
+          const visibleItems = section.items.filter(itemHasVisibleContent);
           if (visibleItems.length === 0) return null;
 
           return (

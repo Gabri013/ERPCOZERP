@@ -26,3 +26,13 @@ export function sortRolesByPriority(codes: string[]): string[] {
   };
   return [...new Set(codes)].sort((a, b) => rank(a) - rank(b));
 }
+
+/** Extrai códigos de papel a partir do include Prisma `roles.role`, ignorando vínculos órfãos. */
+export function roleCodesFromUserRoleRows(
+  rows: Array<{ role: { code: string } | null } | null> | null | undefined,
+): string[] {
+  const codes = (rows ?? [])
+    .map((r) => r?.role?.code)
+    .filter((c): c is string => typeof c === 'string' && c.length > 0);
+  return sortRolesByPriority(codes);
+}

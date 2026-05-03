@@ -16,7 +16,7 @@ function requiredInProd(name: string): string {
 export const env = {
   NODE_ENV: process.env.NODE_ENV || 'development',
   PORT: Number(process.env.PORT || 3001),
-  FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5174',
+  FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
   DATABASE_URL: required('DATABASE_URL'),
   REDIS_URL: process.env.REDIS_URL || '',
   JWT_SECRET: requiredInProd('JWT_SECRET'),

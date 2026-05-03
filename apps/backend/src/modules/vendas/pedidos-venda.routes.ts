@@ -1,6 +1,12 @@
 import { Router } from 'express';
 import { prisma } from '../../infra/prisma.js';
 import { Prisma } from '@prisma/client';
+import {
+  pedidoVendaSeesFullDetail,
+  sanitizePedidoForResponse,
+  stripCommercialBlockedFromIncoming,
+  stripCostMarginFromPayload,
+} from './pedidos-venda-scope.js';
 
 export const pedidosVendaRouter = Router();
 
@@ -42,8 +48,10 @@ pedidosVendaRouter.get('/', async (req, res) => {
     take,
   });
 
+  const fullDetail = pedidoVendaSeesFullDetail(req.user);
+
   const data = rows
-    .map((r) => ({ id: r.id, ...(r.data as any) }))
+    .map((r) => ({ id: r.id, ...(r.data as Record<string, unknown>) } as Record<string, unknown> & { id: string }))
     .filter((p) => {
       if (status && String(p.status || '') !== status) return false;
       if (vendedor && String(p.vendedor || '') !== vendedor) return false;
@@ -53,14 +61,17 @@ pedidosVendaRouter.get('/', async (req, res) => {
         String(p.numero || '').toLowerCase().includes(s) ||
         String(p.cliente_nome || '').toLowerCase().includes(s)
       );
-    });
+    })
+    .map((p) => sanitizePedidoForResponse(p, fullDetail));
 
   res.json({ success: true, data });
 });
 
 pedidosVendaRouter.post('/', async (req, res) => {
   const entity = await ensureEntity();
-  const data = (req.body?.data ?? req.body) as Record<string, unknown>;
+  const fullDetail = pedidoVendaSeesFullDetail(req.user);
+  let data = (req.body?.data ?? req.body) as Record<string, unknown>;
+  data = stripCostMarginFromPayload(data);
 
   if (!normalizeStr((data as any).cliente_nome)) return res.status(400).json({ error: 'cliente_nome é obrigatório' });
   if (!normalizeStr((data as any).data_emissao)) return res.status(400).json({ error: 'data_emissao é obrigatório' });
@@ -85,26 +96,36 @@ pedidosVendaRouter.post('/', async (req, res) => {
     },
   });
 
-  res.status(201).json({ success: true, data: { id: created.id, ...(created.data as any) } });
+  const payload = { id: created.id, ...(created.data as Record<string, unknown>) };
+  res.status(201).json({
+    success: true,
+    data: sanitizePedidoForResponse(payload, fullDetail),
+  });
 });
 
 pedidosVendaRouter.put('/:id', async (req, res) => {
   const entity = await ensureEntity();
   const { id } = req.params;
-  const data = (req.body?.data ?? req.body) as Record<string, unknown>;
+  const fullDetail = pedidoVendaSeesFullDetail(req.user);
 
   const existing = await prisma.entityRecord.findFirst({ where: { id, entityId: entity.id, deletedAt: null } });
   if (!existing) return res.status(404).json({ error: 'Pedido não encontrado' });
 
+  let incoming = (req.body?.data ?? req.body) as Record<string, unknown>;
+  incoming = stripCommercialBlockedFromIncoming(incoming, fullDetail);
+  const prev = (existing.data as Record<string, unknown>) || {};
+  const merged = stripCostMarginFromPayload({ ...prev, ...incoming });
+
   const updated = await prisma.entityRecord.update({
     where: { id },
     data: {
-      data: data as Prisma.InputJsonValue,
+      data: merged as Prisma.InputJsonValue,
       updatedBy: req.user?.userId,
     },
   });
 
-  res.json({ success: true, data: { id: updated.id, ...(updated.data as any) } });
+  const payload = { id: updated.id, ...(updated.data as Record<string, unknown>) };
+  res.json({ success: true, data: sanitizePedidoForResponse(payload, fullDetail) });
 });
 
 pedidosVendaRouter.delete('/:id', async (req, res) => {

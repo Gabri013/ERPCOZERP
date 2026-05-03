@@ -27,6 +27,7 @@ export function RealtimeProvider({ children }) {
 
   useEffect(() => {
     if (!appConfig.isApi || !user) return undefined;
+    if (import.meta.env.VITE_DISABLE_REALTIME === 'true') return undefined;
 
     const token =
       typeof window !== 'undefined'
@@ -36,10 +37,17 @@ export function RealtimeProvider({ children }) {
     if (!token) return undefined;
 
     const url = socketBaseUrl();
+    const dev = import.meta.env.DEV;
     const socket = io(url || undefined, {
       path: '/socket.io',
       auth: { token },
       transports: ['websocket', 'polling'],
+      // Em dev, reconexão infinita dispara o proxy do Vite contra :3001 quando o API está off — polui o terminal.
+      ...(dev && {
+        reconnectionAttempts: 12,
+        reconnectionDelay: 3000,
+        reconnectionDelayMax: 30000,
+      }),
     });
 
     const onNv = () => {

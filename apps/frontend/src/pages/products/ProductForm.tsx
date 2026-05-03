@@ -15,6 +15,7 @@ import {
   updateStockProduct,
   type StockProduct,
 } from '@/services/stockApi';
+import { usePermissions } from '@/lib/PermissaoContext';
 import { toast } from 'sonner';
 
 const schema = z.object({
@@ -39,6 +40,10 @@ export default function ProductForm() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const isNew = id === 'novo';
+  const { pode, isLoadingPermissions } = usePermissions();
+  /** Comercial (catálogo) sem visão operacional de estoque: UI simplificada; insumos não aparecem na API. */
+  const salesCatalogFocus =
+    !isLoadingPermissions && !pode('ver_estoque') && pode('produto.view');
 
   const q = useQuery({
     queryKey: ['stock-product', id],
@@ -54,6 +59,13 @@ export default function ProductForm() {
       minStock: 0,
     },
   });
+
+  useEffect(() => {
+    if (!isLoadingPermissions && isNew && salesCatalogFocus) {
+      const cur = form.getValues('productType');
+      if (!cur || String(cur).trim() === '') form.setValue('productType', 'Produto');
+    }
+  }, [isLoadingPermissions, isNew, salesCatalogFocus, form]);
 
   useEffect(() => {
     if (q.data) {
@@ -137,7 +149,7 @@ export default function ProductForm() {
       <Tabs defaultValue="dados" className="mt-4">
         <TabsList className="flex-wrap h-auto gap-1">
           <TabsTrigger value="dados">Dados</TabsTrigger>
-          <TabsTrigger value="bom">BOM / industrial</TabsTrigger>
+          {!salesCatalogFocus ? <TabsTrigger value="bom">BOM / industrial</TabsTrigger> : null}
           <TabsTrigger value="ficha">Ficha técnica</TabsTrigger>
         </TabsList>
 
@@ -175,7 +187,16 @@ export default function ProductForm() {
               </label>
               <label className="text-xs space-y-1">
                 <span className="text-muted-foreground">Tipo</span>
-                <input {...form.register('productType')} className="w-full rounded border border-input px-2 py-1.5 text-sm" />
+                <input
+                  {...form.register('productType')}
+                  placeholder={salesCatalogFocus ? 'Ex.: Produto, Serviço (não use Insumo ou Matéria-Prima)' : undefined}
+                  title={
+                    salesCatalogFocus
+                      ? 'Cadastro comercial: não use Insumo ou Matéria-Prima (controle no estoque operacional).'
+                      : undefined
+                  }
+                  className="w-full rounded border border-input px-2 py-1.5 text-sm"
+                />
               </label>
               <label className="text-xs space-y-1">
                 <span className="text-muted-foreground">Grupo</span>
@@ -228,22 +249,24 @@ export default function ProductForm() {
           </form>
         </TabsContent>
 
-        <TabsContent value="bom" className="mt-4 space-y-3 text-sm max-w-2xl">
-          <p className="text-muted-foreground">
-            A lista de materiais (BOM), arquivos técnicos e modelo 3D permanecem no cadastro industrial (entidade
-            legada), quando o produto estiver vinculado.
-          </p>
-          {product?.entityRecordId ? (
-            <Button asChild variant="secondary">
-              <Link to={`/estoque/produtos/bom/${product.entityRecordId}`}>Abrir BOM / SolidWorks / 3D</Link>
-            </Button>
-          ) : (
-            <p className="text-amber-700 dark:text-amber-400">
-              Nenhum vínculo com cadastro industrial. Informe o ID do registro legado no backend ou associe após
-              migração.
+        {!salesCatalogFocus ? (
+          <TabsContent value="bom" className="mt-4 space-y-3 text-sm max-w-2xl">
+            <p className="text-muted-foreground">
+              A lista de materiais (BOM), arquivos técnicos e modelo 3D permanecem no cadastro industrial (entidade
+              legada), quando o produto estiver vinculado.
             </p>
-          )}
-        </TabsContent>
+            {product?.entityRecordId ? (
+              <Button asChild variant="secondary">
+                <Link to={`/estoque/produtos/bom/${product.entityRecordId}`}>Abrir BOM / SolidWorks / 3D</Link>
+              </Button>
+            ) : (
+              <p className="text-amber-700 dark:text-amber-400">
+                Nenhum vínculo com cadastro industrial. Informe o ID do registro legado no backend ou associe após
+                migração.
+              </p>
+            )}
+          </TabsContent>
+        ) : null}
 
         <TabsContent value="ficha" className="mt-4 max-w-2xl">
           <label className="text-xs space-y-1 block">

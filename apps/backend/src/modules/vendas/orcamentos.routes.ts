@@ -1,8 +1,35 @@
 import { Router } from 'express';
 import { prisma } from '../../infra/prisma.js';
 import { Prisma } from '@prisma/client';
+import { appendCrmLog } from '../crm/crm-log.service.js';
+import { emitOrcamentoApproved } from '../crm/crm-events.js';
 
 export const orcamentosRouter = Router();
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function bypassOportunidadeObrigatoria(req: { user?: { roles?: string[]; permissions?: string[] } }): boolean {
+  const r = req.user?.roles ?? [];
+  const p = req.user?.permissions ?? [];
+  return r.includes('master') || p.includes('editar_config') || p.includes('gerenciar_usuarios');
+}
+
+function flattenOrcamentoPayload(body: unknown): Record<string, unknown> {
+  const raw = body && typeof body === 'object' && 'data' in body && (body as { data?: unknown }).data
+    ? (body as { data: Record<string, unknown> }).data
+    : (body as Record<string, unknown>);
+  return raw && typeof raw === 'object' && !Array.isArray(raw) ? { ...raw } : {};
+}
+
+async function assertOportunidadeExists(oportunidadeId: string) {
+  const ent = await prisma.entity.findUnique({ where: { code: 'crm_oportunidade' } });
+  if (!ent) return;
+  const row = await prisma.entityRecord.findFirst({
+    where: { id: oportunidadeId, entityId: ent.id, deletedAt: null },
+  });
+  if (!row) throw new Error('oportunidade_id não encontrado no CRM');
+}
 
 async function ensureEntity() {
   return prisma.entity.upsert({
@@ -57,7 +84,35 @@ orcamentosRouter.get('/', async (req, res) => {
 
 orcamentosRouter.post('/', async (req, res) => {
   const entity = await ensureEntity();
-  const data = (req.body?.data ?? req.body) as Record<string, unknown>;
+  const data = flattenOrcamentoPayload(req.body);
+
+  const oppRaw = String(data.oportunidade_id ?? data.opportunityId ?? '').trim();
+  if (oppRaw) {
+    data.oportunidade_id = oppRaw;
+    delete data.opportunityId;
+  }
+
+  if (!bypassOportunidadeObrigatoria(req)) {
+    const oid = String(data.oportunidade_id ?? '').trim();
+    if (!oid || !UUID_RE.test(oid)) {
+      return res.status(400).json({
+        error: 'Informe oportunidade_id (UUID da oportunidade CRM). Administradores podem omitir.',
+      });
+    }
+    try {
+      await assertOportunidadeExists(oid);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Oportunidade inválida';
+      return res.status(400).json({ error: msg });
+    }
+  } else if (String(data.oportunidade_id ?? '').trim()) {
+    try {
+      await assertOportunidadeExists(String(data.oportunidade_id));
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Oportunidade inválida';
+      return res.status(400).json({ error: msg });
+    }
+  }
 
   if (!normalizeStr((data as any).cliente_nome)) return res.status(400).json({ error: 'cliente_nome é obrigatório' });
   if (!normalizeStr((data as any).data_emissao)) return res.status(400).json({ error: 'data_emissao é obrigatório' });
@@ -82,16 +137,58 @@ orcamentosRouter.post('/', async (req, res) => {
     },
   });
 
+  void appendCrmLog({
+    eventType: 'quote_created',
+    entityCode: 'orcamento',
+    entityRecordId: created.id,
+    userId: req.user?.userId,
+    payload: {
+      oportunidade_id: String(data.oportunidade_id ?? ''),
+      numero: String(data.numero ?? ''),
+    },
+  });
+
   res.status(201).json({ success: true, data: { id: created.id, ...(created.data as any) } });
 });
 
 orcamentosRouter.put('/:id', async (req, res) => {
   const entity = await ensureEntity();
   const { id } = req.params;
-  const data = (req.body?.data ?? req.body) as Record<string, unknown>;
+  const patch = flattenOrcamentoPayload(req.body);
 
   const existing = await prisma.entityRecord.findFirst({ where: { id, entityId: entity.id, deletedAt: null } });
   if (!existing) return res.status(404).json({ error: 'Orçamento não encontrado' });
+
+  const prev = typeof existing.data === 'object' && existing.data ? (existing.data as Record<string, unknown>) : {};
+  const data: Record<string, unknown> = { ...prev, ...patch };
+
+  const oppRaw = String(data.oportunidade_id ?? data.opportunityId ?? '').trim();
+  if (oppRaw) {
+    data.oportunidade_id = oppRaw;
+    delete data.opportunityId;
+  }
+
+  if (!bypassOportunidadeObrigatoria(req)) {
+    const oid = String(data.oportunidade_id ?? '').trim();
+    if (!oid || !UUID_RE.test(oid)) {
+      return res.status(400).json({
+        error: 'Informe oportunidade_id (UUID da oportunidade CRM). Administradores podem omitir.',
+      });
+    }
+    try {
+      await assertOportunidadeExists(oid);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Oportunidade inválida';
+      return res.status(400).json({ error: msg });
+    }
+  } else if (String(data.oportunidade_id ?? '').trim()) {
+    try {
+      await assertOportunidadeExists(String(data.oportunidade_id));
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Oportunidade inválida';
+      return res.status(400).json({ error: msg });
+    }
+  }
 
   const updated = await prisma.entityRecord.update({
     where: { id },
@@ -100,6 +197,27 @@ orcamentosRouter.put('/:id', async (req, res) => {
       updatedBy: req.user?.userId,
     },
   });
+
+  const prevStatus = String(prev.status ?? '').trim();
+  const nextStatus = String(data.status ?? '').trim();
+  if (nextStatus === 'Aprovado' && prevStatus !== 'Aprovado') {
+    void appendCrmLog({
+      eventType: 'quote_approved',
+      entityCode: 'orcamento',
+      entityRecordId: id,
+      userId: req.user?.userId,
+      payload: {
+        oportunidade_id: String(data.oportunidade_id ?? ''),
+        numero: String(data.numero ?? ''),
+      },
+    });
+    emitOrcamentoApproved({
+      recordId: id,
+      userId: req.user?.userId,
+      oportunidadeId: String(data.oportunidade_id ?? '').trim() || undefined,
+      numero: String(data.numero ?? '').trim() || undefined,
+    });
+  }
 
   res.json({ success: true, data: { id: updated.id, ...(updated.data as any) } });
 });

@@ -1,5 +1,9 @@
 import { Prisma, StockMovementType } from '@prisma/client';
 import { prisma } from '../../infra/prisma.js';
+import {
+  isExcludedSalesCatalogProductType,
+  prismaWhereSalesCatalogOnly,
+} from './product-catalog-scope.js';
 
 type Db = Prisma.TransactionClient | typeof prisma;
 
@@ -180,17 +184,31 @@ function serializeProduct(row: {
   };
 }
 
-export async function listProducts(filter: { search?: string; status?: string; take?: number }) {
+export async function listProducts(filter: {
+  search?: string;
+  status?: string;
+  take?: number;
+  salesCatalogOnly?: boolean;
+}) {
   const take = filter.take ?? 2000;
-  const where: Prisma.ProductWhereInput = {};
-  if (filter.status) where.status = filter.status;
+  const andParts: Prisma.ProductWhereInput[] = [];
+
+  if (filter.status) andParts.push({ status: filter.status });
   if (filter.search?.trim()) {
     const q = filter.search.trim();
-    where.OR = [
-      { code: { contains: q, mode: 'insensitive' } },
-      { name: { contains: q, mode: 'insensitive' } },
-    ];
+    andParts.push({
+      OR: [
+        { code: { contains: q, mode: 'insensitive' } },
+        { name: { contains: q, mode: 'insensitive' } },
+      ],
+    });
   }
+  if (filter.salesCatalogOnly) {
+    andParts.push(prismaWhereSalesCatalogOnly());
+  }
+
+  const where: Prisma.ProductWhereInput =
+    andParts.length === 0 ? {} : andParts.length === 1 ? andParts[0]! : { AND: andParts };
 
   const rows = await prisma.product.findMany({
     where,
@@ -204,12 +222,16 @@ export async function listProducts(filter: { search?: string; status?: string; t
   return rows.map(serializeProduct);
 }
 
-export async function getProductById(id: string) {
+export async function getProductById(id: string, options?: { salesCatalogOnly?: boolean }) {
   const row = await prisma.product.findUnique({
     where: { id },
     include: { locations: { include: { location: true } } },
   });
-  return row ? serializeProduct(row) : null;
+  if (!row) return null;
+  if (options?.salesCatalogOnly && isExcludedSalesCatalogProductType(row.productType)) {
+    return null;
+  }
+  return serializeProduct(row);
 }
 
 export async function createProduct(
@@ -296,9 +318,19 @@ export async function updateProduct(
     techSheet: string | null;
     entityRecordId: string | null;
   }>,
+  opts?: { salesCatalogOnly?: boolean },
 ) {
   const current = await prisma.product.findUnique({ where: { id } });
   if (!current) throw new Error('Produto não encontrado');
+
+  if (opts?.salesCatalogOnly) {
+    if (isExcludedSalesCatalogProductType(current.productType)) {
+      throw new Error('Sem permissão para alterar insumos ou matéria-prima neste perfil');
+    }
+    if (input.productType !== undefined && isExcludedSalesCatalogProductType(input.productType)) {
+      throw new Error('Tipo não permitido para o cadastro comercial (use Produto, Serviço, etc.)');
+    }
+  }
 
   if (input.code !== undefined && input.code !== null && input.code !== current.code) {
     const clash = await prisma.product.findUnique({ where: { code: input.code } });

@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
-import { prisma } from './prisma.js';
+import { getEffectivePermissionCodesForUserId } from '../lib/effectivePermissions.js';
 
 export type EntityVerb = 'view' | 'create' | 'edit' | 'delete';
 
@@ -22,6 +22,7 @@ export const GRANULAR_ENTITY_CODES = [
   'crm_lead',
   'crm_oportunidade',
   'crm_atividade',
+  'crm_rules',
   'cotacao_compra',
   'historico_op',
   'workflow',
@@ -142,6 +143,12 @@ const LEGACY: Partial<Record<string, Partial<Record<EntityVerb, readonly string[
     edit: ['ver_crm', 'record.manage'],
     delete: ['ver_crm', 'record.manage'],
   },
+  crm_rules: {
+    view: ['ver_crm', 'editar_config'],
+    create: ['editar_config'],
+    edit: ['editar_config'],
+    delete: ['editar_config'],
+  },
   cotacao_compra: {
     view: ['ver_compras'],
     create: ['criar_oc'],
@@ -149,27 +156,6 @@ const LEGACY: Partial<Record<string, Partial<Record<EntityVerb, readonly string[
     delete: ['criar_oc'],
   },
 };
-
-async function permissionGranted(userId: string, permissionCode: string): Promise<boolean> {
-  const roles = await prisma.userRole.findMany({
-    where: { userId },
-    select: { roleId: true, role: { select: { code: true } } },
-  });
-
-  if (roles.some((r) => r.role.code === 'master')) return true;
-  const roleIds = roles.map((r) => r.roleId);
-  if (!roleIds.length) return false;
-
-  const row = await prisma.rolePermission.findFirst({
-    where: {
-      roleId: { in: roleIds },
-      granted: true,
-      permission: { code: permissionCode, active: true },
-    },
-    select: { id: true },
-  });
-  return Boolean(row);
-}
 
 function methodToVerb(method: string): EntityVerb {
   const m = method.toUpperCase();
@@ -193,14 +179,16 @@ export async function checkEntityRecordsAccess(
   const rolesJwt = jwtRoles || [];
   if (rolesJwt.includes('master')) return true;
 
+  const effective = new Set(await getEffectivePermissionCodesForUserId(userId));
+
   const granular = `${entityCode}.${verb}`;
-  if (await permissionGranted(userId, granular)) return true;
-  if (await permissionGranted(userId, 'record.manage')) return true;
+  if (effective.has(granular)) return true;
+  if (effective.has('record.manage')) return true;
 
   const fallback = LEGACY[entityCode]?.[verb];
   if (fallback) {
     for (const code of fallback) {
-      if (await permissionGranted(userId, code)) return true;
+      if (effective.has(code)) return true;
     }
   }
 

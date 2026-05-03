@@ -4,69 +4,31 @@ import PageHeader from '@/components/common/PageHeader';
 import DataTable from '@/components/common/DataTable';
 import FormModal, { inp, lbl, req } from '@/components/common/FormModal';
 import DetalheModal from '@/components/common/DetalheModal';
-import { Plus, ArrowRight, ShoppingCart, Wrench, DollarSign, CheckCircle, XCircle } from 'lucide-react';
+import { Plus, ArrowRight, ShoppingCart, CheckCircle, XCircle } from 'lucide-react';
 import { recordsServiceApi } from '@/services/recordsServiceApi';
+import { api } from '@/services/api';
+import { useAuth } from '@/lib/AuthContext';
 import { toast } from 'sonner';
 
-// Estágios alinhados ao fluxo real da empresa
+/** Alinhado ao backend `/api/crm/pipeline` e validação de estágios */
 const ESTAGIOS = [
-  {
-    value: 'Qualificação',
-    label: 'Qualificação',
-    color: 'bg-blue-100 text-blue-700',
-    descricao: 'Vendedor entende a necessidade e verifica se produto existe',
-    prob: 20,
-  },
-  {
-    value: 'Engenharia',
-    label: 'Engenharia',
-    color: 'bg-violet-100 text-violet-700',
-    descricao: 'Produto novo — aguardando desenvolvimento técnico da engenharia',
-    prob: 35,
-  },
-  {
-    value: 'Orçamento',
-    label: 'Orçamento',
-    color: 'bg-indigo-100 text-indigo-700',
-    descricao: 'Vendedor está elaborando a proposta comercial com custos',
-    prob: 50,
-  },
-  {
-    value: 'Proposta Enviada',
-    label: 'Proposta Enviada',
-    color: 'bg-sky-100 text-sky-700',
-    descricao: 'Proposta enviada ao cliente — aguardando resposta',
-    prob: 60,
-  },
-  {
-    value: 'Negociação',
-    label: 'Negociação',
-    color: 'bg-orange-100 text-orange-700',
-    descricao: 'Cliente em negociação de valores, prazos e condições',
-    prob: 75,
-  },
-  {
-    value: 'Aprovação Financeira',
-    label: 'Aprovação Financeira',
-    color: 'bg-yellow-100 text-yellow-700',
-    descricao: 'Pedido aprovado pelo cliente — financeiro valida pagamento',
-    prob: 90,
-  },
-  {
-    value: 'Fechado Ganho',
-    label: 'Fechado Ganho',
-    color: 'bg-green-100 text-green-700',
-    descricao: 'Venda concluída e pedido liberado para produção',
-    prob: 100,
-  },
-  {
-    value: 'Fechado Perdido',
-    label: 'Fechado Perdido',
-    color: 'bg-red-100 text-red-700',
-    descricao: 'Oportunidade perdida',
-    prob: 0,
-  },
+  { value: 'Novo', label: 'Novo', color: 'bg-slate-100 text-slate-800', descricao: 'Entrada no funil', prob: 10 },
+  { value: 'Qualificado', label: 'Qualificado', color: 'bg-blue-100 text-blue-800', descricao: 'Qualificado para seguir', prob: 25 },
+  { value: 'Em orçamento', label: 'Em orçamento', color: 'bg-indigo-100 text-indigo-800', descricao: 'Proposta em elaboração', prob: 45 },
+  { value: 'Proposta enviada', label: 'Proposta enviada', color: 'bg-sky-100 text-sky-800', descricao: 'Aguardando retorno', prob: 55 },
+  { value: 'Negociação', label: 'Negociação', color: 'bg-orange-100 text-orange-800', descricao: 'Negociando termos', prob: 75 },
+  { value: 'Aguardando cliente', label: 'Aguardando cliente', color: 'bg-amber-100 text-amber-900', descricao: 'Aguardando cliente ou áreas internas', prob: 85 },
+  { value: 'Fechado ganho', label: 'Fechado ganho', color: 'bg-green-100 text-green-800', descricao: 'Venda ganha', prob: 100 },
+  { value: 'Fechado perdido', label: 'Fechado perdido', color: 'bg-red-100 text-red-800', descricao: 'Oportunidade perdida', prob: 0 },
 ];
+
+const STAGE_FLOW = ['Novo', 'Qualificado', 'Em orçamento', 'Proposta enviada', 'Negociação', 'Aguardando cliente'];
+
+function nextPipelineStage(current) {
+  const i = STAGE_FLOW.indexOf(current);
+  if (i < 0 || i >= STAGE_FLOW.length - 1) return null;
+  return STAGE_FLOW[i + 1];
+}
 
 function BadgeEstagio({ estagio }) {
   const cfg = ESTAGIOS.find((e) => e.value === estagio);
@@ -78,10 +40,23 @@ function BadgeEstagio({ estagio }) {
 }
 
 const fmtR = (v) => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-const FORM_EMPTY = { titulo: '', empresa: '', contato: '', produto_interesse: '', valor: 0, estagio: 'Qualificação', probabilidade: 20, fechamento: '', responsavel: '', observacoes: '' };
+const FORM_EMPTY = {
+  titulo: '',
+  empresa: '',
+  contato: '',
+  produto_interesse: '',
+  valor: 0,
+  estagio: 'Novo',
+  probabilidade: 10,
+  fechamento: '',
+  responsavel: '',
+  responsavelId: '',
+  observacoes: '',
+};
 
 export default function Oportunidades() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -90,8 +65,27 @@ export default function Oportunidades() {
   const [detalhe, setDetalhe] = useState(null);
   const [filtroEstagio, setFiltroEstagio] = useState('');
   const [search, setSearch] = useState('');
+  const [assignable, setAssignable] = useState([]);
 
   const upd = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  useEffect(() => {
+    let ok = true;
+    api.get('/api/crm/assignable-users').then((res) => {
+      const rows = res?.data?.data;
+      if (ok && Array.isArray(rows)) setAssignable(rows);
+    }).catch(() => {});
+    return () => { ok = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!showModal) return;
+    setForm({
+      ...FORM_EMPTY,
+      responsavelId: user?.id || '',
+      responsavel: user?.fullName || user?.nome || '',
+    });
+  }, [showModal, user]);
 
   async function load() {
     setLoading(true);
@@ -111,7 +105,7 @@ export default function Oportunidades() {
       setDetalhe((d) => d ? { ...d, estagio: novoEstagio } : null);
       toast.success(`Estágio avançado para "${novoEstagio}"`);
     } catch (e) {
-      toast.error(e?.message || 'Falha ao atualizar estágio');
+      toast.error((e?.body && e.body.error) || e?.message || 'Falha ao atualizar estágio');
     }
   };
 
@@ -123,9 +117,12 @@ export default function Oportunidades() {
 
   const handleSave = async () => {
     if (!form.titulo) return toast.error('Informe o título da oportunidade');
+    if (!form.responsavelId && !String(form.responsavel || '').trim()) {
+      return toast.error('Selecione o responsável.');
+    }
     setSaving(true);
     try {
-      await recordsServiceApi.create('crm_oportunidade', form);
+      await recordsServiceApi.create('crm_oportunidade', { ...form, estagio: 'Novo' });
       await load();
       setShowModal(false);
       setForm(FORM_EMPTY);
@@ -133,13 +130,6 @@ export default function Oportunidades() {
     } finally {
       setSaving(false);
     }
-  };
-
-  // Muda probabilidade automaticamente ao mudar estágio no form
-  const mudarEstagio = (v) => {
-    const cfg = ESTAGIOS.find((e) => e.value === v);
-    upd('estagio', v);
-    if (cfg) upd('probabilidade', cfg.prob);
   };
 
   const filtered = useMemo(() => {
@@ -154,8 +144,8 @@ export default function Oportunidades() {
 
   // KPIs
   const kpis = useMemo(() => {
-    const ativas = data.filter((d) => !['Fechado Ganho', 'Fechado Perdido'].includes(d.estagio));
-    const ganhas = data.filter((d) => d.estagio === 'Fechado Ganho');
+    const ativas = data.filter((d) => !['Fechado ganho', 'Fechado perdido'].includes(d.estagio));
+    const ganhas = data.filter((d) => d.estagio === 'Fechado ganho');
     const pipeline = ativas.reduce((s, d) => s + Number(d.valor || 0), 0);
     const taxaConv = data.length > 0 ? Math.round((ganhas.length / data.length) * 100) : 0;
     return { ativas: ativas.length, ganhas: ganhas.length, pipeline, taxaConv };
@@ -242,7 +232,7 @@ export default function Oportunidades() {
       <div className="erp-card p-3">
         <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">Funil de Vendas</p>
         <div className="flex flex-wrap gap-2">
-          {ESTAGIOS.filter((e) => !['Fechado Perdido'].includes(e.value)).map((e) => {
+          {ESTAGIOS.filter((e) => !['Fechado perdido'].includes(e.value)).map((e) => {
             const n = porEstagio[e.value] || 0;
             return (
               <button
@@ -312,16 +302,30 @@ export default function Oportunidades() {
             <div className="grid grid-cols-2 gap-3">
               <div><label className={lbl}>Valor Estimado (R$)</label><input type="number" min="0" step="0.01" className={inp} value={form.valor} onChange={(e) => upd('valor', Number(e.target.value))} /></div>
               <div>
-                <label className={lbl}>Estágio</label>
-                <select className={inp} value={form.estagio} onChange={(e) => mudarEstagio(e.target.value)}>
-                  {ESTAGIOS.map((e) => <option key={e.value} value={e.value}>{e.label}</option>)}
-                </select>
+                <label className={lbl}>Estágio inicial</label>
+                <input className={`${inp} bg-muted`} readOnly value="Novo (use Pipeline para avançar)" title="Novas oportunidades entram como Novo" />
               </div>
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div><label className={lbl}>Probabilidade (%)</label><input type="number" min="0" max="100" className={inp} value={form.probabilidade} onChange={(e) => upd('probabilidade', Number(e.target.value))} /></div>
               <div><label className={lbl}>Data de Fechamento</label><input type="date" className={inp} value={form.fechamento} onChange={(e) => upd('fechamento', e.target.value)} /></div>
-              <div><label className={lbl}>Responsável</label><input className={inp} value={form.responsavel} onChange={(e) => upd('responsavel', e.target.value)} /></div>
+              <div>
+                <label className={lbl}>Responsável {req}</label>
+                <select
+                  className={inp}
+                  value={form.responsavelId}
+                  onChange={(e) => {
+                    const u = assignable.find((x) => x.id === e.target.value);
+                    upd('responsavelId', e.target.value);
+                    upd('responsavel', u?.fullName || '');
+                  }}
+                >
+                  <option value="">Selecione...</option>
+                  {assignable.map((u) => (
+                    <option key={u.id} value={u.id}>{u.fullName || u.email}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div>
               <label className={lbl}>Observações</label>
@@ -377,51 +381,37 @@ export default function Oportunidades() {
           {/* Ações de avanço no funil */}
           <div className="space-y-2">
             <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Avançar no Funil</p>
+            <p className="text-[10px] text-muted-foreground mb-2">
+              Fora do estágio &quot;Novo&quot;, o CRM exige atividade pendente (data ≥ hoje) vinculada por <code className="text-[10px]">oportunidade_id</code>.
+              Prefira arrastar no Pipeline (menu CRM).
+            </p>
             <div className="flex flex-wrap gap-2">
-              {detalhe.estagio === 'Qualificação' && (
-                <>
-                  <button type="button" onClick={() => avancarEstagio(detalhe, 'Engenharia')}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-violet-600 text-white rounded hover:opacity-90">
-                    <Wrench size={12} /> Produto Novo → Engenharia
-                  </button>
-                  <button type="button" onClick={() => avancarEstagio(detalhe, 'Orçamento')}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90">
-                    <ShoppingCart size={12} /> Produto Existe → Orçar
-                  </button>
-                </>
-              )}
-              {detalhe.estagio === 'Engenharia' && (
-                <button type="button" onClick={() => avancarEstagio(detalhe, 'Orçamento')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90">
-                  <ShoppingCart size={12} /> Specs Recebidas → Orçar
+              {nextPipelineStage(detalhe.estagio) && !['Fechado ganho', 'Fechado perdido'].includes(detalhe.estagio) && (
+                <button
+                  type="button"
+                  onClick={() => avancarEstagio(detalhe, nextPipelineStage(detalhe.estagio))}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90"
+                >
+                  <ArrowRight size={12} /> Próximo: {nextPipelineStage(detalhe.estagio)}
                 </button>
               )}
-              {detalhe.estagio === 'Orçamento' && (
-                <button type="button" onClick={() => { criarOrcamento(detalhe); avancarEstagio(detalhe, 'Proposta Enviada'); }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs cozinha-blue-bg text-white rounded hover:opacity-90">
-                  <ArrowRight size={12} /> Criar Orçamento e Enviar
+              {detalhe.estagio === 'Em orçamento' && (
+                <button
+                  type="button"
+                  onClick={() => criarOrcamento(detalhe)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded hover:bg-muted"
+                >
+                  <ShoppingCart size={12} /> Ir a Orçamentos
                 </button>
               )}
-              {detalhe.estagio === 'Proposta Enviada' && (
-                <button type="button" onClick={() => avancarEstagio(detalhe, 'Negociação')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded hover:bg-muted">
-                  <ArrowRight size={12} /> Em Negociação
-                </button>
-              )}
-              {['Proposta Enviada', 'Negociação'].includes(detalhe.estagio) && (
-                <button type="button" onClick={() => avancarEstagio(detalhe, 'Aprovação Financeira')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-yellow-600 text-white rounded hover:opacity-90">
-                  <DollarSign size={12} /> Cliente Aprovou → Financeiro
-                </button>
-              )}
-              {detalhe.estagio === 'Aprovação Financeira' && (
-                <button type="button" onClick={() => avancarEstagio(detalhe, 'Fechado Ganho')}
+              {!['Fechado ganho', 'Fechado perdido'].includes(detalhe.estagio) && (
+                <button type="button" onClick={() => avancarEstagio(detalhe, 'Fechado ganho')}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-green-600 text-white rounded hover:opacity-90">
-                  <CheckCircle size={12} /> Financeiro Aprovou → Ganho
+                  <CheckCircle size={12} /> Marcar Ganho
                 </button>
               )}
-              {!['Fechado Ganho', 'Fechado Perdido'].includes(detalhe.estagio) && (
-                <button type="button" onClick={() => avancarEstagio(detalhe, 'Fechado Perdido')}
+              {!['Fechado ganho', 'Fechado perdido'].includes(detalhe.estagio) && (
+                <button type="button" onClick={() => avancarEstagio(detalhe, 'Fechado perdido')}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-red-600 border border-red-200 rounded hover:bg-red-50">
                   <XCircle size={12} /> Marcar Perdido
                 </button>

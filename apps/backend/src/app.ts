@@ -37,9 +37,13 @@ import { registerKnowledgeModule } from './modules/knowledge/knowledge.module.js
 import { registerQualityModule } from './modules/quality/quality.module.js';
 import { registerExpeditionModule } from './modules/expedition/expedition.module.js';
 import { registerAccountingModule } from './modules/accounting/accounting.module.js';
+import { registerWebhooksModule } from './modules/webhooks/webhooks.module.js';
+import { registerMetaModule } from './modules/meta/meta.module.js';
 
 export function createApp() {
   const app = express();
+
+  registerWebhooksModule(app);
 
   app.use(helmet({ contentSecurityPolicy: false }));
   app.use(
@@ -85,6 +89,7 @@ export function createApp() {
   registerQualityModule(app);
   registerExpeditionModule(app);
   registerAccountingModule(app);
+  registerMetaModule(app);
 
   app.get('/', (req, res) => {
     res.json({

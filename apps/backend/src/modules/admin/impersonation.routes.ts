@@ -3,6 +3,8 @@ import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { prisma } from '../../infra/prisma.js';
 import { env } from '../../config/env.js';
+import { getEffectivePermissionCodesForUserId } from '../../lib/effectivePermissions.js';
+import { roleCodesFromUserRoleRows } from '../../lib/roleOrder.js';
 
 export const adminImpersonationRouter = Router();
 
@@ -28,7 +30,8 @@ adminImpersonationRouter.post('/impersonate/:userId', async (req, res) => {
   });
   if (!target || !target.active) return res.status(404).json({ error: 'Usuário não encontrado' });
 
-  const roles = target.roles.map((ur) => ur.role.code);
+  const roles = roleCodesFromUserRoleRows(target.roles);
+  const permissions = await getEffectivePermissionCodesForUserId(target.id);
   const secret = env.JWT_SECRET || process.env.JWT_SECRET || 'dev_change_me';
   const expiresIn = env.JWT_EXPIRES_IN;
 
@@ -38,6 +41,7 @@ adminImpersonationRouter.post('/impersonate/:userId', async (req, res) => {
       email: target.email,
       fullName: target.fullName,
       roles,
+      permissions,
       impersonation: true,
       impersonatedBy: by,
       reason: parsed.data.reason || '',

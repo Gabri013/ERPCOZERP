@@ -4,6 +4,18 @@ import { prisma } from '../../infra/prisma.js';
 import { Prisma } from '@prisma/client';
 import { checkEntityRecordsAccess } from '../../infra/entity-permissions.js';
 import { emitAfterRecordSaved } from '../../realtime/record-hooks.js';
+import { appendCrmLog } from '../crm/crm-log.service.js';
+import {
+  emitLeadCreated,
+  emitOpportunityStageChanged,
+  emitOpportunityUpdated,
+} from '../crm/crm-events.js';
+import { assignLeadResponsavelIfEmpty, logCrmAssignment } from '../crm/crm-assignment.service.js';
+import { normalizeOpportunityStage } from '../crm/crm-constants.js';
+import {
+  validateCrmLeadWrite,
+  validateCrmOpportunityWrite,
+} from '../crm/crm-record-validation.js';
 
 export const recordsRouter = Router();
 
@@ -89,10 +101,32 @@ recordsRouter.post('/', async (req, res) => {
     return res.status(400).json({ error: e?.message || 'Validação falhou' });
   }
 
+  const roles = req.user?.roles ?? [];
+  const mergedCreate = { ...(parsed.data.data as Record<string, unknown>) };
+  let crmLeadAutoAssignReason: string | undefined;
+  try {
+    if (parsed.data.entity === 'crm_lead') {
+      await assignLeadResponsavelIfEmpty(mergedCreate);
+      const meta = (mergedCreate as { _crmAutoAssignMeta?: { reason: string } })._crmAutoAssignMeta;
+      delete (mergedCreate as { _crmAutoAssignMeta?: unknown })._crmAutoAssignMeta;
+      crmLeadAutoAssignReason = meta?.reason;
+      validateCrmLeadWrite(mergedCreate, roles);
+    }
+    if (parsed.data.entity === 'crm_oportunidade') {
+      await validateCrmOpportunityWrite({
+        merged: mergedCreate,
+        recordId: null,
+        roles,
+      });
+    }
+  } catch (e: any) {
+    return res.status(400).json({ error: e?.message || 'Validação CRM falhou' });
+  }
+
   const created = await prisma.entityRecord.create({
     data: {
       entityId: entity.id,
-      data: parsed.data.data as Prisma.InputJsonValue,
+      data: mergedCreate as Prisma.InputJsonValue,
       createdBy: req.user?.userId,
       updatedBy: req.user?.userId,
     },
@@ -107,6 +141,44 @@ recordsRouter.post('/', async (req, res) => {
   if (parsed.data.entity === 'produto') {
     const { onProdutoRecordCreated } = await import('../products/products.service.js');
     void onProdutoRecordCreated(created.id, userId);
+  }
+
+  if (parsed.data.entity === 'crm_lead') {
+    const rid = String(mergedCreate.responsavelId ?? '').trim();
+    if (rid && crmLeadAutoAssignReason) {
+      void logCrmAssignment({
+        entityCode: 'crm_lead',
+        entityRecordId: created.id,
+        antigoResponsavel: null,
+        novoResponsavel: rid,
+        reason:
+          crmLeadAutoAssignReason === 'lead_round_robin' ? 'lead_auto_assigned' : crmLeadAutoAssignReason,
+      });
+      void appendCrmLog({
+        eventType: 'automation_lead_assigned',
+        entityCode: 'crm_lead',
+        entityRecordId: created.id,
+        userId,
+        payload: { automation: 'lead_auto_assign', reason: crmLeadAutoAssignReason },
+      });
+    }
+    void appendCrmLog({
+      eventType: 'lead_created',
+      entityCode: 'crm_lead',
+      entityRecordId: created.id,
+      userId,
+      payload: { snapshot: mergedCreate },
+    });
+    emitLeadCreated({ recordId: created.id, userId, data: mergedCreate });
+  }
+  if (parsed.data.entity === 'crm_oportunidade') {
+    void appendCrmLog({
+      eventType: 'opportunity_created',
+      entityCode: 'crm_oportunidade',
+      entityRecordId: created.id,
+      userId,
+      payload: { snapshot: mergedCreate },
+    });
   }
 
   res.status(201).json({ success: true, data: { id: created.id, data: created.data } });
@@ -169,6 +241,24 @@ recordsRouter.put('/:id', async (req, res) => {
     return res.status(400).json({ error: e?.message || 'Validação falhou' });
   }
 
+  const roles = req.user?.roles ?? [];
+  const prevData =
+    typeof existing.data === 'object' && existing.data !== null ? (existing.data as Record<string, unknown>) : {};
+  try {
+    if (entityCode === 'crm_lead') {
+      validateCrmLeadWrite(mergedData, roles);
+    }
+    if (entityCode === 'crm_oportunidade') {
+      await validateCrmOpportunityWrite({
+        merged: mergedData,
+        recordId: id,
+        roles,
+      });
+    }
+  } catch (e: any) {
+    return res.status(400).json({ error: e?.message || 'Validação CRM falhou' });
+  }
+
   const updated = await prisma.entityRecord.update({
     where: { id },
     data: {
@@ -182,6 +272,67 @@ recordsRouter.put('/:id', async (req, res) => {
     verb: 'update',
     record: { id: updated.id, data: updated.data },
   });
+
+  if (entityCode === 'crm_oportunidade') {
+    const prevStage = normalizeOpportunityStage(String(prevData.estagio ?? prevData.stage ?? ''));
+    const nextStage = normalizeOpportunityStage(String(mergedData.estagio ?? mergedData.stage ?? ''));
+    if (prevStage !== nextStage) {
+      void appendCrmLog({
+        eventType: 'opportunity_stage_change',
+        entityCode: 'crm_oportunidade',
+        entityRecordId: id,
+        userId,
+        payload: { from: prevStage, to: nextStage },
+      });
+      emitOpportunityStageChanged({
+        recordId: id,
+        userId,
+        from: prevStage,
+        to: nextStage,
+        data: mergedData,
+      });
+    }
+    const prevOwner = String(prevData.responsavelId ?? prevData.responsavel ?? '').trim();
+    const nextOwner = String(mergedData.responsavelId ?? mergedData.responsavel ?? '').trim();
+    if (prevOwner !== nextOwner) {
+      void appendCrmLog({
+        eventType: 'opportunity_owner_change',
+        entityCode: 'crm_oportunidade',
+        entityRecordId: id,
+        userId,
+        payload: { from: prevOwner, to: nextOwner },
+      });
+      if (nextOwner) {
+        void logCrmAssignment({
+          entityCode: 'crm_oportunidade',
+          entityRecordId: id,
+          antigoResponsavel: prevOwner || null,
+          novoResponsavel: nextOwner,
+          reason: 'owner_manual_update',
+        });
+      }
+    }
+    emitOpportunityUpdated({
+      recordId: id,
+      userId,
+      previous: prevData,
+      next: mergedData,
+    });
+  }
+
+  if (entityCode === 'crm_lead') {
+    const prevOwner = String(prevData.responsavelId ?? prevData.responsavel ?? '').trim();
+    const nextOwner = String(mergedData.responsavelId ?? mergedData.responsavel ?? '').trim();
+    if (prevOwner !== nextOwner && nextOwner) {
+      void logCrmAssignment({
+        entityCode: 'crm_lead',
+        entityRecordId: id,
+        antigoResponsavel: prevOwner || null,
+        novoResponsavel: nextOwner,
+        reason: 'owner_manual_update',
+      });
+    }
+  }
 
   res.json({ success: true, data: { id: updated.id, data: updated.data } });
 });

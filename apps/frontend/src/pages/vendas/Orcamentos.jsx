@@ -261,6 +261,7 @@ export default function Orcamentos() {
       {/* ── Modal novo / edição ───────────────────────────────────────────── */}
       {(showModal || editando) && (
         <ModalPedidoVenda
+          moduloOrcamento
           pedido={editando}
           onClose={() => { setShowModal(false); setEditando(null); }}
           onSave={handleSave}
