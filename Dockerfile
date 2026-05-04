@@ -15,9 +15,6 @@ RUN npm install --silent
 # Copiar backend
 COPY apps/backend ./apps/backend
 
-# Copiar arquivos necessários
-COPY tsconfig.json ./tsconfig.json 2>/dev/null || true
-
 WORKDIR /app/apps/backend
 
 # Instalar dependências do backend
@@ -45,7 +42,6 @@ RUN apt-get update -y && apt-get install -y --no-install-recommends \
 # Copiar do builder
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/apps/backend ./apps/backend
-COPY --from=builder /app/tsconfig.json ./tsconfig.json 2>/dev/null || true
 
 WORKDIR /app/apps/backend
 
