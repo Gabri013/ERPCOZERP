@@ -36,5 +36,8 @@ COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/dist ./dist
 
 EXPOSE 3001
+COPY docker-entrypoint.sh ./docker-entrypoint.sh
+RUN chmod +x ./docker-entrypoint.sh
+ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["npm", "start"]
 
