@@ -8,16 +8,20 @@ export const healthRouter = Router();
 healthRouter.get('/', async (req, res) => {
   let postgres = 'down';
 
-  try {
-    await prisma.$queryRaw`SELECT 1`;
-    postgres = 'ok';
-  } catch {
-    postgres = 'down';
+  if (env.DATABASE_URL) {
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      postgres = 'ok';
+    } catch {
+      postgres = 'down';
+    }
+  } else {
+    postgres = 'missing';
   }
 
   const redis = env.REDIS_URL ? 'configured' : 'disabled';
 
-  res.json({
+  res.status(200).json({
     ok: true,
     service: 'erpcoz-backend-core',
     env: env.NODE_ENV,
