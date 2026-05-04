@@ -2,7 +2,7 @@
   "version": 2,
   "builds": [
     {
-      "src": "package.json",
+      "src": "apps/frontend/package.json",
       "use": "@vercel/static-build",
       "config": {
         "distDir": "dist"
@@ -12,7 +12,11 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "https://erp-backend-iwvv.onrender.com/api/$1"
+      "dest": "https://erp-backend-production-373b.up.railway.app/api/$1"
+    },
+    {
+      "src": "/socket.io/(.*)",
+      "dest": "https://erp-backend-production-373b.up.railway.app/socket.io/$1"
     },
     {
       "src": "/(.*)",
