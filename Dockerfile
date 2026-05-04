@@ -45,8 +45,9 @@ COPY --from=builder /app/apps/backend ./apps/backend
 
 WORKDIR /app/apps/backend
 
-# Instalar apenas dependências de produção
-RUN npm ci --only=production --silent
+# Instalar dependências (inclui devDependencies para garantir Prisma CLI disponível em runtime)
+# Nota: isso aumenta a imagem mas garante que `prisma` CLI (devDependency) esteja presente para migrations
+RUN npm ci --silent
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
