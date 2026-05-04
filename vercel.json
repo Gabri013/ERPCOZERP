@@ -5,15 +5,15 @@
   "outputDirectory": "apps/frontend/dist",
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "https://erp-backend-production-373b.up.railway.app/api/$1"
+      "source": "/api/:path*",
+      "destination": "https://erp-backend-production-373b.up.railway.app/api/:path*"
     },
     {
-      "source": "/socket.io/(.*)",
-      "destination": "https://erp-backend-production-373b.up.railway.app/socket.io/$1"
+      "source": "/socket.io/:path*",
+      "destination": "https://erp-backend-production-373b.up.railway.app/socket.io/:path*"
     },
     {
-      "source": "/(.*)",
+      "source": "/:path*",
       "destination": "/index.html"
     }
   ]
