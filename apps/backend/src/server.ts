@@ -16,7 +16,7 @@ const httpServer = http.createServer(app);
 
 const jwtSecret = env.JWT_SECRET || process.env.JWT_SECRET || 'dev_change_me';
 
-initSocketIOServer(httpServer, env.FRONTEND_URL || 'http://localhost:5173', jwtSecret);
+initSocketIOServer(httpServer, env.ALLOWED_ORIGINS, jwtSecret);
 scheduleOverdueProductionScan(180_000);
 
 httpServer.on('error', (err: NodeJS.ErrnoException) => {

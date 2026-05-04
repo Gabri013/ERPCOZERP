@@ -54,7 +54,14 @@ export function createApp() {
   app.use(helmet({ contentSecurityPolicy: false }));
   app.use(
     cors({
-      origin: env.FRONTEND_URL,
+      origin(origin, callback) {
+        if (!origin || env.ALLOWED_ORIGINS.includes(origin)) {
+          callback(null, true);
+          return;
+        }
+
+        callback(new Error(`Origin not allowed by CORS: ${origin}`));
+      },
       credentials: true,
     })
   );

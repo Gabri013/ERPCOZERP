@@ -8,17 +8,15 @@ export function getIO(): SocketIOServer | null {
   return ioInstance;
 }
 
-function parseOrigins(origin: string) {
-  if (!origin.trim()) return true;
-  const parts = origin.split(',').map((s) => s.trim()).filter(Boolean);
-  return parts.length <= 1 ? parts[0] || true : parts;
+function normalizeOrigins(origins: string[]) {
+  return origins.length ? origins : true;
 }
 
-export function initSocketIOServer(httpServer: HttpServer, frontendUrl: string, jwtSecret: string) {
+export function initSocketIOServer(httpServer: HttpServer, frontendOrigins: string[], jwtSecret: string) {
   const io = new SocketIOServer(httpServer, {
     path: '/socket.io/',
     cors: {
-      origin: parseOrigins(frontendUrl),
+      origin: normalizeOrigins(frontendOrigins),
       credentials: true,
     },
   });
