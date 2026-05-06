@@ -29,6 +29,6 @@ httpServer.on('error', (err: NodeJS.ErrnoException) => {
   throw err;
 });
 
-httpServer.listen(env.PORT, () => {
+httpServer.listen(env.PORT, '0.0.0.0', () => {
   logInfo(`[backend-core] listening on :${env.PORT}`, { socketio: '/socket.io' });
 });
