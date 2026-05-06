@@ -20,3 +20,7 @@ if (process.env.NODE_ENV !== 'production') {
   global.__prisma = prisma;
 }
 
+// Apply Prisma middleware to enforce companyId where applicable
+import { applyPrismaMiddleware } from './prisma.middleware.js';
+applyPrismaMiddleware(prisma);
+

@@ -1,8 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '../infra/prisma.js';
+import { runWithTenant } from '../infra/tenantContext.js';
 
 export interface AuthenticatedRequest extends Request {
   user?: {
@@ -48,7 +47,8 @@ export const tenantMiddleware = async (
       role: decoded.role
     };
 
-    next();
+    // Run the remainder of request handling inside the tenant context
+    return runWithTenant({ companyId: decoded.companyId }, () => next());
   } catch (error) {
     console.error('Erro no tenant middleware:', error);
     return res.status(401).json({ error: 'Token inválido' });

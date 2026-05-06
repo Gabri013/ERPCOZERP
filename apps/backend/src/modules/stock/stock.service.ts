@@ -1,5 +1,6 @@
 import { Prisma, StockMovementType } from '@prisma/client';
 import { prisma } from '../../infra/prisma.js';
+import { getCurrentCompanyId } from '../../infra/tenantContext.js';
 import {
   isExcludedSalesCatalogProductType,
   prismaWhereSalesCatalogOnly,
@@ -9,13 +10,20 @@ type Db = Prisma.TransactionClient | typeof prisma;
 
 const DEFAULT_LOCATION_CODE = 'DEFAULT';
 
+function requireCompanyId() {
+  const companyId = getCurrentCompanyId();
+  if (!companyId) throw new Error('companyId ausente');
+  return companyId;
+}
+
 export function decimalToNumber(d: Prisma.Decimal | null | undefined): number | null {
   if (d === null || d === undefined) return null;
   return d.toNumber();
 }
 
 export async function getOrCreateDefaultLocation() {
-  const existing = await prisma.location.findUnique({ where: { code: DEFAULT_LOCATION_CODE } });
+  requireCompanyId();
+  const existing = await prisma.location.findFirst({ where: { code: DEFAULT_LOCATION_CODE } });
   if (existing) return existing;
   return prisma.location.create({
     data: {
@@ -32,19 +40,21 @@ export async function ensureProductLocationRow(productId: string, locationId: st
 }
 
 async function getQtyAtLocation(db: Db, productId: string, locationId: string): Promise<Prisma.Decimal> {
-  const row = await db.productLocation.findUnique({
-    where: { productId_locationId: { productId, locationId } },
+  const companyId = requireCompanyId();
+  const row = await db.productLocation.findFirst({
+    where: { productId, locationId, product: { companyId } },
   });
   return row?.quantity ?? new Prisma.Decimal(0);
 }
 
 async function ensureProductLocationRowTx(db: Db, productId: string, locationId: string) {
-  return db.productLocation.upsert({
-    where: {
-      productId_locationId: { productId, locationId },
-    },
-    create: { productId, locationId, quantity: new Prisma.Decimal(0) },
-    update: {},
+  const companyId = requireCompanyId();
+  const existing = await db.productLocation.findFirst({
+    where: { productId, locationId, product: { companyId } },
+  });
+  if (existing) return existing;
+  return db.productLocation.create({
+    data: { productId, locationId, quantity: new Prisma.Decimal(0) },
   });
 }
 
@@ -71,14 +81,16 @@ export async function applyStockMovement(
       throw new Error('Saldo insuficiente neste endereço para a saída solicitada');
     }
     const next = current.minus(quantity);
-    await db.productLocation.update({
-      where: { productId_locationId: { productId, locationId } },
+    const companyId = requireCompanyId();
+    await db.productLocation.updateMany({
+      where: { productId, locationId, product: { companyId } },
       data: { quantity: next },
     });
   } else if (type === 'ENTRADA') {
     const next = current.plus(quantity);
-    await db.productLocation.update({
-      where: { productId_locationId: { productId, locationId } },
+    const companyId = requireCompanyId();
+    await db.productLocation.updateMany({
+      where: { productId, locationId, product: { companyId } },
       data: { quantity: next },
     });
   } else {
@@ -86,8 +98,9 @@ export async function applyStockMovement(
     if (next.lt(0)) {
       throw new Error('Ajuste resultaria em saldo negativo neste endereço');
     }
-    await db.productLocation.update({
-      where: { productId_locationId: { productId, locationId } },
+    const companyId = requireCompanyId();
+    await db.productLocation.updateMany({
+      where: { productId, locationId, product: { companyId } },
       data: { quantity: next },
     });
   }
@@ -101,6 +114,7 @@ export async function applyStockMovement(
       reference: reference ?? undefined,
       notes: notes ?? undefined,
       userId: userId ?? undefined,
+      product: { connect: { id: productId } },
     },
     include: { product: true, location: true, user: { select: { id: true, fullName: true, email: true } } },
   });
@@ -194,6 +208,7 @@ export async function listProducts(filter: {
   const take = filter.take ?? 2000;
   const skip = filter.skip ?? 0;
   const andParts: Prisma.ProductWhereInput[] = [];
+  const companyId = requireCompanyId();
 
   if (filter.status) andParts.push({ status: filter.status });
   if (filter.search?.trim()) {
@@ -213,7 +228,7 @@ export async function listProducts(filter: {
     andParts.length === 0 ? {} : andParts.length === 1 ? andParts[0]! : { AND: andParts };
 
   const rows = await prisma.product.findMany({
-    where,
+    where: { ...where, companyId },
     take,
     skip,
     orderBy: { updatedAt: 'desc' },
@@ -226,8 +241,9 @@ export async function listProducts(filter: {
 }
 
 export async function getProductById(id: string, options?: { salesCatalogOnly?: boolean }) {
-  const row = await prisma.product.findUnique({
-    where: { id },
+  const companyId = requireCompanyId();
+  const row = await prisma.product.findFirst({
+    where: { id, companyId },
     include: { locations: { include: { location: true } } },
   });
   if (!row) return null;
@@ -256,7 +272,8 @@ export async function createProduct(
   },
 ) {
   const code = (input.code && String(input.code).trim()) || `PROD-${Date.now()}`;
-  const existingCode = await prisma.product.findUnique({ where: { code } });
+  const companyId = requireCompanyId();
+  const existingCode = await prisma.product.findFirst({ where: { code, companyId } });
   if (existingCode) {
     throw new Error(`Código de produto já em uso: ${code}`);
   }
@@ -287,6 +304,7 @@ export async function createProduct(
       status: input.status ?? 'Ativo',
       photoUrl: input.photoUrl ?? undefined,
       techSheet: input.techSheet ?? undefined,
+      companyId,
       ...(input.entityRecordId
         ? { entityRecord: { connect: { id: input.entityRecordId } } }
         : {}),
@@ -323,7 +341,8 @@ export async function updateProduct(
   }>,
   opts?: { salesCatalogOnly?: boolean },
 ) {
-  const current = await prisma.product.findUnique({ where: { id } });
+  const companyId = requireCompanyId();
+  const current = await prisma.product.findFirst({ where: { id, companyId } });
   if (!current) throw new Error('Produto não encontrado');
 
   if (opts?.salesCatalogOnly) {
@@ -336,7 +355,7 @@ export async function updateProduct(
   }
 
   if (input.code !== undefined && input.code !== null && input.code !== current.code) {
-    const clash = await prisma.product.findUnique({ where: { code: input.code } });
+    const clash = await prisma.product.findFirst({ where: { code: input.code, companyId } });
     if (clash) throw new Error(`Código já em uso: ${input.code}`);
   }
 
@@ -380,21 +399,25 @@ export async function updateProduct(
 }
 
 export async function inactivateProduct(id: string) {
-  const row = await prisma.product.update({
-    where: { id },
+  const companyId = requireCompanyId();
+  const row = await prisma.product.updateMany({
+    where: { id, companyId },
     data: { status: 'Inativo' },
-    include: { locations: { include: { location: true } } },
   });
-  return serializeProduct(row);
+  if (row.count === 0) throw new Error('Not found');
+  return getProductById(id);
 }
 
 export async function listMovements(filter: { productId?: string; take?: number }) {
   const take = filter.take ?? 500;
-  const where: Prisma.StockMovementWhereInput = {};
+  const companyId = requireCompanyId();
+  const where: Prisma.StockMovementWhereInput = {
+    product: { companyId },
+  };
   if (filter.productId) where.productId = filter.productId;
 
   const rows = await prisma.stockMovement.findMany({
-    where,
+    where: { ...where },
     take,
     orderBy: { createdAt: 'desc' },
     include: {
@@ -420,7 +443,17 @@ export async function listMovements(filter: { productId?: string; take?: number 
 }
 
 export async function listLocations() {
-  return prisma.location.findMany({ orderBy: { code: 'asc' } });
+  const companyId = requireCompanyId();
+  return prisma.location.findMany({
+    where: {
+      OR: [
+        { productLocations: { some: { product: { companyId } } } },
+        { stockMovements: { some: { product: { companyId } } } },
+        { inventoryItems: { some: { product: { companyId } } } },
+      ],
+    },
+    orderBy: { code: 'asc' },
+  });
 }
 
 export async function createLocation(input: {
@@ -432,6 +465,7 @@ export async function createLocation(input: {
   bin?: string | null;
   active?: boolean;
 }) {
+  requireCompanyId();
   return prisma.location.create({
     data: {
       code: input.code.trim(),
@@ -457,6 +491,7 @@ export async function updateLocation(
     active: boolean;
   }>,
 ) {
+  const companyId = requireCompanyId();
   const data: Prisma.LocationUpdateInput = {};
   if (input.code !== undefined) data.code = input.code;
   if (input.name !== undefined) data.name = input.name;
@@ -466,18 +501,23 @@ export async function updateLocation(
   if (input.bin !== undefined) data.bin = input.bin ?? undefined;
   if (input.active !== undefined) data.active = input.active;
 
-  return prisma.location.update({ where: { id }, data });
+  const row = await prisma.location.updateMany({ where: { id, productLocations: { some: { product: { companyId } } } }, data });
+  if (row.count === 0) throw new Error('Not found');
+  return prisma.location.findFirst({ where: { id } });
 }
 
 export async function deleteLocation(id: string) {
-  const used = await prisma.productLocation.count({ where: { locationId: id } });
+  const companyId = requireCompanyId();
+  const used = await prisma.productLocation.count({ where: { locationId: id, product: { companyId } } });
   if (used > 0) throw new Error('Endereço possui saldos vinculados');
-  await prisma.location.delete({ where: { id } });
+  const row = await prisma.location.deleteMany({ where: { id } });
+  if (row.count === 0) throw new Error('Not found');
 }
 
 export async function listProductLocations(productId: string) {
+  const companyId = requireCompanyId();
   const rows = await prisma.productLocation.findMany({
-    where: { productId },
+    where: { productId, product: { companyId } },
     include: { location: true },
     orderBy: { location: { code: 'asc' } },
   });
@@ -496,15 +536,16 @@ export async function createInventoryCount(input: {
 }) {
   const code = `INV-${Date.now()}`;
   const defaultLoc = await getOrCreateDefaultLocation();
+  const companyId = requireCompanyId();
 
   const products =
     input.productIds && input.productIds.length > 0
       ? await prisma.product.findMany({
-          where: { id: { in: input.productIds } },
+          where: { id: { in: input.productIds }, companyId },
           include: { locations: true },
         })
       : await prisma.product.findMany({
-          where: { status: { not: 'Inativo' } },
+          where: { status: { not: 'Inativo' }, companyId },
           include: { locations: true },
           take: 5000,
         });
@@ -540,7 +581,9 @@ export async function createInventoryCount(input: {
 }
 
 export async function listInventoryCounts() {
+  const companyId = requireCompanyId();
   return prisma.inventoryCount.findMany({
+    where: { items: { some: { product: { companyId } } } },
     orderBy: { createdAt: 'desc' },
     take: 200,
     include: {
@@ -551,8 +594,9 @@ export async function listInventoryCounts() {
 }
 
 export async function getInventoryCount(id: string) {
-  return prisma.inventoryCount.findUnique({
-    where: { id },
+  const companyId = requireCompanyId();
+  return prisma.inventoryCount.findFirst({
+    where: { id, items: { some: { product: { companyId } } } },
     include: {
       items: { include: { product: true, location: true } },
       approvedBy: { select: { fullName: true, email: true } },
@@ -564,18 +608,25 @@ export async function patchInventoryCount(
   id: string,
   input: { status?: 'RASCUNHO' | 'EM_CONTAGEM' | 'APROVADO'; notes?: string | null },
 ) {
+  const companyId = requireCompanyId();
   const data: Prisma.InventoryCountUpdateInput = {};
   if (input.status !== undefined) data.status = input.status;
   if (input.notes !== undefined) data.notes = input.notes ?? undefined;
-  return prisma.inventoryCount.update({ where: { id }, data });
+  const row = await prisma.inventoryCount.updateMany({
+    where: { id, items: { some: { product: { companyId } } } },
+    data,
+  });
+  if (row.count === 0) throw new Error('Not found');
+  return getInventoryCount(id);
 }
 
 export async function patchInventoryItem(
   itemId: string,
   input: { qtyCounted: number | null },
 ) {
-  const item = await prisma.inventoryCountItem.findUnique({
-    where: { id: itemId },
+  const companyId = requireCompanyId();
+  const item = await prisma.inventoryCountItem.findFirst({
+    where: { id: itemId, inventoryCount: { items: { some: { product: { companyId } } } } },
     include: { inventoryCount: true },
   });
   if (!item) throw new Error('Linha de inventário não encontrada');
@@ -583,18 +634,21 @@ export async function patchInventoryItem(
     throw new Error('Inventário já aprovado');
   }
 
-  return prisma.inventoryCountItem.update({
-    where: { id: itemId },
+  const row = await prisma.inventoryCountItem.updateMany({
+    where: { id: itemId, inventoryCount: { items: { some: { product: { companyId } } } } },
     data: {
       qtyCounted:
         input.qtyCounted === null ? null : new Prisma.Decimal(input.qtyCounted),
     },
   });
+  if (row.count === 0) throw new Error('Not found');
+  return prisma.inventoryCountItem.findFirst({ where: { id: itemId } });
 }
 
 export async function approveInventoryCount(id: string, userId: string | undefined) {
-  const inv = await prisma.inventoryCount.findUnique({
-    where: { id },
+  const companyId = requireCompanyId();
+  const inv = await prisma.inventoryCount.findFirst({
+    where: { id, items: { some: { product: { companyId } } } },
     include: { items: true },
   });
   if (!inv) throw new Error('Inventário não encontrado');
@@ -629,14 +683,15 @@ export async function approveInventoryCount(id: string, userId: string | undefin
       );
     }
 
-    await tx.inventoryCount.update({
-      where: { id },
+    const updated = await tx.inventoryCount.updateMany({
+      where: { id, items: { some: { product: { companyId } } } },
       data: {
         status: 'APROVADO',
         approvedAt: new Date(),
         approvedById: userId ?? undefined,
       },
     });
+    if (updated.count === 0) throw new Error('Not found');
   });
 
   return getInventoryCount(id);

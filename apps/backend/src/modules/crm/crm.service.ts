@@ -28,8 +28,14 @@ export const ENT = {
   atividade: 'crm_atividade',
 } as const;
 
-export async function entityId(code: string) {
-  const e = await prisma.entity.findUnique({ where: { code } });
+export async function entityId(ctx: TenantContext, code: string) {
+  const companyId = ctx.companyId;
+  const e = await prisma.entity.findFirst({
+    where: {
+      code,
+      companyId,
+    },
+  });
   if (!e) throw new Error(`Entidade ${code} não configurada. Rode o seed.`);
   return e.id;
 }
@@ -39,15 +45,18 @@ export function parseData(data: Prisma.JsonValue): Record<string, unknown> {
   return {};
 }
 
+type TenantContext = { companyId: string };
+
 function opportunityAmount(d: Record<string, unknown>): number {
   const v = Number(d.valor ?? d.value ?? 0);
   return Number.isFinite(v) ? v : 0;
 }
 
-export async function getPipeline(query?: Record<string, unknown>) {
-  const eid = await entityId(ENT.oportunidade);
+export async function getPipeline(ctx: TenantContext, query?: Record<string, unknown>) {
+  const companyId = ctx.companyId;
+  const eid = await entityId(ctx, ENT.oportunidade);
   const rows = await prisma.entityRecord.findMany({
-    where: { entityId: eid, deletedAt: null },
+    where: { entityId: eid, deletedAt: null, companyId },
     orderBy: { updatedAt: 'desc' },
     take: 500,
   });
@@ -71,13 +80,17 @@ export async function getPipeline(query?: Record<string, unknown>) {
 }
 
 export async function moveOpportunity(
+  ctx: TenantContext,
   recordId: string,
   newStage: string,
   userId?: string | null,
   roles?: string[],
 ) {
-  const eid = await entityId(ENT.oportunidade);
-  const row = await prisma.entityRecord.findFirst({ where: { id: recordId, entityId: eid, deletedAt: null } });
+  const companyId = ctx.companyId;
+  const eid = await entityId(ctx, ENT.oportunidade);
+  const row = await prisma.entityRecord.findFirst({
+    where: { id: recordId, entityId: eid, deletedAt: null, companyId },
+  });
   if (!row) throw new Error('Oportunidade não encontrada');
   const d = parseData(row.data);
   const merged = { ...d, estagio: newStage, stage: newStage };
@@ -87,14 +100,16 @@ export async function moveOpportunity(
     roles: roles ?? [],
   });
 
-  const updated = await prisma.entityRecord.update({
-    where: { id: recordId },
+  const updated = await prisma.entityRecord.updateMany({
+    where: { id: recordId, companyId },
     data: {
       data: merged as Prisma.InputJsonValue,
       updatedAt: new Date(),
       updatedBy: userId ?? undefined,
     },
   });
+
+  if (updated.count === 0) throw new Error('Not found');
 
   emitOpportunityUpdated({
     recordId,
@@ -126,17 +141,18 @@ export async function moveOpportunity(
     },
   });
 
-  return updated;
+  return { count: updated.count };
 }
 
-export async function listActivitiesToday() {
-  const eid = await entityId(ENT.atividade);
+export async function listActivitiesToday(ctx: TenantContext) {
+  const companyId = ctx.companyId;
+  const eid = await entityId(ctx, ENT.atividade);
   const start = new Date();
   start.setHours(0, 0, 0, 0);
   const end = new Date();
   end.setHours(23, 59, 59, 999);
   const rows = await prisma.entityRecord.findMany({
-    where: { entityId: eid, deletedAt: null },
+    where: { entityId: eid, deletedAt: null, companyId },
     orderBy: { updatedAt: 'desc' },
     take: 200,
   });
@@ -181,28 +197,30 @@ export function summarizeActivitiesForDashboard(
   });
 }
 
-async function listOpenOpportunitiesRows() {
-  const eid = await entityId(ENT.oportunidade);
+async function listOpenOpportunitiesRowsTenant(ctx: TenantContext) {
+  const companyId = ctx.companyId;
+  const eid = await entityId(ctx, ENT.oportunidade);
   return prisma.entityRecord.findMany({
-    where: { entityId: eid, deletedAt: null },
+    where: { entityId: eid, deletedAt: null, companyId },
     select: { id: true, data: true, updatedAt: true },
   });
 }
 
-export async function getCrmDashboard(analyticsQuery?: Record<string, unknown>) {
+export async function getCrmDashboard(ctx: TenantContext, analyticsQuery?: Record<string, unknown>) {
+  const companyId = ctx.companyId;
   const [leadEid, oppEid, actEid] = await Promise.all([
-    entityId(ENT.lead),
-    entityId(ENT.oportunidade),
-    entityId(ENT.atividade),
+    entityId(ctx, ENT.lead),
+    entityId(ctx, ENT.oportunidade),
+    entityId(ctx, ENT.atividade),
   ]);
 
   const [leadCount, oppCount, actCount, oppRows, leadRows] = await Promise.all([
-    prisma.entityRecord.count({ where: { entityId: leadEid, deletedAt: null } }),
-    prisma.entityRecord.count({ where: { entityId: oppEid, deletedAt: null } }),
-    prisma.entityRecord.count({ where: { entityId: actEid, deletedAt: null } }),
-    listOpenOpportunitiesRows(),
+    prisma.entityRecord.count({ where: { entityId: leadEid, deletedAt: null, companyId } }),
+    prisma.entityRecord.count({ where: { entityId: oppEid, deletedAt: null, companyId } }),
+    prisma.entityRecord.count({ where: { entityId: actEid, deletedAt: null, companyId } }),
+    listOpenOpportunitiesRowsTenant(ctx),
     prisma.entityRecord.findMany({
-      where: { entityId: leadEid, deletedAt: null },
+      where: { entityId: leadEid, deletedAt: null, companyId },
       select: { id: true, data: true, updatedAt: true },
     }),
   ]);
@@ -226,7 +244,7 @@ export async function getCrmDashboard(analyticsQuery?: Record<string, unknown>) 
     if (!CLOSED_OPPORTUNITY_STAGES.has(stage)) pipelineOpenTotalBrl += v;
   }
 
-  const activitiesToday = summarizeActivitiesForDashboard(await listActivitiesToday());
+  const activitiesToday = summarizeActivitiesForDashboard(await listActivitiesToday(ctx));
 
   const opportunitiesWithoutFutureActivity: { id: string; titulo: string; estagio: string }[] = [];
   const opportunitiesStalled: { id: string; titulo: string; estagio: string; updatedAt: string }[] = [];
@@ -240,7 +258,7 @@ export async function getCrmDashboard(analyticsQuery?: Record<string, unknown>) 
     const titulo = String(d.titulo || d.title || '—');
     if (CLOSED_OPPORTUNITY_STAGES.has(stage)) continue;
     if (stage !== 'Novo') {
-      const has = await opportunityHasFuturePendingActivity(r.id);
+      const has = await opportunityHasFuturePendingActivity(r.id, ctx);
       if (!has) opportunitiesWithoutFutureActivity.push({ id: r.id, titulo, estagio: stage });
     }
     if (r.updatedAt < threeDaysAgo && !CLOSED_OPPORTUNITY_STAGES.has(stage)) {
@@ -292,9 +310,9 @@ export async function getCrmDashboard(analyticsQuery?: Record<string, unknown>) 
   };
 }
 
-export async function getCrmAlerts(analyticsQuery?: Record<string, unknown>) {
+export async function getCrmAlerts(ctx: TenantContext, analyticsQuery?: Record<string, unknown>) {
   const { getInboxAlerts } = await import('./crm-inbox.service.js');
-  const [dash, inbox] = await Promise.all([getCrmDashboard(analyticsQuery), getInboxAlerts()]);
+  const [dash, inbox] = await Promise.all([getCrmDashboard(ctx, analyticsQuery), getInboxAlerts()]);
   let analyticsAlerts: Awaited<ReturnType<typeof getCrmAnalyticsAlerts>> | null = null;
   try {
     analyticsAlerts = await getCrmAnalyticsAlerts(parseCrmAnalyticsQuery(analyticsQuery ?? {}));

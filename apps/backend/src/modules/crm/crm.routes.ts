@@ -13,7 +13,7 @@ const gate = requirePermission(['ver_crm']);
 
 crmRouter.get('/pipeline', gate, async (req, res) => {
   try {
-    const data = await svc.getPipeline(req.query as Record<string, unknown>);
+    const data = await svc.getPipeline({ companyId: req.user!.companyId }, req.query as Record<string, unknown>);
     res.json({ success: true, data });
   } catch (e) {
     res.status(500).json({ error: e instanceof Error ? e.message : 'Erro' });
@@ -53,7 +53,7 @@ crmRouter.post('/pipeline/move', gate, async (req, res) => {
     const stageRaw = String(req.body?.stage || req.body?.estagio || '');
     if (!id || !stageRaw) return res.status(400).json({ error: 'recordId e stage são obrigatórios' });
     const stage = normalizeOpportunityStage(stageRaw);
-    const data = await svc.moveOpportunity(id, stage, req.user?.userId, req.user?.roles);
+    const data = await svc.moveOpportunity({ companyId: req.user!.companyId }, id, stage, req.user?.userId, req.user?.roles);
     res.json({ success: true, data });
   } catch (e) {
     res.status(400).json({ error: e instanceof Error ? e.message : 'Erro' });
@@ -62,7 +62,7 @@ crmRouter.post('/pipeline/move', gate, async (req, res) => {
 
 crmRouter.get('/activities/today', gate, async (_req, res) => {
   try {
-    const data = await svc.listActivitiesToday();
+    const data = await svc.listActivitiesToday({ companyId: _req.user!.companyId });
     res.json({ success: true, data });
   } catch (e) {
     res.status(500).json({ error: e instanceof Error ? e.message : 'Erro' });
@@ -71,7 +71,7 @@ crmRouter.get('/activities/today', gate, async (_req, res) => {
 
 crmRouter.get('/dashboard', gate, async (req, res) => {
   try {
-    const data = await svc.getCrmDashboard(req.query as Record<string, unknown>);
+    const data = await svc.getCrmDashboard({ companyId: req.user!.companyId }, req.query as Record<string, unknown>);
     res.json({ success: true, data });
   } catch (e) {
     res.status(500).json({ error: e instanceof Error ? e.message : 'Erro' });
@@ -80,7 +80,7 @@ crmRouter.get('/dashboard', gate, async (req, res) => {
 
 crmRouter.get('/alerts', gate, async (req, res) => {
   try {
-    const data = await svc.getCrmAlerts(req.query as Record<string, unknown>);
+    const data = await svc.getCrmAlerts({ companyId: req.user!.companyId }, req.query as Record<string, unknown>);
     res.json({ success: true, data });
   } catch (e) {
     res.status(500).json({ error: e instanceof Error ? e.message : 'Erro' });

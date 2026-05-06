@@ -2,6 +2,7 @@ import axios from 'axios';
 import { env } from '../../config/env.js';
 import { calcularImpostos, ItemImposto } from './tax.service.js';
 import { salvarXML, recuperarXML } from './xml.storage.js';
+import { getHttpsAgent, validateCertificate } from '../../lib/ssl/certificate.loader.js';
 
 const BASE_URL = env.FOCUS_NFE_ENV === 'producao'
   ? 'https://api.focusnfe.com.br/v2'
@@ -56,12 +57,24 @@ export async function emitirNFe(dadosNota: any) {
     });
   }
 
-  const response = await axios.post(`${BASE_URL}/nfe`, dadosNota, {
-    auth: {
-      username: TOKEN,
-      password: '',
-    },
-  });
+  // validate certificate if present
+  const certCheck = validateCertificate();
+  if (certCheck && certCheck.valid === false) {
+    throw new Error(`Certificado invalido: ${certCheck.reason || 'invalid'}`);
+  }
+  if (certCheck?.cnpj && dadosNota.emitente?.cnpj) {
+    const certCnpj = certCheck.cnpj.replace(/\D/g, '');
+    const emitenteCnpj = String(dadosNota.emitente.cnpj || '').replace(/\D/g, '');
+    if (certCnpj && emitenteCnpj && certCnpj !== emitenteCnpj) {
+      throw new Error('CNPJ do certificado difere do emitente da nota');
+    }
+  }
+
+  const httpsAgent = getHttpsAgent();
+  const axiosOpts: any = { auth: { username: TOKEN, password: '' } };
+  if (httpsAgent) axiosOpts.httpsAgent = httpsAgent;
+
+  const response = await axios.post(`${BASE_URL}/nfe`, dadosNota, axiosOpts);
 
   // Salvar XML se disponível na resposta
   if (response.data.xml) {
@@ -72,12 +85,10 @@ export async function emitirNFe(dadosNota: any) {
 }
 
 export async function consultarNFe(referencia: string) {
-  const response = await axios.get(`${BASE_URL}/nfe/${referencia}`, {
-    auth: {
-      username: TOKEN,
-      password: '',
-    },
-  });
+  const httpsAgent = getHttpsAgent();
+  const axiosOpts: any = { auth: { username: TOKEN, password: '' } };
+  if (httpsAgent) axiosOpts.httpsAgent = httpsAgent;
+  const response = await axios.get(`${BASE_URL}/nfe/${referencia}`, axiosOpts);
 
   // Salvar XML se disponível
   if (response.data.xml) {
@@ -88,13 +99,10 @@ export async function consultarNFe(referencia: string) {
 }
 
 export async function cancelarNFe(referencia: string, justificativa: string) {
-  const response = await axios.delete(`${BASE_URL}/nfe/${referencia}`, {
-    data: { justificativa },
-    auth: {
-      username: TOKEN,
-      password: '',
-    },
-  });
+  const httpsAgent = getHttpsAgent();
+  const axiosOpts: any = { data: { justificativa }, auth: { username: TOKEN, password: '' } };
+  if (httpsAgent) axiosOpts.httpsAgent = httpsAgent;
+  const response = await axios.delete(`${BASE_URL}/nfe/${referencia}`, axiosOpts);
   return response.data;
 }
 
@@ -106,12 +114,10 @@ export async function downloadXML(referencia: string) {
   }
 
   // Se não estiver local, baixar da API
-  const response = await axios.get(`${BASE_URL}/nfe/${referencia}?completo=1`, {
-    auth: {
-      username: TOKEN,
-      password: '',
-    },
-  });
+  const httpsAgent = getHttpsAgent();
+  const axiosOpts: any = { auth: { username: TOKEN, password: '' } };
+  if (httpsAgent) axiosOpts.httpsAgent = httpsAgent;
+  const response = await axios.get(`${BASE_URL}/nfe/${referencia}?completo=1`, axiosOpts);
 
   // Salvar para cache local
   if (response.data) {

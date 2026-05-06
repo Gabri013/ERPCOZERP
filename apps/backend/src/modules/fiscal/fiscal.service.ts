@@ -1,9 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { prisma } from '../../infra/prisma.js';
+import { getCurrentCompanyId } from '../../infra/tenantContext.js';
 import { gerarSPED } from './sped.service.js';
 
-export async function listNfes() {
-  return prisma.fiscalNfe.findMany({ orderBy: { createdAt: 'desc' }, take: 200 });
+export async function listNfes(companyId?: string) {
+  // prefer explicit companyId if provided, otherwise middleware will inject current tenant
+  const where = companyId ? { companyId } : undefined;
+  return prisma.fiscalNfe.findMany({ where, orderBy: { createdAt: 'desc' }, take: 200 });
 }
 
 export async function issueMockNfe(input: { customerName?: string; totalAmount?: number }) {
@@ -30,6 +33,7 @@ export async function cancelNfe(id: string) {
 }
 
 export async function saveNfeReference(referencia: string, data: any) {
+  const companyId = getCurrentCompanyId();
   return prisma.fiscalNfe.create({
     data: {
       id: randomUUID(),
@@ -41,6 +45,7 @@ export async function saveNfeReference(referencia: string, data: any) {
       customerName: data.destinatario?.nome,
       totalAmount: data.valor_total,
       issuedAt: new Date(),
+      ...(companyId ? { companyId } : {}),
     },
   });
 }

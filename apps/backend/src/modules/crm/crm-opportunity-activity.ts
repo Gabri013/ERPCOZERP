@@ -35,6 +35,8 @@ function isActivityCompletedOrCancelled(d: Record<string, unknown>): boolean {
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+type TenantContext = { companyId: string };
+
 /**
  * Atividade ainda aberta, com data de contacto entre (agora − withinDays) e agora (inclusive).
  * Usado para validar avanço p.ex. para "Negociação".
@@ -42,15 +44,17 @@ const UUID_RE =
 export async function opportunityHasRecentTouchWithinDays(
   opportunityId: string,
   withinDays: number,
+  ctx?: TenantContext,
 ): Promise<boolean> {
   const eid = await atividadeEntityId();
+  const companyId = ctx?.companyId;
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - withinDays);
   cutoff.setHours(0, 0, 0, 0);
   const now = new Date();
 
   const rows = await prisma.entityRecord.findMany({
-    where: { entityId: eid, deletedAt: null },
+    where: { entityId: eid, deletedAt: null, companyId },
     select: { data: true },
     take: 2000,
   });
@@ -70,14 +74,16 @@ export async function opportunityHasRecentTouchWithinDays(
 export async function opportunityHasLinkedOrcamento(
   opportunityId: string,
   merged?: Record<string, unknown>,
+  ctx?: TenantContext,
 ): Promise<boolean> {
   const oidField = String(merged?.orcamento_id ?? merged?.orcamentoId ?? '').trim();
   if (UUID_RE.test(oidField)) return true;
 
   const ent = await prisma.entity.findUnique({ where: { code: 'orcamento' } });
   if (!ent) return false;
+  const companyId = ctx?.companyId;
   const rows = await prisma.entityRecord.findMany({
-    where: { entityId: ent.id, deletedAt: null },
+    where: { entityId: ent.id, deletedAt: null, ...(companyId ? { companyId } : {}) },
     select: { data: true },
     take: 800,
   });
@@ -90,10 +96,14 @@ export async function opportunityHasLinkedOrcamento(
 }
 
 /** Atividade pendente com data >= hoje (00h local), vinculada à oportunidade. */
-export async function opportunityHasFuturePendingActivity(opportunityId: string): Promise<boolean> {
+export async function opportunityHasFuturePendingActivity(
+  opportunityId: string,
+  ctx?: TenantContext,
+): Promise<boolean> {
   const eid = await atividadeEntityId();
+  const companyId = ctx?.companyId;
   const rows = await prisma.entityRecord.findMany({
-    where: { entityId: eid, deletedAt: null },
+    where: { entityId: eid, deletedAt: null, companyId },
     select: { data: true },
   });
   const today = startOfToday();

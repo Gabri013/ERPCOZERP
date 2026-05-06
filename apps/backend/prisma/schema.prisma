@@ -1641,7 +1641,6 @@ model Company {
   apiKeys     ApiKey[]
   webhooks    Webhook[]
 }
-}
 
 model ApiKey {
   id          String   @id @default(uuid()) @db.Uuid
