@@ -95,19 +95,23 @@ Documentação detalhada: **`docs/modules/`** (`04-producao.md` … `09-engenhar
 3. **Migrações e seed** (a partir da raiz do repo):
 
    ```bash
+   bash scripts/setup.sh
+   ```
+
+   Se preferir executar manualmente:
+
+   ```bash
    npm install
    npm install --prefix apps/frontend
    npm install --prefix apps/backend
    cd apps/backend && npx prisma migrate dev && cd ../..
    ```
 
-   Para popular dados de demonstração (respeita `SEED_ENABLED` no `.env`):
+   Para popular dados de demonstração opcionalmente:
 
    ```bash
-   cd apps/backend && npx tsx prisma/seed.ts && cd ../..
+   cd apps/backend && npx prisma db seed || true && cd ../..
    ```
-
-   Ou, com `SEED_ENABLED=true` no `apps/backend/.env`: `npm run prisma:seed --prefix apps/backend`.
 
 4. Inicie API + frontend: `npm run dev` (API **3001**, Vite **5173**).
 
@@ -123,7 +127,7 @@ set LEGACY_SQL_PATH=127_0_0_1.sql
 npm run migrate:legacy
 ```
 
-O relatório é gravado em **`docs/archive/reports/MIGRATION_REPORT.md`** (contagens, notas e tempo). O seed de desenvolvimento (`npm run prisma:seed --prefix apps/backend`) **não** é executado por este comando; rode migrações/seed antes ou depois conforme o ambiente.
+A documentação ativa do projeto está em **`docs/modules/`**. O seed de desenvolvimento (`npm run prisma:seed --prefix apps/backend`) pode ser executado após as migrações, conforme o ambiente.
 
 ## Desenvolvimento diário
 
@@ -163,8 +167,9 @@ Scripts úteis na raiz:
 | `npm run build` | Build frontend + backend |
 | `npm run lint` | ESLint (frontend) + `tsc --noEmit` (backend) |
 | `npm run smoke` | Typecheck backend + build frontend (sem API, sem Prisma generate) |
-| `npm run test` | Smoke HTTP (`tests/smoke/test-all-endpoints.cjs`) |
+| `npm run test` | Smoke HTTP (`tests/smoke/api-smoke.cjs`) |
 | `npm run test:e2e` | Playwright (`tests/e2e`) |
+| `bash scripts/setup.sh` | Instala dependências e aplica migrações no backend |
 | `npm run docker:up` / `docker:down` / `docker:logs` | Compose (opcional) |
 | `npm run migrate:legacy` | Importa dump SQL legado (`scripts/migrate-legacy-data.js`) |
 

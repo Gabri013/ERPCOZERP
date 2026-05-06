@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+!.docker.env.example
 !**/.env.example
 
 # Dependencies / build
@@ -34,6 +35,13 @@ coverage/
 # Backups locais
 backups/
 backup_*.sql
+
+# SQL local e bancos
+*.sql
+!setup-db.sql
+
+# Reports gerados automaticamente
+reports/
 
 # XMLs de NF-e
 storage/nfe/
