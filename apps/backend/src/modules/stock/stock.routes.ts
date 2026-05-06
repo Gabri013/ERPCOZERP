@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { authenticate, requirePermission } from '../../middleware/auth.js';
 import * as svc from './stock.service.js';
 import { isExcludedSalesCatalogProductType } from './product-catalog-scope.js';
+import { cache } from '../../lib/cache.js';
 import {
   createInventoryCountSchema,
   createLocationSchema,
@@ -53,9 +54,27 @@ stockRouter.get(
       return res.status(400).json({ error: 'Parâmetros inválidos', details: parsed.error.flatten() });
     }
     try {
+      const { search, status, take, skip } = parsed.data;
       const salesCatalogOnly = isSalesCatalogOnlyUser(req);
+
+      // Cache only if no search or status filters
+      if (!search && !status) {
+        const cacheKey = `stock:products:${salesCatalogOnly}:${take || 'default'}:${skip || 0}`;
+        const cached = await cache.get(cacheKey);
+        if (cached) {
+          return res.json(cached);
+        }
+      }
+
       const data = await svc.listProducts({ ...parsed.data, salesCatalogOnly });
-      res.json({ success: true, data });
+
+      const response = { success: true, data };
+      if (!search && !status) {
+        const cacheKey = `stock:products:${salesCatalogOnly}:${take || 'default'}:${skip || 0}`;
+        await cache.set(cacheKey, response, { ttl: 300 }); // 5 minutes
+      }
+
+      res.json(response);
     } catch (e) {
       handleError(res, e);
     }

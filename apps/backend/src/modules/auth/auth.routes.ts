@@ -1,23 +1,40 @@
 import { Router } from 'express';
+import { body } from 'express-validator';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import jwt, { type SignOptions } from 'jsonwebtoken';
 import { Prisma } from '@prisma/client';
+import rateLimit from 'express-rate-limit';
 
 import { prisma } from '../../infra/prisma.js';
 import { env } from '../../config/env.js';
 import { roleCodesFromUserRoleRows } from '../../lib/roleOrder.js';
 import { getEffectivePermissionCodesForUserId } from '../../lib/effectivePermissions.js';
 import { logInfo } from '../../infra/logger.js';
+import { logAudit } from '../../infra/logger.js';
+import { validate } from '../../middleware/validate.js';
 
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
 });
 
+const loginRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // limit each IP to 10 requests per windowMs
+  message: {
+    error: 'Muitas tentativas. Tente novamente em 15 minutos.',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 export const authRouter = Router();
 
-authRouter.post('/login', async (req, res) => {
+authRouter.post('/login', loginRateLimit, [
+  body('email').isEmail().normalizeEmail(),
+  body('password').isLength({ min: 6 }).withMessage('Senha deve ter pelo menos 6 caracteres')
+], validate, async (req, res) => {
   const parsed = loginSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: 'Dados inválidos', details: parsed.error.flatten() });
@@ -32,6 +49,7 @@ authRouter.post('/login', async (req, res) => {
         roles: {
           include: { role: true },
         },
+        company: true,
       },
     });
 
@@ -50,7 +68,7 @@ authRouter.post('/login', async (req, res) => {
     const expiresIn = env.JWT_EXPIRES_IN;
 
     const token = jwt.sign(
-      { sub: user.id, email: user.email, roles, permissions },
+      { sub: user.id, email: user.email, roles, permissions, companyId: user.companyId },
       secret as jwt.Secret,
       { expiresIn: expiresIn as SignOptions['expiresIn'] }
     );
@@ -59,6 +77,28 @@ authRouter.post('/login', async (req, res) => {
       where: { id: user.id },
       data: { lastLoginAt: new Date(), failedLoginAttempts: 0, lockedUntil: null },
     });
+
+    // Detecção de sessão suspeita
+    const clientIP = req.ip || req.connection.remoteAddress || 'unknown';
+    const activeSessions = await prisma.userSession.findMany({
+      where: {
+        userId: user.id,
+        expiresAt: { gt: new Date() }
+      },
+      select: { ipAddress: true, lastActivityAt: true }
+    });
+
+    const previousIPs = activeSessions.map(s => s.ipAddress).filter(ip => ip && ip !== clientIP);
+    const lastLogin = user.lastLoginAt;
+    const timeSinceLastLogin = lastLogin ? Date.now() - lastLogin.getTime() : Infinity;
+
+    if (previousIPs.length > 0 && timeSinceLastLogin < 5 * 60 * 1000) { // 5 minutos
+      await logAudit('SUSPICIOUS_LOGIN', user.id, {
+        newIp: clientIP,
+        previousIps: previousIPs,
+        timeSinceLastLogin: Math.floor(timeSinceLastLogin / 1000)
+      });
+    }
 
     return res.json({
       success: true,

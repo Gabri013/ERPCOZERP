@@ -4,6 +4,8 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../../infra/prisma.js';
 import { decimalToNumber } from '../stock/stock.service.js';
 import { saleOrdersRestrictedToOwner } from '../../lib/saleOrderScope.js';
+import { notifyNewSaleOrder } from '../../services/socket.service.js';
+import { triggerWebhooks } from '../webhooks/webhook.service.js';
 
 function padSeq(n: number, len = 5) {
   return String(n).padStart(len, '0');
@@ -107,12 +109,13 @@ export async function patchCustomer(
 
 export async function listSaleOrders(
   q: { status?: string; customerId?: string; take?: number },
-  viewer?: { userId: string; roles: string[] },
+  viewer?: { userId: string; companyId: string; roles: string[] },
 ) {
   const take = q.take ?? 200;
   const restrict = viewer && saleOrdersRestrictedToOwner(viewer.roles);
   return prisma.saleOrder.findMany({
     where: {
+      companyId: viewer?.companyId,
       ...(q.status ? { status: q.status } : {}),
       ...(q.customerId ? { customerId: q.customerId } : {}),
       ...(restrict
@@ -132,7 +135,7 @@ export async function listSaleOrders(
   });
 }
 
-export async function getSaleOrder(id: string, viewer?: { userId: string; roles: string[] }) {
+export async function getSaleOrder(id: string, viewer?: { userId: string; companyId: string; roles: string[] }) {
   await assertSaleOrderAccessible(id, viewer);
   return prisma.saleOrder.findUnique({
     where: { id },
@@ -164,6 +167,7 @@ export async function createSaleOrder(
     items: Array<{ productId: string; quantity: number; unitPrice: number; discountPct?: number | null }>;
   },
   createdByUserId?: string | null,
+  companyId?: string,
 ) {
   const year = new Date().getFullYear();
   const number = await nextNumber('PV', year, 'sale');
@@ -186,10 +190,11 @@ export async function createSaleOrder(
     };
   });
 
-  return prisma.saleOrder.create({
+  const order = await prisma.saleOrder.create({
     data: {
       number,
       customerId: input.customerId,
+      companyId: companyId,
       status: input.status ?? 'DRAFT',
       kanbanColumn: input.kanbanColumn ?? 'PEDIDO',
       orderDate: parseOptDate(input.orderDate) ?? new Date(),
@@ -201,13 +206,27 @@ export async function createSaleOrder(
     },
     include: { customer: true, items: { include: { product: true } }, owner: { select: { id: true, fullName: true, email: true } } },
   });
+
+  // Notificar criação em tempo real
+  if (companyId) {
+    notifyNewSaleOrder(companyId, order);
+    triggerWebhooks(companyId, 'sale_order.created', order);
+  }
+
+  return order;
 }
 
-async function assertSaleOrderAccessible(id: string, viewer?: { userId: string; roles: string[] }) {
-  if (!viewer || !saleOrdersRestrictedToOwner(viewer.roles)) return;
-  const row = await prisma.saleOrder.findUnique({ where: { id }, select: { ownerUserId: true } });
+async function assertSaleOrderAccessible(id: string, viewer?: { userId: string; companyId: string; roles: string[] }) {
+  if (!viewer) return;
+  const row = await prisma.saleOrder.findUnique({ 
+    where: { id }, 
+    select: { ownerUserId: true, companyId: true } 
+  });
   if (!row) throw new Error('Pedido não encontrado');
-  if (row.ownerUserId != null && row.ownerUserId !== viewer.userId) {
+  if (row.companyId !== viewer.companyId) {
+    throw new Error('Pedido não encontrado');
+  }
+  if (saleOrdersRestrictedToOwner(viewer.roles) && row.ownerUserId != null && row.ownerUserId !== viewer.userId) {
     throw new Error('Pedido não encontrado');
   }
 }

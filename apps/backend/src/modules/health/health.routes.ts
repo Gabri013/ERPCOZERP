@@ -6,28 +6,43 @@ import { redisPingDetailed } from '../../infra/redis-health.js';
 export const healthRouter = Router();
 
 healthRouter.get('/', async (req, res) => {
-  let postgres = 'down';
+  let database = 'ok';
+  let redis = 'disabled';
+  let statusCode = 200;
 
+  // Test database
   if (env.DATABASE_URL) {
     try {
       await prisma.$queryRaw`SELECT 1`;
-      postgres = 'ok';
     } catch {
-      postgres = 'down';
+      database = 'error';
+      statusCode = 503;
     }
   } else {
-    postgres = 'missing';
+    database = 'missing';
+    statusCode = 503;
   }
 
-  const redis = env.REDIS_URL ? 'configured' : 'disabled';
+  // Test redis
+  if (env.REDIS_URL) {
+    try {
+      const redisHealth = await redisPingDetailed();
+      redis = redisHealth.ok ? 'ok' : 'error';
+      if (!redisHealth.ok) statusCode = 503;
+    } catch {
+      redis = 'error';
+      statusCode = 503;
+    }
+  }
 
-  res.status(200).json({
-    ok: true,
-    service: 'erpcoz-backend-core',
-    env: env.NODE_ENV,
-    postgres,
-    redis,
+  const status = statusCode === 200 ? 'ok' : 'error';
+
+  res.status(statusCode).json({
+    status,
     timestamp: new Date().toISOString(),
+    database,
+    redis,
+    uptime: process.uptime(),
   });
 });
 

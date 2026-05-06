@@ -37,3 +37,21 @@ financialRouter.get('/conciliation', gate, async (req, res) => {
     res.status(500).json({ error: e instanceof Error ? e.message : 'Erro' });
   }
 });
+
+financialRouter.get('/cost-centers', gate, async (req, res) => {
+  try {
+    const costCenters = await svc.getCostCenters();
+    res.json({ success: true, data: costCenters });
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : 'Erro' });
+  }
+});
+
+financialRouter.post('/cost-centers', gate, async (req, res) => {
+  try {
+    const costCenter = await svc.createCostCenter(req.body);
+    res.status(201).json({ success: true, data: costCenter });
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : 'Erro' });
+  }
+});

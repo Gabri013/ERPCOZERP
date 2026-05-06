@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { authenticate, requirePermission } from '../../middleware/auth.js';
 import * as svc from './fiscal.service.js';
+import * as nfeSvc from './nfe.service.js';
 
 export const fiscalRouter = Router();
 fiscalRouter.use(authenticate);
@@ -17,34 +18,48 @@ fiscalRouter.get('/nfes', gate, async (_req, res) => {
   }
 });
 
-fiscalRouter.post('/nfes/issue-mock', gate, async (req, res) => {
+fiscalRouter.post('/nfe', gate, async (req, res) => {
   try {
-    const data = await svc.issueMockNfe({
-      customerName: req.body?.customerName,
-      totalAmount: req.body?.totalAmount ? Number(req.body.totalAmount) : undefined,
-    });
-    res.status(201).json({ success: true, data });
+    const result = await nfeSvc.emitirNFe(req.body);
+    // Salvar referencia no FiscalNfe
+    await svc.saveNfeReference(result.referencia, result);
+    res.status(201).json({ success: true, data: result });
   } catch (e) {
-    res.status(400).json({ error: e instanceof Error ? e.message : 'Erro' });
+    res.status(500).json({ error: e instanceof Error ? e.message : 'Erro ao emitir NF-e' });
   }
 });
 
-fiscalRouter.post('/nfes/:id/cancel', gate, async (req, res) => {
+fiscalRouter.get('/nfe/:id', gate, async (req, res) => {
   try {
-    const data = await svc.cancelNfe(req.params.id);
-    res.json({ success: true, data });
+    const result = await nfeSvc.consultarNFe(req.params.id);
+    // Atualizar status no FiscalNfe
+    await svc.updateNfeStatus(req.params.id, result);
+    res.json({ success: true, data: result });
   } catch (e) {
-    res.status(400).json({ error: e instanceof Error ? e.message : 'Erro' });
+    res.status(500).json({ error: e instanceof Error ? e.message : 'Erro ao consultar NF-e' });
   }
 });
 
-fiscalRouter.get('/nfes/consult/:key', gate, async (req, res) => {
+fiscalRouter.delete('/nfe/:id', gate, async (req, res) => {
   try {
-    const data = await svc.consultByKey(req.params.key);
-    if (!data) return res.status(404).json({ error: 'NF-e não encontrada' });
-    res.json({ success: true, data });
+    const justificativa = req.body.justificativa;
+    const result = await nfeSvc.cancelarNFe(req.params.id, justificativa);
+    // Atualizar status no FiscalNfe
+    await svc.updateNfeCancel(req.params.id, justificativa);
+    res.json({ success: true, data: result });
   } catch (e) {
-    res.status(500).json({ error: e instanceof Error ? e.message : 'Erro' });
+    res.status(500).json({ error: e instanceof Error ? e.message : 'Erro ao cancelar NF-e' });
+  }
+});
+
+fiscalRouter.get('/nfe/:id/xml', gate, async (req, res) => {
+  try {
+    const xml = await nfeSvc.downloadXML(req.params.id);
+    res.setHeader('Content-Type', 'application/xml');
+    res.setHeader('Content-Disposition', `attachment; filename="${req.params.id}.xml"`);
+    res.send(xml);
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : 'Erro ao baixar XML' });
   }
 });
 
@@ -62,18 +77,17 @@ fiscalRouter.get('/bloco-k', gate, async (req, res) => {
 fiscalRouter.get('/sped/export', gate, async (req, res) => {
   const q = z
     .object({
-      from: z.string(),
-      to: z.string(),
+      ano: z.string().transform(Number),
+      mes: z.string().transform(Number),
     })
-    .safeParse({ from: req.query.from, to: req.query.to });
-  if (!q.success) return res.status(400).json({ error: 'Informe from e to (ISO date)' });
+    .safeParse({ ano: req.query.ano, mes: req.query.mes });
+  if (!q.success) return res.status(400).json({ error: 'Informe ano e mes' });
   try {
-    const from = new Date(q.data.from);
-    const to = new Date(q.data.to);
-    const out = await svc.exportSpedMock(from, to);
+    const { ano, mes } = q.data;
+    const content = await svc.exportSped(ano, mes);
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${out.filename}"`);
-    res.send(out.content);
+    res.setHeader('Content-Disposition', `attachment; filename="SPED_EFD_${ano}${mes.toString().padStart(2, '0')}.txt"`);
+    res.send(content);
   } catch (e) {
     res.status(400).json({ error: e instanceof Error ? e.message : 'Erro' });
   }

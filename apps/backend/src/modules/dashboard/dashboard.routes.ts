@@ -5,6 +5,7 @@ import { rolesCanSeeNotificationSector } from '../../lib/notificationVisibility.
 import { roleCodesFromUserRoleRows } from '../../lib/roleOrder.js';
 import { getDefaultDashboardWidgets, migrateLegacyLayout } from '../../lib/defaultDashboardLayout.js';
 import { saleOrdersRestrictedToOwner } from '../../lib/saleOrderScope.js';
+import { cache } from '../../lib/cache.js';
 
 export const dashboardRouter = Router();
 
@@ -292,6 +293,88 @@ dashboardRouter.get('/', async (req, res) => {
       widgets: migratedWidgets,
     },
   });
+});
+
+dashboardRouter.get('/executivo', async (req, res) => {
+  try {
+    const cacheKey = 'dashboard:executivo';
+    const cached = await cache.get(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
+
+    // KPIs principais
+    const totalVendas = await prisma.saleOrder.aggregate({
+      _sum: { totalAmount: true },
+      where: { status: { notIn: ['DRAFT', 'CANCELLED'] } }
+    });
+
+    const totalClientes = await countClientesAtivos();
+    const totalProdutos = await countEntity('produto');
+    const totalFuncionarios = await getEmployeesKpis();
+
+    // NF-es emitidas este mês
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const nfeCount = await prisma.fiscalNfe.count({
+      where: {
+        issuedAt: { gte: startOfMonth },
+        status: 'AUTORIZADA'
+      }
+    });
+
+    // Receita mensal (últimos 12 meses)
+    const monthlyRevenue = await getSaleOrdersByMonth(12);
+
+    // Status de produção
+    const productionStats = await prisma.workOrder.groupBy({
+      by: ['status'],
+      _count: { id: true },
+    });
+
+    const producaoStatus = {
+      emAndamento: productionStats.find(s => s.status === 'IN_PROGRESS')?._count?.id || 0,
+      concluidas: productionStats.find(s => s.status === 'COMPLETED')?._count?.id || 0,
+      atrasadas: productionStats.find(s => s.status === 'DELAYED')?._count?.id || 0
+    };
+
+    // Top produtos mais vendidos
+    const topProducts = await prisma.$queryRaw<Array<{ produto: string; quantidade: number; receita: number }>>`
+      SELECT p.name as produto, SUM(soi.quantity) as quantidade, SUM(soi.total_price) as receita
+      FROM sale_order_items soi
+      JOIN products p ON soi.product_id = p.id
+      JOIN sale_orders so ON soi.sale_order_id = so.id
+      WHERE so.status NOT IN ('DRAFT','CANCELLED')
+      GROUP BY p.id, p.name
+      ORDER BY receita DESC
+      LIMIT 10
+    `;
+
+    const data = {
+      success: true,
+      data: {
+        kpis: {
+          receitaTotal: totalVendas._sum.totalAmount || 0,
+          totalClientes,
+          totalProdutos,
+          totalFuncionarios: totalFuncionarios.total,
+          nfeMesAtual: nfeCount
+        },
+        producao: producaoStatus,
+        receitaMensal: monthlyRevenue,
+        topProdutos: topProducts.map(p => ({
+          produto: p.produto,
+          quantidade: Number(p.quantidade),
+          receita: Number(p.receita)
+        }))
+      }
+    };
+
+    await cache.set(cacheKey, data, { ttl: 300 }); // 5 minutes
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao carregar dashboard executivo' });
+  }
 });
 
 dashboardRouter.get('/layout', async (req, res) => {

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../../infra/prisma.js';
 import { Prisma } from '@prisma/client';
 import { entityRouteGuard } from '../../infra/entity-permissions.js';
+import { cache } from '../../lib/cache.js';
 
 export const contasRouter = Router();
 
@@ -27,6 +28,7 @@ function buildListHandler(entityCode: 'conta_receber' | 'conta_pagar') {
     const entity = await ensureEntity(entityCode, entityCode === 'conta_receber' ? 'Contas a Receber' : 'Contas a Pagar');
     const status = normalizeStr(req.query.status);
     const take = Math.min(200, Math.max(1, Number(req.query.limit || 200)));
+    const skip = Math.max(0, Number(req.query.skip || 0));
 
     const rows = await prisma.entityRecord.findMany({
       where: {
@@ -35,6 +37,7 @@ function buildListHandler(entityCode: 'conta_receber' | 'conta_pagar') {
       },
       orderBy: { createdAt: 'desc' },
       take,
+      skip,
     });
 
     const data = rows
@@ -136,4 +139,42 @@ contasRouter.get('/contas-pagar', entityRouteGuard('conta_pagar'), buildListHand
 contasRouter.post('/contas-pagar', entityRouteGuard('conta_pagar'), buildCreateHandler('conta_pagar'));
 contasRouter.put('/contas-pagar/:id', entityRouteGuard('conta_pagar'), buildUpdateHandler('conta_pagar'));
 contasRouter.delete('/contas-pagar/:id', entityRouteGuard('conta_pagar'), buildDeleteHandler('conta_pagar'));
+
+// Cash flow
+contasRouter.get('/cash-flow', entityRouteGuard('conta_receber'), async (req, res) => {
+  const cacheKey = 'financial:cash-flow';
+  const cached = await cache.get(cacheKey);
+  if (cached) {
+    return res.json(cached);
+  }
+
+  // Placeholder implementation - contas bancárias, agendamentos atraso, projeção
+  const contas = await prisma.entityRecord.findMany({
+    where: { entity: { code: 'conta_bancaria' }, deletedAt: null },
+    select: { data: true },
+    take: 100,
+  });
+
+  const agendamentosAtraso = await prisma.entityRecord.findMany({
+    where: {
+      entity: { code: 'conta_receber' },
+      deletedAt: null,
+      data: { path: ['status'], equals: 'vencido' }
+    },
+    select: { data: true },
+    take: 50,
+  });
+
+  const projecao = []; // Placeholder
+
+  const data = {
+    contas: contas.map(c => c.data),
+    agendamentos_atraso: agendamentosAtraso.map(a => a.data),
+    projecao
+  };
+
+  const response = { success: true, data };
+  await cache.set(cacheKey, response, { ttl: 300 }); // 5 minutes
+  res.json(response);
+});
 

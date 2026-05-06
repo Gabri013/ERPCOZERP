@@ -21,8 +21,10 @@ model User {
   lastLoginAt             DateTime?                @map("last_login_at")
   /// * Setor operacional (ex.: Expedição, Corte Laser); opcional — usado para dashboards e filtros
   sector                  String?                  @map("sector")
+  companyId               String                   @map("company_id")
   createdAt               DateTime                 @default(now()) @map("created_at")
   updatedAt               DateTime                 @updatedAt @map("updated_at")
+  company                 Company                  @relation(fields: [companyId], references: [id])
   accessLogs              AccessLog[]
   auditLogs               AuditLog[]
   crmInboxConversations   CrmConversation[]        @relation("CrmConversationResponsible")
@@ -458,8 +460,10 @@ model Product {
   /// * Caminho do modelo 3D (atalho; detalhe também em product_industrial_meta).
   model3dPath        String?              @map("model3d_path")
   entityRecordId     String?              @unique @map("entity_record_id") @db.Uuid
+  companyId          String               @map("company_id")
   createdAt          DateTime             @default(now()) @map("created_at")
   updatedAt          DateTime             @updatedAt @map("updated_at")
+  company            Company              @relation(fields: [companyId], references: [id])
   inventoryItems     InventoryCountItem[]
   priceTableItems    PriceTableItem[]
   productFiles       ProductFile[]
@@ -545,8 +549,10 @@ model Customer {
   phone         String?
   address       String?
   active        Boolean            @default(true)
+  companyId     String             @map("company_id")
   createdAt     DateTime           @default(now()) @map("created_at")
   updatedAt     DateTime           @updatedAt @map("updated_at")
+  company       Company            @relation(fields: [companyId], references: [id])
   quotes        Quote[]
   saleOrders    SaleOrder[]
   opportunities SalesOpportunity[]
@@ -560,6 +566,7 @@ model SalesOpportunity {
   number        String          @unique
   customerId    String          @map("customer_id") @db.Uuid
   ownerUserId   String?         @map("owner_user_id") @db.Uuid
+  companyId     String          @map("company_id")
   title         String
   /// LEAD | QUALIFYING | PROPOSAL | WON | LOST | NURTURE | DISCARDED
   status        String          @default("LEAD")
@@ -575,6 +582,7 @@ model SalesOpportunity {
   activities    SalesActivity[]
   customer      Customer        @relation(fields: [customerId], references: [id])
   owner         User?           @relation("OpportunityOwner", fields: [ownerUserId], references: [id])
+  company       Company         @relation(fields: [companyId], references: [id])
 
   @@index([customerId], map: "idx_opportunities_customer")
   @@index([ownerUserId], map: "idx_opportunities_owner")
@@ -690,6 +698,7 @@ model SaleOrder {
   approvedById String?         @map("approved_by_id") @db.Uuid
   /// * Comercial responsável pelo PV (escopo “minhas vendas” no dashboard / lista).
   ownerUserId  String?         @map("owner_user_id") @db.Uuid
+  companyId    String          @map("company_id")
   createdAt    DateTime        @default(now()) @map("created_at")
   updatedAt    DateTime        @updatedAt @map("updated_at")
   items        SaleOrderItem[]
@@ -697,10 +706,12 @@ model SaleOrder {
   customer     Customer?       @relation(fields: [customerId], references: [id])
   owner        User?           @relation("SaleOrderOwner", fields: [ownerUserId], references: [id])
   quote        Quote?          @relation(fields: [quoteId], references: [id])
+  company      Company         @relation(fields: [companyId], references: [id])
   workOrders   WorkOrder[]
 
   @@index([status], map: "idx_sale_orders_status")
   @@index([ownerUserId], map: "idx_sale_orders_owner")
+  @@index([createdAt], map: "idx_sale_orders_created")
   @@map("sale_orders")
 }
 
@@ -738,6 +749,7 @@ model WorkOrder {
   categoryLabel     String?                  @map("category_label") @db.VarChar(128)
   notes             String?
   responsibleUserId String?                  @map("responsible_user_id") @db.Uuid
+  companyId         String                  @map("company_id")
   finishedAt        DateTime?                @map("finished_at")
   createdAt         DateTime                 @default(now()) @map("created_at")
   updatedAt         DateTime                 @updatedAt @map("updated_at")
@@ -748,6 +760,7 @@ model WorkOrder {
   responsible       User?                    @relation("WorkOrderResponsible", fields: [responsibleUserId], references: [id])
   routing           Routing?                 @relation(fields: [routingId], references: [id])
   saleOrder         SaleOrder?               @relation(fields: [saleOrderId], references: [id])
+  company           Company                  @relation(fields: [companyId], references: [id])
 
   @@index([saleOrderId], map: "idx_work_orders_sale_order")
   @@index([status], map: "idx_work_orders_status")
@@ -855,8 +868,10 @@ model Supplier {
   email          String?
   phone          String?
   active         Boolean         @default(true)
+  companyId      String          @map("company_id")
   createdAt      DateTime        @default(now()) @map("created_at")
   updatedAt      DateTime        @updatedAt @map("updated_at")
+  company        Company         @relation(fields: [companyId], references: [id])
   purchaseOrders PurchaseOrder[]
 
   @@map("suppliers")
@@ -866,6 +881,7 @@ model PurchaseOrder {
   id           String              @id @default(uuid()) @db.Uuid
   number       String              @unique
   supplierId   String              @map("supplier_id") @db.Uuid
+  companyId    String              @map("company_id")
   status       PurchaseOrderStatus @default(RASCUNHO)
   expectedDate DateTime?           @map("expected_date")
   notes        String?
@@ -873,6 +889,7 @@ model PurchaseOrder {
   updatedAt    DateTime            @updatedAt @map("updated_at")
   items        PurchaseOrderItem[]
   supplier     Supplier            @relation(fields: [supplierId], references: [id])
+  company      Company             @relation(fields: [companyId], references: [id])
 
   @@map("purchase_orders")
 }
@@ -901,9 +918,11 @@ model Employee {
   active        Boolean        @default(true)
   salaryBase    Decimal?       @map("salary_base") @db.Decimal(14, 2)
   userId        String?        @unique @map("user_id") @db.Uuid
+  companyId     String         @map("company_id")
   createdAt     DateTime       @default(now()) @map("created_at")
   updatedAt     DateTime       @updatedAt @map("updated_at")
   user          User?          @relation(fields: [userId], references: [id])
+  company       Company        @relation(fields: [companyId], references: [id])
   leaveRequests LeaveRequest[]
   payrollLines  PayrollLine[]
   timeEntries   TimeEntry[]
@@ -968,18 +987,23 @@ model PayrollLine {
 }
 
 model FiscalNfe {
-  id           String    @id @default(uuid()) @db.Uuid
-  number       String?
-  series       String?
-  accessKey    String?   @unique @map("access_key")
-  status       String    @default("RASCUNHO")
-  customerName String?   @map("customer_name")
-  totalAmount  Decimal?  @map("total_amount") @db.Decimal(14, 2)
-  issuedAt     DateTime? @map("issued_at")
-  cancelledAt  DateTime? @map("cancelled_at")
-  xmlPath      String?   @map("xml_path")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
+  id                   String    @id @default(uuid()) @db.Uuid
+  number               String?
+  series               String?
+  accessKey            String?   @unique @map("access_key")
+  status               String    @default("RASCUNHO")
+  customerName         String?   @map("customer_name")
+  totalAmount          Decimal?  @map("total_amount") @db.Decimal(14, 2)
+  issuedAt             DateTime? @map("issued_at")
+  cancelledAt          DateTime? @map("cancelled_at")
+  xmlPath              String?   @map("xml_path")
+  referencia           String?   @map("referencia")
+  companyId            String    @map("company_id")
+  focusStatus          String?   @map("focus_status")
+  motivoCancelamento   String?   @map("motivo_cancelamento")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+  company              Company   @relation(fields: [companyId], references: [id])
 
   @@index([status], map: "idx_fiscal_nfe_status")
   @@map("fiscal_nfes")
@@ -1299,6 +1323,18 @@ model QualityDocument {
   @@map("quality_documents")
 }
 
+model CostCenter {
+  id          String   @id @default(uuid()) @db.Uuid
+  codigo      String   @unique
+  nome        String
+  descricao   String?
+  ativo       Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("cost_centers")
+}
+
 model QualityDatabook {
   id          String                    @id @default(uuid()) @db.Uuid
   code        String                    @unique
@@ -1410,8 +1446,10 @@ model AccountEntry {
   origin        String   @default("MANUAL")
   module        String?
   referenceId   String?  @map("reference_id")
+  companyId     String   @map("company_id")
   history       String?
   createdAt     DateTime @default(now()) @map("created_at")
+  company       Company  @relation(fields: [companyId], references: [id])
 
   @@index([entryDate], map: "idx_account_entries_date")
   @@index([module], map: "idx_account_entries_module")
@@ -1580,6 +1618,58 @@ enum PurchaseOrderStatus {
   PARCIALMENTE_RECEBIDO
   RECEBIDO
   CANCELADO
+}
+
+model Company {
+  id          String   @id @default(cuid())
+  cnpj        String   @unique
+  razaoSocial String
+  fantasia    String?
+  ativo       Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  users       User[]
+  products    Product[]
+  customers   Customer[]
+  suppliers   Supplier[]
+  saleOrders  SaleOrder[]
+  workOrders  WorkOrder[]
+  accountEntries AccountEntry[]
+  purchaseOrders PurchaseOrder[]
+  fiscalNfes FiscalNfe[]
+  employees Employee[]
+  salesOpportunities SalesOpportunity[]
+  apiKeys     ApiKey[]
+  webhooks    Webhook[]
+}
+}
+
+model ApiKey {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String
+  key         String   @unique
+  companyId   String   @map("company_id")
+  permissions String[] // e.g., ['read:sales', 'write:products']
+  active      Boolean  @default(true)
+  expiresAt   DateTime? @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  lastUsedAt  DateTime? @map("last_used_at")
+  company     Company  @relation(fields: [companyId], references: [id])
+
+  @@map("api_keys")
+}
+
+model Webhook {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String
+  url         String
+  events      String[] // e.g., ['sale_order.created', 'product.updated']
+  companyId   String   @map("company_id")
+  secret      String   // for HMAC verification
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  company     Company  @relation(fields: [companyId], references: [id])
+
+  @@map("webhooks")
 }
 
 enum LeaveRequestStatus {

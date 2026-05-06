@@ -1,5 +1,7 @@
 import { Router } from 'express';
+import { body } from 'express-validator';
 import { authenticate, requirePermission } from '../../middleware/auth.js';
+import { validate } from '../../middleware/validate.js';
 import * as svc from './sales.service.js';
 import {
   addSalesActivitySchema,
@@ -48,7 +50,11 @@ salesRouter.get('/customers', canView, async (_req, res) => {
   }
 });
 
-salesRouter.post('/customers', canEdit, async (req, res) => {
+salesRouter.post('/customers', canEdit, [
+  body('name').trim().isLength({ min: 2 }).withMessage('Nome deve ter pelo menos 2 caracteres'),
+  body('email').optional().isEmail().normalizeEmail(),
+  body('cnpj').optional().isLength({ min: 14, max: 14 }).withMessage('CNPJ deve ter 14 dígitos')
+], validate, async (req, res) => {
   const parsed = createCustomerSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: 'Dados inválidos', details: parsed.error.flatten() });
@@ -103,7 +109,7 @@ salesRouter.post('/sale-orders', canEdit, async (req, res) => {
     return res.status(400).json({ error: 'Dados inválidos', details: parsed.error.flatten() });
   }
   try {
-    const data = await svc.createSaleOrder(parsed.data, req.user?.userId ?? null);
+    const data = await svc.createSaleOrder(parsed.data, req.user?.userId ?? null, req.user?.companyId);
     res.status(201).json({ success: true, data });
   } catch (e) {
     handleError(res, e);

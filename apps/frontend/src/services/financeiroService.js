@@ -50,6 +50,7 @@ function toApiContaPayload(form, kind) {
     valor: Number(form.valor || 0),
     data_vencimento: form.data_vencimento,
     status: toApiStatus(form.status),
+    cost_center_id: form.cost_center_id ?? null,
   };
 
   // Tabelas atuais suportam apenas *_id + campos básicos
@@ -100,5 +101,17 @@ export const contasPagarService = {
 
   async delete(id) {
     await api.delete(`/api/financeiro/contas-pagar/${id}`);
+  },
+};
+
+export const costCenterService = {
+  async getAll() {
+    const res = await api.get('/api/financial/cost-centers');
+    return extractArray(res);
+  },
+
+  async create(data) {
+    const res = await api.post('/api/financial/cost-centers', data);
+    return res?.data;
   },
 };

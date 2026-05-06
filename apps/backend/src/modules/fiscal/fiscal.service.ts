@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { prisma } from '../../infra/prisma.js';
+import { gerarSPED } from './sped.service.js';
 
 export async function listNfes() {
   return prisma.fiscalNfe.findMany({ orderBy: { createdAt: 'desc' }, take: 200 });
@@ -28,8 +29,44 @@ export async function cancelNfe(id: string) {
   });
 }
 
-export async function consultByKey(key: string) {
-  return prisma.fiscalNfe.findUnique({ where: { accessKey: key } });
+export async function saveNfeReference(referencia: string, data: any) {
+  return prisma.fiscalNfe.create({
+    data: {
+      id: randomUUID(),
+      referencia,
+      focusStatus: data.status || 'processando',
+      accessKey: data.chave_nfe,
+      number: data.numero,
+      series: data.serie,
+      customerName: data.destinatario?.nome,
+      totalAmount: data.valor_total,
+      issuedAt: new Date(),
+    },
+  });
+}
+
+export async function updateNfeStatus(referencia: string, data: any) {
+  return prisma.fiscalNfe.updateMany({
+    where: { referencia },
+    data: {
+      focusStatus: data.status,
+      accessKey: data.chave_nfe,
+      number: data.numero,
+      series: data.serie,
+      status: data.status === 'autorizada' ? 'AUTORIZADA' : data.status,
+    },
+  });
+}
+
+export async function updateNfeCancel(referencia: string, justificativa: string) {
+  return prisma.fiscalNfe.updateMany({
+    where: { referencia },
+    data: {
+      status: 'CANCELADA',
+      cancelledAt: new Date(),
+      motivoCancelamento: justificativa,
+    },
+  });
 }
 
 /** Dados reais para Bloco K (EFD-ICMS/IPI) a partir do banco de dados. */
@@ -97,15 +134,7 @@ export async function getBlocoKData(mes: number, ano: number) {
   return { k200, k230, k235, h010, k220: [], k250: [], k255: [], reg0210: [], periodo: { mes, ano, dtIni: dtIni.toISOString(), dtFin: dtFin.toISOString() } };
 }
 
-/** Exportação SPED simplificada (texto mock). */
-export async function exportSpedMock(from: Date, to: Date) {
-  const nfes = await prisma.fiscalNfe.findMany({
-    where: { issuedAt: { gte: from, lte: to }, status: 'AUTORIZADA' },
-  });
-  const lines = nfes.map((n, i) => `|C100|${i + 1}|${n.accessKey ?? ''}|${n.totalAmount ?? 0}|`);
-  return {
-    filename: `sped_mock_${from.toISOString().slice(0, 10)}_${to.toISOString().slice(0, 10)}.txt`,
-    content: ['|0000|LEIAUTE MOCK 2026', ...lines].join('\n'),
-    count: nfes.length,
-  };
+/** Exportação SPED Fiscal completa. */
+export async function exportSped(ano: number, mes: number) {
+  return gerarSPED(ano, mes);
 }

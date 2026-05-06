@@ -6,6 +6,7 @@ export const listProductsQuerySchema = z.object({
   search: z.string().optional(),
   status: z.string().optional(),
   take: z.coerce.number().min(1).max(5000).optional(),
+  skip: z.coerce.number().min(0).optional(),
 });
 
 export const createProductSchema = z.object({

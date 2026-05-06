@@ -56,7 +56,7 @@ errorMonitorRouter.post('/ingest', async (req, res) => {
       route: body.route ?? null,
       userId: req.user?.userId ?? null,
       stackTrace: body.stackTrace ?? null,
-      metadata: body.metadata ?? undefined,
+      metadata: (body.metadata as any) ?? undefined,
     });
     res.status(201).json({ success: true, id: row.id });
   } catch (e) {

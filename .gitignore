@@ -35,6 +35,12 @@ coverage/
 backups/
 backup_*.sql
 
+# XMLs de NF-e
+storage/nfe/
+
+# Logs
+logs/
+
 # Editor / OS
 .vscode/*
 !.vscode/extensions.json

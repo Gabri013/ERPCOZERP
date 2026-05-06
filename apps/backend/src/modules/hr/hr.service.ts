@@ -2,29 +2,33 @@ import { Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { prisma } from '../../infra/prisma.js';
 
+/** INSS e IRRF tabelas oficiais 2025. */
+export function calcularINSS(salario: number): number {
+  const base = Math.min(salario, 8157.41); // teto INSS 2025
+  if (base <= 1518.00) return base * 0.075;
+  if (base <= 2793.88) return base * 0.09;
+  if (base <= 4190.83) return base * 0.12;
+  return base * 0.14;
+}
+
+export function calcularIRRF(base: number): number {
+  if (base <= 2428.80) return 0;
+  if (base <= 3751.05) return base * 0.075 - 182.16;
+  if (base <= 4664.68) return base * 0.15 - 394.45;
+  if (base <= 6101.06) return base * 0.225 - 744.80;
+  return base * 0.275 - 1049.72;
+}
+
 /** INSS e IRRF simplificados (demonstração). */
 export function calculateBrazilPayrollDeductions(gross: number) {
-  const inssCap = 7507.49;
-  const base = Math.min(gross, inssCap);
-  let inss = 0;
-  if (base <= 1412) inss = base * 0.075;
-  else if (base <= 2666.68) inss = base * 0.09;
-  else if (base <= 4000.03) inss = base * 0.12;
-  else inss = base * 0.14;
-
-  const irrfBase = Math.max(0, gross - inss - 564.8);
-  let irrf = 0;
-  if (irrfBase <= 2259.2) irrf = 0;
-  else if (irrfBase <= 2826.65) irrf = irrfBase * 0.075 - 169.44;
-  else if (irrfBase <= 3751.05) irrf = irrfBase * 0.15 - 381.44;
-  else if (irrfBase <= 4664.68) irrf = irrfBase * 0.225 - 662.77;
-  else irrf = irrfBase * 0.275 - 896;
-
-  const net = gross - inss - Math.max(0, irrf);
+  const inss = calcularINSS(gross);
+  const irrfBase = Math.max(0, gross - inss - 564.8); // dedução simplificada
+  const irrf = Math.max(0, calcularIRRF(irrfBase));
+  const net = gross - inss - irrf;
   return {
     gross,
     inss: Math.round(inss * 100) / 100,
-    irrf: Math.round(Math.max(0, irrf) * 100) / 100,
+    irrf: Math.round(irrf * 100) / 100,
     net: Math.round(net * 100) / 100,
   };
 }

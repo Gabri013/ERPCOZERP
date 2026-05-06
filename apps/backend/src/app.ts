@@ -39,37 +39,65 @@ import { registerExpeditionModule } from './modules/expedition/expedition.module
 import { registerAccountingModule } from './modules/accounting/accounting.module.js';
 import { registerWebhooksModule } from './modules/webhooks/webhooks.module.js';
 import { registerMetaModule } from './modules/meta/meta.module.js';
-import { registerMetaCodeModule } from './modules/meta-code/meta-code.module.js';
+import { registerReportsModule } from './modules/reports/reports.module.js';
 import {
   attachErrorMonitorExpressHandler,
   registerErrorMonitorModule,
 } from './modules/error-monitor/error-monitor.module.js';
 import { registerQualityGateModule } from './modules/quality-gate/quality-gate.module.js';
+import { tenantMiddleware } from './middleware/tenant.js';
 
 export function createApp() {
   const app = express();
 
   registerWebhooksModule(app);
 
-  app.use(helmet({ contentSecurityPolicy: false }));
-  app.use(
-    cors({
-      origin(origin, callback) {
-        if (!origin || env.ALLOWED_ORIGINS.includes(origin)) {
-          callback(null, true);
-          return;
-        }
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "blob:"],
+        connectSrc: ["'self'", process.env.FRONTEND_URL || "http://localhost:5173"]
+      }
+    },
+    hsts: { maxAge: 31536000, includeSubDomains: true }
+  }));
 
-        callback(new Error(`Origin not allowed by CORS: ${origin}`));
-      },
-      credentials: true,
-    })
-  );
+  app.use(cors({
+    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    credentials: true,
+    methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
+    allowedHeaders: ['Content-Type','Authorization']
+  }));
   app.use(express.json({ limit: '20mb' }));
+
+  // Logging HTTP
+  app.use((req, res, next) => {
+    const start = Date.now();
+    res.on('finish', () => {
+      const duration = Date.now() - start;
+      const { httpLogger } = require('./infra/logger.js');
+      httpLogger.info('HTTP_REQUEST', {
+        method: req.method,
+        url: req.url,
+        status: res.statusCode,
+        duration,
+        userAgent: req.get('User-Agent'),
+        ip: req.ip
+      });
+    });
+    next();
+  });
 
   // modules
   registerHealthModule(app);
   registerAuthModule(app);
+  
+  // Tenant middleware (após auth, antes dos outros módulos)
+  app.use('/api', tenantMiddleware);
+  
   registerEntitiesModule(app);
   registerRecordsModule(app);
   registerUsersModule(app);
@@ -104,6 +132,7 @@ export function createApp() {
   registerAccountingModule(app);
   registerMetaModule(app);
   registerMetaCodeModule(app);
+  registerReportsModule(app);
   registerErrorMonitorModule(app);
   registerQualityGateModule(app);
 

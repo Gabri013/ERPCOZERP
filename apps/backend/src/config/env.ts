@@ -53,6 +53,9 @@ export const env = {
   JWT_SECRET: requiredInProd('JWT_SECRET'),
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
   SEED_ENABLED: process.env.SEED_ENABLED === 'true',
+  // Fiscal
+  FOCUS_NFE_TOKEN: optional('FOCUS_NFE_TOKEN'),
+  FOCUS_NFE_ENV: optional('FOCUS_NFE_ENV') || 'homologacao',
 };
 
 if (env.DATABASE_URL && !process.env.DATABASE_URL) {

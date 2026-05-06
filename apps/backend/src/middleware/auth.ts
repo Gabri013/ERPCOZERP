@@ -9,6 +9,7 @@ export type AuthUser = {
   roles: string[];
   /** Códigos de permissão efetivos (papéis + extras por usuário + master), alinhados ao banco. */
   permissions: string[];
+  companyId: string;
 };
 
 declare module 'express-serve-static-core' {
@@ -32,6 +33,7 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
       email?: string;
       roles?: string[];
       permissions?: string[];
+      companyId?: string;
     };
     const sub = typeof decoded.sub === 'string' && decoded.sub.length > 0 ? decoded.sub : '';
     if (!sub) {
@@ -54,6 +56,7 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
       email: String(decoded.email || ''),
       roles,
       permissions,
+      companyId: String(decoded.companyId || ''),
     };
     return next();
   } catch {

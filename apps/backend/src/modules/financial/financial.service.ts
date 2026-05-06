@@ -102,3 +102,17 @@ export async function conciliation(bankAccount?: string) {
     })),
   };
 }
+
+export async function getCostCenters() {
+  return prisma.costCenter.findMany({ where: { ativo: true }, orderBy: { codigo: 'asc' } });
+}
+
+export async function createCostCenter(data: { codigo: string; nome: string; descricao?: string }) {
+  return prisma.costCenter.create({
+    data: {
+      codigo: data.codigo,
+      nome: data.nome,
+      descricao: data.descricao,
+    },
+  });
+}

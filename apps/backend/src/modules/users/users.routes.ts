@@ -1,10 +1,12 @@
 import { Router } from 'express';
+import { body } from 'express-validator';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import type { RequestHandler } from 'express';
 import { prisma } from '../../infra/prisma.js';
 import { roleCodesFromUserRoleRows } from '../../lib/roleOrder.js';
 import { requirePermission } from '../../middleware/auth.js';
+import { validate } from '../../middleware/validate.js';
 
 export const usersRouter = Router();
 
@@ -73,7 +75,16 @@ usersRouter.get('/', manageUsersGate, async (req, res) => {
   });
 });
 
-usersRouter.post('/', manageUsersGate, async (req, res) => {
+usersRouter.post('/', manageUsersGate, [
+  body('email').isEmail().normalizeEmail().custom(async (email) => {
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) throw new Error('Email já cadastrado');
+    return true;
+  }),
+  body('password').isLength({ min: 6 }).withMessage('Senha deve ter pelo menos 6 caracteres'),
+  body('full_name').trim().isLength({ min: 2 }).withMessage('Nome completo deve ter pelo menos 2 caracteres'),
+  body('role').isIn(['admin', 'manager', 'user', 'viewer']).withMessage('Role inválido')
+], validate, async (req, res) => {
   const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Dados inválidos', details: parsed.error.flatten() });
 

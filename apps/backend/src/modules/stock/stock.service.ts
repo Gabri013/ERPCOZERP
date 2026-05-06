@@ -188,9 +188,11 @@ export async function listProducts(filter: {
   search?: string;
   status?: string;
   take?: number;
+  skip?: number;
   salesCatalogOnly?: boolean;
 }) {
   const take = filter.take ?? 2000;
+  const skip = filter.skip ?? 0;
   const andParts: Prisma.ProductWhereInput[] = [];
 
   if (filter.status) andParts.push({ status: filter.status });
@@ -213,6 +215,7 @@ export async function listProducts(filter: {
   const rows = await prisma.product.findMany({
     where,
     take,
+    skip,
     orderBy: { updatedAt: 'desc' },
     include: {
       locations: { include: { location: true } },

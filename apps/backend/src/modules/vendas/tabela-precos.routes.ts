@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../../infra/prisma.js';
 import { Prisma } from '@prisma/client';
+import { cache } from '../../lib/cache.js';
 
 export const tabelaPrecosRouter = Router();
 
@@ -21,11 +22,22 @@ tabelaPrecosRouter.get('/', async (req, res) => {
   const search = normalizeStr(req.query.search);
   const grupo = normalizeStr(req.query.grupo);
   const take = Math.min(500, Math.max(1, Number(req.query.limit || 500)));
+  const skip = Math.max(0, Number(req.query.skip || 0));
+
+  // Cache only if no search or grupo filters
+  if (!search && !grupo) {
+    const cacheKey = `sales:price-tables:${take}:${skip}`;
+    const cached = await cache.get(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
+  }
 
   const rows = await prisma.entityRecord.findMany({
     where: { entityId: entity.id, deletedAt: null },
     orderBy: { createdAt: 'asc' },
     take,
+    skip,
   });
 
   const data = rows
@@ -40,7 +52,13 @@ tabelaPrecosRouter.get('/', async (req, res) => {
       );
     });
 
-  res.json({ success: true, data });
+  const response = { success: true, data };
+  if (!search && !grupo) {
+    const cacheKey = `sales:price-tables:${take}:${skip}`;
+    await cache.set(cacheKey, response, { ttl: 300 }); // 5 minutes
+  }
+
+  res.json(response);
 });
 
 tabelaPrecosRouter.post('/', async (req, res) => {
