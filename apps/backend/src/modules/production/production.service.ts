@@ -254,6 +254,70 @@ export async function createWorkOrder(
   });
 }
 
+function isFinishedWorkOrderStatus(status: string) {
+  return status === 'DONE' || status === 'COMPLETED';
+}
+
+async function applyFinishMovementsForWorkOrder(
+  tx: Db,
+  wo: {
+    id: string;
+    number: string;
+    productId: string | null;
+    quantityPlanned: Prisma.Decimal;
+    items: Array<{ productId: string; quantity: Prisma.Decimal }>;
+    product?: { id: string; entityRecordId?: string | null } | null;
+  },
+  locationId: string,
+  userId?: string | null,
+) {
+  const mainProductId = wo.productId ?? wo.items[0]?.productId;
+  if (!mainProductId) throw new Error('Produto acabado não definido na OP');
+
+  const qty = wo.quantityPlanned;
+
+  await applyStockMovement(
+    {
+      productId: mainProductId,
+      locationId,
+      type: StockMovementType.ENTRADA,
+      quantity: qty,
+      userId: userId ?? undefined,
+      reference: wo.number,
+      notes: 'Entrada acabado — conclusão OP',
+    },
+    tx,
+  );
+
+  const product = await tx.product.findUnique({
+    where: { id: mainProductId },
+    select: { id: true, entityRecordId: true },
+  });
+
+  if (product?.entityRecordId) {
+    const bom = await tx.billOfMaterialLine.findMany({
+      where: { productRecordId: product.entityRecordId },
+    });
+    for (const line of bom) {
+      const comp = await tx.product.findFirst({ where: { code: line.componentCode } });
+      if (!comp) continue;
+      const need = new Prisma.Decimal(line.quantity).mul(qty);
+      await applyStockMovement(
+        {
+          productId: comp.id,
+          locationId,
+          type: StockMovementType.SAIDA,
+          quantity: need,
+          userId: userId ?? undefined,
+          reference: wo.number,
+          notes: `Consumo BOM — ${line.componentCode}`,
+        },
+        tx,
+      );
+    }
+  }
+}
+
 export async function updateWorkOrder(
   id: string,
   patch: Partial<{
@@ -301,14 +365,16 @@ export async function updateWorkOrder(
   if (patch.responsibleUserId !== undefined) {
     data.responsible = patch.responsibleUserId ? { connect: { id: patch.responsibleUserId } } : { disconnect: true };
   }
-  if (patch.status) data.status = nextStatus;
+  const willFinish = patch.status && !isFinishedWorkOrderStatus(existing.status) && isFinishedWorkOrderStatus(nextStatus);
+  const location = willFinish ? await getOrCreateDefaultLocation() : undefined;
+  if (patch.status && !willFinish) data.status = nextStatus;
 
   return prisma.$transaction(async (tx) => {
     const wo = await tx.workOrder.update({
       where: { id },
       data: {
         ...data,
-        ...(patch.status
+        ...(patch.status && !willFinish
           ? {
               statusHistory: {
                 create: {
@@ -323,6 +389,30 @@ export async function updateWorkOrder(
       },
       include: woInclude,
     });
+
+    if (willFinish) {
+      await applyFinishMovementsForWorkOrder(tx, wo, location!.id, userId);
+      const updated = await tx.workOrder.update({
+        where: { id },
+        data: {
+          status: nextStatus,
+          finishedAt: new Date(),
+          kanbanColumn: 'DONE',
+          statusHistory: {
+            create: {
+              id: randomUUID(),
+              fromStatus: existing.status,
+              toStatus: nextStatus,
+              userId: userId ?? undefined,
+              note: 'Finalização com movimentação de estoque',
+            },
+          },
+        },
+        include: woInclude,
+      });
+      return mapWoRow(updated);
+    }
+
     return mapWoRow(wo);
   });
 }

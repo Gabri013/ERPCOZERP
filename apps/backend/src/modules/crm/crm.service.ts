@@ -65,8 +65,8 @@ export async function getPipeline(ctx: TenantContext, query?: Record<string, unk
   for (const s of stages) byStage[s] = [];
   for (const r of rows) {
     const d = parseData(r.data);
-    const stage = normalizeOpportunityStage(String(d.estagio || d.stage || 'Novo'));
-    const bucket = byStage[stage] ? stage : 'Novo';
+    const stage = normalizeOpportunityStage(String(d.estagio || d.stage || 'Novo')) as typeof CRM_OPPORTUNITY_STAGES[number];
+    const bucket = stages.includes(stage) ? stage : 'Novo';
     if (!byStage[bucket]) byStage[bucket] = [];
     byStage[bucket].push(r);
   }
@@ -235,9 +235,9 @@ export async function getCrmDashboard(ctx: TenantContext, analyticsQuery?: Recor
 
   for (const r of oppRows) {
     const d = parseData(r.data);
-    const stage = normalizeOpportunityStage(String(d.estagio || d.stage || ''));
+    const stage = normalizeOpportunityStage(String(d.estagio || d.stage || '')) as typeof CRM_OPPORTUNITY_STAGES[number];
     const v = opportunityAmount(d);
-    const bucket = valueByStage[stage] ? stage : 'Novo';
+    const bucket = CRM_OPPORTUNITY_STAGES.includes(stage) ? stage : 'Novo';
     totalsByStage[bucket] += 1;
     valueByStage[bucket].count += 1;
     valueByStage[bucket].sumBrl += v;

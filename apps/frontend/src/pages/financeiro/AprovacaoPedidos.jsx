@@ -6,6 +6,7 @@ import {
   CONFIG,
   aprovarPedidoGerencialApi,
   fetchPedidosAguardandoAp,
+  fetchPedidosDraftParaAprovacaoPrisma,
   rejeitarPedidoApi,
 } from '@/services/businessLogicApi';
 import { api } from '@/services/api';
@@ -42,16 +43,11 @@ export default function AprovacaoPedidos() {
     try {
       const [legacyRows, prismaRes] = await Promise.allSettled([
         fetchPedidosAguardandoAp(),
-        api.get('/api/sales/sale-orders?status=DRAFT&limit=100'),
+        fetchPedidosDraftParaAprovacaoPrisma(),
       ]);
 
       const legacy = legacyRows.status === 'fulfilled' ? legacyRows.value : [];
-
-      const prismaOrders = prismaRes.status === 'fulfilled'
-        ? (Array.isArray(prismaRes.value?.data?.data) ? prismaRes.value.data.data : [])
-            .filter((so) => Number(so.totalAmount ?? 0) >= CONFIG.LIMITE_APROVACAO)
-            .map(normalizeSaleOrder)
-        : [];
+      const prismaOrders = prismaRes.status === 'fulfilled' ? prismaRes.value : [];
 
       const legacyIds = new Set(legacy.map((r) => r.numero));
       const deduped = [...legacy, ...prismaOrders.filter((o) => !legacyIds.has(o.numero))];
