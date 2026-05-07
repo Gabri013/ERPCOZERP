@@ -219,48 +219,80 @@ async function main() {
 
   // ── 5. CRM LEADS / OPORTUNIDADES / ATIVIDADES (GESTÃO CRM) ───────────────
   console.log('  👥 CRM Gestão (leads, oportunidades, atividades)…');
-  const crmLeads = [
-    { type: 'lead', title: 'Lead – Petrobras Distribuidora', clientName: 'Petrobras Distribuidora S.A.', stage: 'Prospecção', value: 85000, probability: 15, priority: 'Alta', origin: 'Indicação' },
-    { type: 'lead', title: 'Lead – JBS Alimentos', clientName: 'JBS S.A.', stage: 'Qualificação', value: 42000, probability: 25, priority: 'Normal', origin: 'Site' },
-    { type: 'lead', title: 'Lead – Braskem SP', clientName: 'Braskem S.A.', stage: 'Prospecção', value: 120000, probability: 10, priority: 'Alta', origin: 'Feira' },
-    { type: 'lead', title: 'Lead – Embraer Componentes', clientName: 'Embraer S.A.', stage: 'Qualificação', value: 320000, probability: 35, priority: 'Urgente', origin: 'Contato Direto' },
-    { type: 'lead', title: 'Lead – Vale Logística', clientName: 'Vale S.A.', stage: 'Prospecção', value: 55000, probability: 20, priority: 'Normal', origin: 'LinkedIn' },
-  ];
-  const crmOpps = [
-    { type: 'oportunidade', title: 'Oportunidade – Linha de tanques cervejeiros', clientName: 'Cervejaria Horizonte Ltda', stage: 'Proposta', value: 186000, probability: 60, priority: 'Alta', origin: 'Cliente Ativo' },
-    { type: 'oportunidade', title: 'Oportunidade – Tubulações industriais GLP', clientName: 'Cosan Distribuidora', stage: 'Negociação', value: 245000, probability: 75, priority: 'Urgente', origin: 'Indicação' },
-    { type: 'oportunidade', title: 'Oportunidade – Estrutura metálica cobertura', clientName: 'Construtora Andrade Silva', stage: 'Proposta', value: 98000, probability: 50, priority: 'Normal', origin: 'Licitação' },
-    { type: 'oportunidade', title: 'Oportunidade – Rack inox farmacêutico', clientName: 'EMS Pharma', stage: 'Negociação', value: 67000, probability: 80, priority: 'Alta', origin: 'CRM' },
-    { type: 'oportunidade', title: 'Oportunidade – Reator industrial 10000L', clientName: 'Química Nova S/A', stage: 'Fechamento', value: 410000, probability: 90, priority: 'Urgente', origin: 'Cliente Ativo' },
-  ];
-  const crmActs = [
-    { type: 'atividade', title: 'Reunião – Apresentação COZINCA ERP', clientName: 'Metalúrgica São Paulo Ltda', stage: 'Agendado', value: 0, probability: null, priority: 'Normal' },
-    { type: 'atividade', title: 'Follow-up – Cotação PA-TAN-500', clientName: 'Petroquímica Sul S/A', stage: 'Em Andamento', value: 0, probability: null, priority: 'Alta' },
-    { type: 'atividade', title: 'Envio de proposta comercial', clientName: 'Frigorífico Central Brasil', stage: 'Concluído', value: 0, probability: null, priority: 'Normal' },
-    { type: 'atividade', title: 'Demo sistema – sala de reuniões', clientName: 'Laticínios Minas Gerais', stage: 'Agendado', value: 0, probability: null, priority: 'Alta' },
-    { type: 'atividade', title: 'Visita técnica – instalação', clientName: 'Usina São João', stage: 'Concluído', value: 0, probability: null, priority: 'Normal' },
-  ];
-  const negociacoes = [
-    { type: 'negociacao', title: 'Negociação – Revisão contratual 2026', clientName: 'Petroquímica Sul S/A', stage: 'Em Andamento', value: 90000, probability: 70, priority: 'Alta' },
-    { type: 'negociacao', title: 'Negociação – Contrato anual manutenção', clientName: 'Metalúrgica São Paulo Ltda', stage: 'Proposta', value: 36000, probability: 60, priority: 'Normal' },
-  ];
-
-  for (const c of [...crmLeads, ...crmOpps, ...crmActs, ...negociacoes]) {
-    await prisma.crmProcess.create({
-      data: {
-        id: uuid(),
-        type: c.type,
-        title: c.title,
-        clientName: c.clientName,
-        stage: c.stage,
-        value: c.value || null,
-        probability: c.probability || null,
-        priority: c.priority,
-        origin: (c as any).origin ?? null,
-        openedAt: daysAgo(Math.floor(Math.random() * 60)),
-        forecastAt: c.probability ? daysFrom(30 + Math.floor(Math.random() * 90)) : null,
-      },
-    });
+  
+  // Obtém as entities para CRM
+  const leadEnt = await prisma.entity.findUnique({ where: { code: 'crm_lead' } });
+  const oppEnt = await prisma.entity.findUnique({ where: { code: 'crm_oportunidade' } });
+  
+  if (!leadEnt || !oppEnt) {
+    console.warn('  ⚠️ Entidades CRM não encontradas — pulando seed de dados CRM');
+  } else {
+    // Mapeia stages antigos para canônicos
+    const stageMap: Record<string, string> = {
+      'Prospecção': 'Novo',
+      'Qualificação': 'Qualificado',
+      'Proposta': 'Proposta enviada',
+      'Negociação': 'Negociação',
+      'Fechamento': 'Negociação',
+      'Em Andamento': 'Em orçamento',
+    };
+    
+    const crmLeads = [
+      { type: 'lead', title: 'Lead – Petrobras Distribuidora', clientName: 'Petrobras Distribuidora S.A.', stage: 'Prospecção', value: 85000, probability: 15, priority: 'Alta', origin: 'Indicação' },
+      { type: 'lead', title: 'Lead – JBS Alimentos', clientName: 'JBS S.A.', stage: 'Qualificação', value: 42000, probability: 25, priority: 'Normal', origin: 'Site' },
+      { type: 'lead', title: 'Lead – Braskem SP', clientName: 'Braskem S.A.', stage: 'Prospecção', value: 120000, probability: 10, priority: 'Alta', origin: 'Feira' },
+      { type: 'lead', title: 'Lead – Embraer Componentes', clientName: 'Embraer S.A.', stage: 'Qualificação', value: 320000, probability: 35, priority: 'Urgente', origin: 'Contato Direto' },
+      { type: 'lead', title: 'Lead – Vale Logística', clientName: 'Vale S.A.', stage: 'Prospecção', value: 55000, probability: 20, priority: 'Normal', origin: 'LinkedIn' },
+    ];
+    const crmOpps = [
+      { type: 'oportunidade', title: 'Oportunidade – Linha de tanques cervejeiros', clientName: 'Cervejaria Horizonte Ltda', stage: 'Proposta', value: 186000, probability: 60, priority: 'Alta', origin: 'Cliente Ativo' },
+      { type: 'oportunidade', title: 'Oportunidade – Tubulações industriais GLP', clientName: 'Cosan Distribuidora', stage: 'Negociação', value: 245000, probability: 75, priority: 'Urgente', origin: 'Indicação' },
+      { type: 'oportunidade', title: 'Oportunidade – Estrutura metálica cobertura', clientName: 'Construtora Andrade Silva', stage: 'Proposta', value: 98000, probability: 50, priority: 'Normal', origin: 'Licitação' },
+      { type: 'oportunidade', title: 'Oportunidade – Rack inox farmacêutico', clientName: 'EMS Pharma', stage: 'Negociação', value: 67000, probability: 80, priority: 'Alta', origin: 'CRM' },
+      { type: 'oportunidade', title: 'Oportunidade – Reator industrial 10000L', clientName: 'Química Nova S/A', stage: 'Fechamento', value: 410000, probability: 90, priority: 'Urgente', origin: 'Cliente Ativo' },
+    ];
+    
+    // Cria leads como EntityRecords
+    for (const lead of crmLeads) {
+      const canonicalStage = stageMap[lead.stage] || lead.stage;
+      await prisma.entityRecord.create({
+        data: {
+          id: uuid(),
+          entityId: leadEnt.id,
+          data: {
+            title: lead.title,
+            clientName: lead.clientName,
+            estagio: canonicalStage,
+            stage: canonicalStage,
+            value: lead.value,
+            probability: lead.probability,
+            priority: lead.priority,
+            origin: lead.origin,
+          },
+        },
+      });
+    }
+    
+    // Cria oportunidades como EntityRecords
+    for (const opp of crmOpps) {
+      const canonicalStage = stageMap[opp.stage] || opp.stage;
+      await prisma.entityRecord.create({
+        data: {
+          id: uuid(),
+          entityId: oppEnt.id,
+          data: {
+            title: opp.title,
+            clientName: opp.clientName,
+            estagio: canonicalStage,
+            stage: canonicalStage,
+            value: opp.value,
+            probability: opp.probability,
+            priority: opp.priority,
+            origin: opp.origin,
+          },
+        },
+      });
+    }
   }
 
   // ── 6. PROJETOS ────────────────────────────────────────────────────────────
