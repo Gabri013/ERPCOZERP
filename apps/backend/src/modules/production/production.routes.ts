@@ -129,6 +129,18 @@ productionRouter.get('/floor', requirePermission(['ver_chao_fabrica']), async (_
   }
 });
 
+productionRouter.get('/refugo/summary', requirePermission(['ver_qualidade']), async (req, res) => {
+  try {
+    const mes = req.query.mes ? Number(req.query.mes) : undefined;
+    const ano = req.query.ano ? Number(req.query.ano) : undefined;
+    const groupBy = req.query.groupBy ? String(req.query.groupBy) : undefined;
+    const data = await svc.getRefugoSummary({ mes, ano, groupBy });
+    res.json({ success: true, data });
+  } catch (e) {
+    err(res, e, 500);
+  }
+});
+
 productionRouter.post('/kanban/reorder', requirePermission(['ver_kanban']), async (req, res) => {
   const parsed = kanbanReorderSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Dados inválidos', details: parsed.error.flatten() });

@@ -626,3 +626,71 @@ export async function createRouting(data: {
     include: { stages: { orderBy: { sortOrder: 'asc' }, include: { machine: true } } },
   });
 }
+
+export async function getRefugoSummary(params?: { mes?: number; ano?: number; groupBy?: string }) {
+  const mes = params?.mes ?? new Date().getMonth() + 1;
+  const ano = params?.ano ?? new Date().getFullYear();
+  
+  const startDate = new Date(ano, mes - 1, 1);
+  const endDate = new Date(ano, mes, 0, 23, 59, 59);
+
+  const apontamentos = await prisma.productionAppointment.findMany({
+    where: {
+      scheduledStart: { gte: startDate, lte: endDate },
+    },
+    include: {
+      workOrder: { include: { product: true } },
+      machine: true,
+      employee: true,
+    },
+  });
+
+  type Produto = { produto: string; qtdBoa: number; qtdRefugo: number; eficiencia: number };
+  type Operador = { operador: string; qtdBoa: number; qtdRefugo: number; eficiencia: number };
+
+  const porProduto: Record<string, Produto> = {};
+  const porOperador: Record<string, Operador> = {};
+  let totaisBoa = 0;
+  let totaisRefugo = 0;
+
+  for (const apt of apontamentos) {
+    const qtdBoa = Number(apt.quantityGood ?? apt.quantityPlanned ?? 0);
+    const qtdRefugo = Number(apt.quantityDefective ?? 0);
+    totaisBoa += qtdBoa;
+    totaisRefugo += qtdRefugo;
+
+    const nomeProduto = apt.workOrder?.product?.name ?? 'Desconhecido';
+    if (!porProduto[nomeProduto]) {
+      porProduto[nomeProduto] = { produto: nomeProduto, qtdBoa: 0, qtdRefugo: 0, eficiencia: 0 };
+    }
+    porProduto[nomeProduto].qtdBoa += qtdBoa;
+    porProduto[nomeProduto].qtdRefugo += qtdRefugo;
+
+    const nomeOperador = apt.employee?.name ?? apt.employee?.email ?? 'Desconhecido';
+    if (!porOperador[nomeOperador]) {
+      porOperador[nomeOperador] = { operador: nomeOperador, qtdBoa: 0, qtdRefugo: 0, eficiencia: 0 };
+    }
+    porOperador[nomeOperador].qtdBoa += qtdBoa;
+    porOperador[nomeOperador].qtdRefugo += qtdRefugo;
+  }
+
+  // Calcula eficiência: qtdBoa / (qtdBoa + qtdRefugo)
+  Object.values(porProduto).forEach((p) => {
+    const total = p.qtdBoa + p.qtdRefugo;
+    p.eficiencia = total > 0 ? Math.round((p.qtdBoa / total) * 1000) / 10 : 100;
+  });
+  Object.values(porOperador).forEach((o) => {
+    const total = o.qtdBoa + o.qtdRefugo;
+    o.eficiencia = total > 0 ? Math.round((o.qtdBoa / total) * 1000) / 10 : 100;
+  });
+
+  const totalGeral = totaisBoa + totaisRefugo;
+  const eficienciaGeral = totalGeral > 0 ? Math.round((totaisBoa / totalGeral) * 1000) / 10 : 100;
+
+  return {
+    periodo: { mes, ano },
+    totais: { qtdBoa: totaisBoa, qtdRefugo: totaisRefugo, eficiencia: eficienciaGeral },
+    porProduto: Object.values(porProduto).sort((a, b) => b.qtdRefugo - a.qtdRefugo),
+    porOperador: Object.values(porOperador).sort((a, b) => b.qtdRefugo - a.qtdRefugo),
+  };
+}
