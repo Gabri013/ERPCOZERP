@@ -91,9 +91,6 @@ ALTER COLUMN "updated_at" DROP DEFAULT;
 -- AlterTable
 ALTER TABLE "sale_orders" ALTER COLUMN "updated_at" DROP DEFAULT;
 
--- AlterTable
-ALTER TABLE "work_orders" ALTER COLUMN "updated_at" DROP DEFAULT;
-
 -- CreateTable
 CREATE TABLE "crm_assignment_logs" (
     "id" UUID NOT NULL,
@@ -113,5 +110,3 @@ CREATE INDEX "idx_crm_assignment_record" ON "crm_assignment_logs"("entity_record
 -- CreateIndex
 CREATE INDEX "idx_crm_assignment_entity_created" ON "crm_assignment_logs"("entity_code", "created_at");
 
--- RenameIndex
-ALTER INDEX "payroll_runs_reference_month_key" RENAME TO "uq_payroll_run_month";

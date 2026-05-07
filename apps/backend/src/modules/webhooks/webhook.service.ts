@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { prisma } from '../infra/prisma.js';
+import { prisma } from '../../infra/prisma.js';
 
 export interface WebhookPayload {
   event: string;

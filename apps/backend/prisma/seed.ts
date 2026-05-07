@@ -424,8 +424,8 @@ async function main() {
 
     const created = await prisma.user.upsert({
       where: { email },
-      update: { passwordHash: demoHash, fullName, active: true, emailVerified: true, sector: sector ?? null },
-      create: { email, passwordHash: demoHash, fullName, active: true, emailVerified: true, sector: sector ?? null },
+        update: { passwordHash: demoHash, fullName, active: true, emailVerified: true, sector: sector ?? null },
+        create: { email, passwordHash: demoHash, fullName, active: true, emailVerified: true, sector: sector ?? null },
     });
 
     await prisma.userRole.upsert({

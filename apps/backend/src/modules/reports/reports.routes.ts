@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate } from '../../middleware/auth.js';
 import { generatePDF, generateSaleOrderHTML, generatePurchaseOrderHTML } from './pdf.service.js';
 import { prisma } from '../infra/prisma.js';
 

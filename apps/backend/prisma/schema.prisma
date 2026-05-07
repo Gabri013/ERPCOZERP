@@ -21,10 +21,10 @@ model User {
   lastLoginAt             DateTime?                @map("last_login_at")
   /// * Setor operacional (ex.: Expedição, Corte Laser); opcional — usado para dashboards e filtros
   sector                  String?                  @map("sector")
-  companyId               String                   @map("company_id")
+  companyId               String?                  @map("company_id")
   createdAt               DateTime                 @default(now()) @map("created_at")
   updatedAt               DateTime                 @updatedAt @map("updated_at")
-  company                 Company                  @relation(fields: [companyId], references: [id])
+  company                 Company?                 @relation(fields: [companyId], references: [id])
   accessLogs              AccessLog[]
   auditLogs               AuditLog[]
   crmInboxConversations   CrmConversation[]        @relation("CrmConversationResponsible")
