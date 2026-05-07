@@ -429,7 +429,11 @@ export async function reorderKanban(column: string, orderedIds: string[]) {
   return listWorkOrders();
 }
 
-export async function finishWorkOrder(id: string, userId?: string | null) {
+export async function finishWorkOrder(
+  id: string,
+  userId?: string | null,
+  completionData?: Array<{ workOrderItemId: string; quantidadeProduzida?: number; quantidadeRefugo?: number }>,
+) {
   const loc = await getOrCreateDefaultLocation();
 
   return prisma.$transaction(async (tx) => {
@@ -444,6 +448,23 @@ export async function finishWorkOrder(id: string, userId?: string | null) {
     if (!mainProductId) throw new Error('Produto acabado não definido na OP');
 
     const qty = wo.quantityPlanned;
+
+    // Atualiza WorkOrderItems com quantidades produzidas e refugo, se fornecidas
+    if (completionData && completionData.length > 0) {
+      const dataMap = new Map(completionData.map((d) => [d.workOrderItemId, d]));
+      for (const item of wo.items) {
+        const data = dataMap.get(item.id);
+        if (data) {
+          await tx.workOrderItem.update({
+            where: { id: item.id },
+            data: {
+              quantidadeProduzida: data.quantidadeProduzida ? new Prisma.Decimal(data.quantidadeProduzida) : undefined,
+              quantidadeRefugo: data.quantidadeRefugo ? new Prisma.Decimal(data.quantidadeRefugo) : undefined,
+            },
+          });
+        }
+      }
+    }
 
     await applyStockMovement(
       {

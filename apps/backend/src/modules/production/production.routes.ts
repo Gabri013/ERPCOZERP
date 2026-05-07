@@ -61,7 +61,8 @@ workOrdersRouter.patch('/:id', edit, async (req, res) => {
 
 workOrdersRouter.post('/:id/finish', apontar, async (req, res) => {
   try {
-    const data = await svc.finishWorkOrder(req.params.id, req.user?.userId);
+    const completionData = req.body?.itens;
+    const data = await svc.finishWorkOrder(req.params.id, req.user?.userId, completionData);
     res.json({ success: true, data });
   } catch (e) {
     err(res, e);

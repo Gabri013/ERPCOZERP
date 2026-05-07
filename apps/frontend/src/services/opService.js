@@ -61,9 +61,10 @@ export const opService = {
     return { success: true };
   },
 
-  finish: async (id) => {
-    const { data: body } = await api.post(`/api/work-orders/${id}/finish`, {});
-    return { success: true, data: body?.data };
+  finish: async (id, completionData = null) => {
+    const body = completionData ? { itens: completionData } : {};
+    const { data: responseBody } = await api.post(`/api/work-orders/${id}/finish`, body);
+    return { success: true, data: responseBody?.data };
   },
 
   getData: () => [],
