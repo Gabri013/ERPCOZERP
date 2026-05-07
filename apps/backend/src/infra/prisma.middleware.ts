@@ -16,43 +16,41 @@ function modelHasCompanyId(prisma: PrismaClient, model: string) {
 }
 
 export function applyPrismaMiddleware(prisma: PrismaClient) {
-  prisma.$use(async (params: any, next: any) => {
-    const companyId = getCurrentCompanyId();
-    if (!companyId) return next(params);
+  return prisma.$extends({
+    query: {
+      $allModels: {
+        $allOperations: async (args: any) => {
+          const companyId = getCurrentCompanyId();
+          if (!companyId) return args.query(args.args);
+          if (!args.model) return args.query(args.args);
+          if (!modelHasCompanyId(prisma, args.model)) return args.query(args.args);
 
-    const model = params.model;
-    if (!model) return next(params);
+          const updatedArgs = { ...(args.args || {}) } as Record<string, any>;
 
-    if (!modelHasCompanyId(prisma, model)) return next(params);
+          if (ACTIONS_ADD_WHERE.has(args.operation)) {
+            const where = updatedArgs.where;
+            if (!where || (typeof where === 'object' && !Object.prototype.hasOwnProperty.call(where, 'companyId'))) {
+              updatedArgs.where = { ...(where || {}), companyId };
+            }
+          }
 
-    // Never override existing where
-    if (ACTIONS_ADD_WHERE.has(params.action)) {
-      params.args = params.args || {};
-      const where = params.args.where;
-      // if where exists and already filters by companyId, leave it
-      if (!where || (typeof where === 'object' && !(Object.prototype.hasOwnProperty.call(where, 'companyId')))) {
-        params.args.where = { ...(where || {}), companyId };
-      }
-    }
+          if (args.operation === 'update' || args.operation === 'delete' || args.operation === 'upsert') {
+            const where = updatedArgs.where;
+            if (where && !Object.prototype.hasOwnProperty.call(where, 'companyId')) {
+              updatedArgs.where = { ...(where || {}), companyId };
+            }
+          }
 
-    // For update/delete by unique where
-    if (params.action === 'update' || params.action === 'delete' || params.action === 'upsert') {
-      params.args = params.args || {};
-      const where = params.args.where;
-      if (where && !Object.prototype.hasOwnProperty.call(where, 'companyId')) {
-        params.args.where = { ...(where || {}), companyId };
-      }
-    }
+          if (ACTIONS_DATA_COMPANY.has(args.operation)) {
+            const data = updatedArgs.data;
+            if (data && !Object.prototype.hasOwnProperty.call(data, 'companyId')) {
+              updatedArgs.data = { ...data, companyId };
+            }
+          }
 
-    // For create operations, ensure data has companyId if model expects it and not present
-    if (ACTIONS_DATA_COMPANY.has(params.action)) {
-      params.args = params.args || {};
-      const data = params.args.data;
-      if (data && !Object.prototype.hasOwnProperty.call(data, 'companyId')) {
-        params.args.data = { ...data, companyId };
-      }
-    }
-
-    return next(params);
-  });
+          return args.query(updatedArgs);
+        },
+      },
+    },
+  }) as PrismaClient;
 }

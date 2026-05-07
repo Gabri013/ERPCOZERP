@@ -45,6 +45,9 @@ export const LEGACY_STAGE_TO_CANONICAL: Record<string, string> = {
 };
 
 const STAGE_SET = new Set(CRM_OPPORTUNITY_STAGES as readonly string[]);
+const STAGE_LOWER_TO_CANONICAL: Record<string, string> = Object.fromEntries(
+  CRM_OPPORTUNITY_STAGES.map((stage) => [stage.toLowerCase(), stage]),
+);
 const LEGACY_STAGE_TO_CANONICAL_LOWER: Record<string, string> = Object.fromEntries(
   Object.entries(LEGACY_STAGE_TO_CANONICAL).map(([key, value]) => [key.toLowerCase(), value]),
 );
@@ -53,7 +56,11 @@ export function normalizeOpportunityStage(raw: string | null | undefined): strin
   const s = String(raw || '').trim();
   if (!s) return 'Novo';
   if (STAGE_SET.has(s)) return s;
-  const mapped = LEGACY_STAGE_TO_CANONICAL[s] ?? LEGACY_STAGE_TO_CANONICAL_LOWER[s.toLowerCase()];
+  const normalized = s.toLowerCase();
+  const mapped =
+    LEGACY_STAGE_TO_CANONICAL[s] ??
+    LEGACY_STAGE_TO_CANONICAL_LOWER[normalized] ??
+    STAGE_LOWER_TO_CANONICAL[normalized];
   if (mapped && STAGE_SET.has(mapped)) return mapped;
   return 'Novo';
 }
