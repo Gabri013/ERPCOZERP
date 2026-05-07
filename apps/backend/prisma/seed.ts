@@ -1310,14 +1310,31 @@ async function main() {
 
   const catalogCount = await prisma.product.count();
   if (catalogCount === 0) {
-    const defaultLoc = await prisma.location.create({
-      data: {
-        code: 'DEFAULT',
-        name: 'Depósito principal',
-        warehouse: 'Principal',
-        active: true,
-      },
-    });
+    // Cria ou obtém a Company padrão
+    let defaultCompany = await prisma.company.findFirst();
+    if (!defaultCompany) {
+      defaultCompany = await prisma.company.create({
+        data: {
+          cnpj: '12.345.678/0001-90',
+          razaoSocial: 'Cozinca Inox Equipamentos LTDA',
+          fantasia: 'Cozinca Inox',
+          ativo: true,
+        },
+      });
+    }
+    
+    // Cria ou obtém a Location padrão
+    let defaultLoc = await prisma.location.findFirst({ where: { code: 'DEFAULT' } });
+    if (!defaultLoc) {
+      defaultLoc = await prisma.location.create({
+        data: {
+          code: 'DEFAULT',
+          name: 'Depósito principal',
+          warehouse: 'Principal',
+          active: true,
+        },
+      });
+    }
 
     const samples: Array<{
       code: string;
@@ -1375,6 +1392,7 @@ async function main() {
           minStock: new Prisma.Decimal(s.min),
           status: 'Ativo',
           entityRecordId,
+          companyId: defaultCompany.id,
           locations: {
             create: {
               locationId: defaultLoc.id,
