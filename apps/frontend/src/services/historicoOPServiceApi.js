@@ -1,27 +1,28 @@
-import { recordsServiceApi } from '@/services/recordsServiceApi';
+import { opService } from '@/services/opService';
 
 export const historicoOPServiceApi = {
   async getAll() {
-    const rows = await recordsServiceApi.list('historico_op');
+    const response = await opService.getStatusHistoryAll();
+    const rows = response.data || [];
     // mais recente primeiro
-    return rows.sort((a, b) => String(b.data || '').localeCompare(String(a.data || '')));
+    return rows.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
   },
 
   async registrar({ opId, opNumero, statusAnterior, statusNovo, usuario = 'Sistema', obs = '' }) {
-    return recordsServiceApi.create('historico_op', {
-      opId,
-      opNumero,
-      statusAnterior,
-      statusNovo,
-      usuario,
-      obs,
-      data: new Date().toISOString(),
+    const response = await opService.createStatusHistory({
+      workOrderId: opId,
+      previousStatus: statusAnterior,
+      newStatus: statusNovo,
+      notes: obs,
+      // userId não definido, será null
     });
+    return response.data;
   },
 
   async getPorOP(opId) {
-    const rows = await recordsServiceApi.list('historico_op');
-    return rows.filter((h) => String(h.opId) === String(opId));
+    const response = await opService.getStatusHistoryAll();
+    const rows = response.data || [];
+    return rows.filter((h) => String(h.workOrderId) === String(opId));
   },
 };
 

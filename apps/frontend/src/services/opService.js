@@ -68,4 +68,15 @@ export const opService = {
   },
 
   getData: () => [],
+
+  getStatusHistoryAll: async () => {
+    const { data: body } = await api.get('/api/work-orders/status-history/all');
+    const rows = body?.data ?? [];
+    return { success: true, data: rows };
+  },
+
+  createStatusHistory: async (data) => {
+    const { data: body } = await api.post('/api/work-orders/status-history', data);
+    return { success: true, data: body?.data };
+  },
 };

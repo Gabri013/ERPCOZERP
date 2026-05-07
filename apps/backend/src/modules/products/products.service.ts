@@ -56,6 +56,12 @@ export async function findProdutoEntityRecordByCode(codigo: string) {
   return findProdutoByCodigo(codigo);
 }
 
+export async function findProductByCode(code: string) {
+  return prisma.product.findUnique({
+    where: { code }
+  });
+}
+
 export async function ensureIndustrialMeta(
   entityRecordId: string,
   defaults: { bomStatus?: string } = {},

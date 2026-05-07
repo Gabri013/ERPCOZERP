@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { body } from 'express-validator';
 import { authenticate } from '../../middleware/auth.js';
 import { validate } from '../../middleware/validate.js';
@@ -32,17 +32,17 @@ accountingRouter.delete('/account-plan/:id', async (req, res) => {
 });
 
 // Entries
-accountingRouter.get('/entries', async (req, res) => {
+accountingRouter.get('/entries', async (req: Request, res: Response) => {
   try { res.json(await listEntries(req.query as Record<string, string>)); } catch (e) { res.status(500).json({ error: String(e) }); }
 });
 accountingRouter.post('/entries', [
   body('amount').isFloat({ min: 0.01 }).withMessage('Valor deve ser maior que 0'),
   body('date').isISO8601().withMessage('Data deve ser válida'),
   body('description').trim().isLength({ min: 3 }).withMessage('Descrição deve ter pelo menos 3 caracteres')
-], validate, async (req, res) => {
+], validate, async (req: Request, res: Response) => {
   try { res.status(201).json(await createEntry(req.body)); } catch (e) { res.status(400).json({ error: String(e) }); }
 });
-accountingRouter.delete('/entries/:id', async (req, res) => {
+accountingRouter.delete('/entries/:id', async (req: Request, res: Response) => {
   try { await deleteEntry(req.params.id); res.status(204).send(); } catch (e) { res.status(400).json({ error: String(e) }); }
 });
 

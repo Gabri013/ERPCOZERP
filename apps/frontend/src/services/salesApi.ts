@@ -65,6 +65,11 @@ export async function patchSaleOrderKanban(id: string, kanbanColumn: string, kan
   return unwrap<SaleOrderRow>(res.data);
 }
 
+export async function patchSaleOrder(id: string, data: Record<string, unknown>) {
+  const res = await api.patch(`/api/sales/sale-orders/${id}`, data);
+  return unwrap<SaleOrderRow>(res.data);
+}
+
 export async function approveSaleOrder(id: string) {
   const res = await api.post(`/api/sales/sale-orders/${id}/approve`, {});
   return unwrap<SaleOrderRow>(res.data);

@@ -39,6 +39,7 @@ import { registerExpeditionModule } from './modules/expedition/expedition.module
 import { registerAccountingModule } from './modules/accounting/accounting.module.js';
 import { registerWebhooksModule } from './modules/webhooks/webhooks.module.js';
 import { registerMetaModule } from './modules/meta/meta.module.js';
+import { registerMetaCodeModule } from './modules/meta-code/meta-code.module.js';
 import { registerReportsModule } from './modules/reports/reports.module.js';
 import {
   attachErrorMonitorExpressHandler,

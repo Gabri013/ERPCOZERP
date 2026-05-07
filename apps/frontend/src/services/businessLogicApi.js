@@ -1,5 +1,5 @@
 import { recordsServiceApi } from '@/services/recordsServiceApi';
-import { listSaleOrders } from '@/services/salesApi';
+import { listSaleOrders, patchSaleOrder } from '@/services/salesApi';
 
 export const CONFIG = {
   LIMITE_APROVACAO: 20000,
@@ -11,8 +11,8 @@ function normStatus(v) {
 
 /** Pedidos que exigem ação gerencial (mesmo texto de status dos registros seeded). */
 export async function fetchPedidosAguardandoAp() {
-  const rows = await recordsServiceApi.list('pedido_venda');
-  return rows.filter((p) => String(p.status || '') === 'Aguardando Aprovação');
+  const rows = await listSaleOrders({ status: 'Aguardando Aprovação', take: 500 });
+  return rows;
 }
 
 /**
@@ -25,12 +25,7 @@ export async function fetchPedidosDraftParaAprovacaoPrisma() {
 }
 
 export async function aprovarPedidoGerencialApi(id) {
-  const rows = await recordsServiceApi.list('pedido_venda');
-  const cur = rows.find((r) => String(r.id) === String(id));
-  if (!cur) throw new Error('Pedido não encontrado');
-
-  await recordsServiceApi.update(id, {
-    ...cur,
+  await patchSaleOrder(id, {
     status: 'Aprovado',
     data_aprovacao_gerencial: new Date().toISOString(),
   });
@@ -38,12 +33,7 @@ export async function aprovarPedidoGerencialApi(id) {
 }
 
 export async function rejeitarPedidoApi(id, motivo = '') {
-  const rows = await recordsServiceApi.list('pedido_venda');
-  const cur = rows.find((r) => String(r.id) === String(id));
-  if (!cur) throw new Error('Pedido não encontrado');
-
-  await recordsServiceApi.update(id, {
-    ...cur,
+  await patchSaleOrder(id, {
     status: 'Cancelado',
     motivo_rejeicao: motivo,
     data_rejeicao: new Date().toISOString(),

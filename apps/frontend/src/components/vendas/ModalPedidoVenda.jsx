@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import FormModal, { inp, lbl, req } from '@/components/common/FormModal';
-import { recordsServiceApi } from '@/services/recordsServiceApi';
+import { listOpportunities } from '@/services/salesApi';
 
 const CLIENTES = ['Metalúrgica ABC Ltda','Ind. XYZ S/A','Comércio Beta','Grupo Delta','TechParts Ltda','SiderTech S/A'];
 const VENDEDORES = ['Carlos Silva','Ana Paula','Rafael Costa'];
@@ -51,7 +51,7 @@ export default function ModalPedidoVenda({ pedido, onClose, onSave, moduloOrcame
     let ok = true;
     (async () => {
       try {
-        const list = await recordsServiceApi.list('crm_oportunidade');
+        const list = await listOpportunities();
         if (ok) setOpps(Array.isArray(list) ? list : []);
       } catch {
         if (ok) setOpps([]);

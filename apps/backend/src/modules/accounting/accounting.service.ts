@@ -59,6 +59,7 @@ export async function createEntry(data: {
   debitAccount: string;
   creditAccount: string;
   amount: number;
+  companyId: string;
   origin?: string;
   module?: string;
   referenceId?: string;

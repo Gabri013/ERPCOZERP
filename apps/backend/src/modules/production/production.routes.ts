@@ -37,6 +37,24 @@ workOrdersRouter.get('/:id', view, async (req, res) => {
   }
 });
 
+workOrdersRouter.get('/status-history/all', view, async (_req, res) => {
+  try {
+    const data = await svc.listWorkOrderStatusHistories();
+    res.json({ success: true, data });
+  } catch (e) {
+    err(res, e, 500);
+  }
+});
+
+workOrdersRouter.post('/status-history', edit, async (req, res) => {
+  try {
+    const data = await svc.createWorkOrderStatusHistory(req.body);
+    res.status(201).json({ success: true, data });
+  } catch (e) {
+    err(res, e);
+  }
+});
+
 workOrdersRouter.post('/', edit, async (req, res) => {
   const parsed = createWorkOrderSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Dados inválidos', details: parsed.error.flatten() });
@@ -161,6 +179,33 @@ productionRouter.post('/kanban/reorder', requirePermission(['ver_kanban']), asyn
   if (!parsed.success) return res.status(400).json({ error: 'Dados inválidos', details: parsed.error.flatten() });
   try {
     const data = await svc.reorderKanban(parsed.data.column, parsed.data.orderedIds);
+    res.json({ success: true, data });
+  } catch (e) {
+    err(res, e);
+  }
+});
+
+productionRouter.get('/appointments', apontar, async (_req, res) => {
+  try {
+    const data = await svc.listProductionAppointments();
+    res.json({ success: true, data });
+  } catch (e) {
+    err(res, e, 500);
+  }
+});
+
+productionRouter.post('/appointments', apontar, async (req, res) => {
+  try {
+    const data = await svc.createProductionAppointment(req.body);
+    res.status(201).json({ success: true, data });
+  } catch (e) {
+    err(res, e);
+  }
+});
+
+productionRouter.patch('/appointments/:id', apontar, async (req, res) => {
+  try {
+    const data = await svc.updateProductionAppointment(req.params.id, req.body);
     res.json({ success: true, data });
   } catch (e) {
     err(res, e);

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { recordsServiceApi } from '@/services/recordsServiceApi';
+import { produtoService } from '@/services/produtoService';
 import { productsApi } from '@/services/productsApi';
 import { stockApi } from '@/services/stockApi';
 import Model3DViewer from '@/components/products/Model3DViewer';
@@ -48,7 +48,7 @@ export default function ProdutoDetalhe() {
         displayProduto = mapped;
         bomRecordId = mapped.entityRecordId || null;
       } else {
-        const p = await recordsServiceApi.get(recordId);
+        const p = await produtoService.getById(recordId);
         if (!p) {
           toast({ variant: 'destructive', title: 'Produto não encontrado' });
           setProduto(null);

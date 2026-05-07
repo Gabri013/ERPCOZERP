@@ -1,26 +1,34 @@
-import { recordsServiceApi } from '@/services/recordsServiceApi';
+import { listProductionAppointments, createProductionAppointment, updateProductionAppointment } from '@/services/productionApi';
 
 export const apontamentoService = {
   getByOpId: async (opId) => {
-    const all = await recordsServiceApi.list('apontamento_producao');
-    const data = all.filter((a) => String(a.opId) === String(opId) || String(a.opNumero) === String(opId));
+    const all = await listProductionAppointments();
+    const data = all.filter((a) => String(a.workOrderId) === String(opId));
     return { success: true, data };
   },
 
   iniciar: async (opId, dados) => {
     const novo = {
-      ...dados,
-      opId: String(opId),
-      horaInicio: new Date().toISOString(),
+      workOrderId: String(opId),
+      startTime: new Date().toISOString(),
       status: dados.finalizar ? 'Finalizado' : 'Em Andamento',
-      horaFim: dados.finalizar ? new Date().toISOString() : null,
+      endTime: dados.finalizar ? new Date().toISOString() : undefined,
+      quantityProduced: dados.quantidade || 0,
+      scrapQuantity: dados.refugo || 0,
+      notes: dados.observacao || '',
     };
-    const created = await recordsServiceApi.create('apontamento_producao', novo);
+    const created = await createProductionAppointment(novo);
     return { success: true, data: created };
   },
 
   finalizar: async (id, opId, dados) => {
-    await recordsServiceApi.update(id, { ...dados, horaFim: new Date().toISOString(), status: 'Finalizado' });
+    await updateProductionAppointment(id, {
+      endTime: new Date().toISOString(),
+      status: 'Finalizado',
+      quantityProduced: dados.quantidade || 0,
+      scrapQuantity: dados.refugo || 0,
+      notes: dados.observacao || '',
+    });
     return { success: true };
   },
 

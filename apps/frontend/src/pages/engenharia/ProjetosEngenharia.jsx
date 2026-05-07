@@ -4,7 +4,7 @@ import PageHeader from '@/components/common/PageHeader';
 import FilterBar from '@/components/common/FilterBar';
 import DataTable from '@/components/common/DataTable';
 import { ExternalLink, FlaskConical, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
-import { recordsServiceApi } from '@/services/recordsServiceApi';
+import { produtoService } from '@/services/produtoService';
 import { productsApi } from '@/services/productsApi';
 import { usePermissions } from '@/lib/PermissaoContext';
 
@@ -41,7 +41,7 @@ export default function ProjetosEngenharia() {
       setLoading(true);
       try {
         const [list, pendentes] = await Promise.all([
-          recordsServiceApi.list('produto'),
+          produtoService.getAll(),
           productsApi.pendingBom().catch(() => []),
         ]);
         if (!mounted) return;

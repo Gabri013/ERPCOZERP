@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { body } from 'express-validator';
 import { prisma } from '../../infra/prisma.js';
 import { validate } from '../../middleware/validate.js';
@@ -6,7 +6,7 @@ import { validate } from '../../middleware/validate.js';
 export const adminCompaniesRouter = Router();
 
 // Listar empresas
-adminCompaniesRouter.get('/companies', async (_req, res) => {
+adminCompaniesRouter.get('/companies', async (_req: Request, res: Response) => {
   try {
     const companies = await prisma.company.findMany({
       include: {
@@ -33,7 +33,7 @@ adminCompaniesRouter.post('/companies', [
   body('razaoSocial').isLength({ min: 1 }).withMessage('Razão social obrigatória'),
   body('fantasia').optional(),
   body('ativo').optional().isBoolean(),
-], validate, async (req, res) => {
+], validate, async (req: Request, res: Response) => {
   try {
     const { cnpj, razaoSocial, fantasia, ativo = true } = req.body;
 
@@ -63,7 +63,7 @@ adminCompaniesRouter.patch('/companies/:id', [
   body('razaoSocial').optional().isLength({ min: 1 }),
   body('fantasia').optional(),
   body('ativo').optional().isBoolean(),
-], validate, async (req, res) => {
+], validate, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { razaoSocial, fantasia, ativo } = req.body;
@@ -78,7 +78,7 @@ adminCompaniesRouter.patch('/companies/:id', [
     });
 
     res.json({ success: true, data: company });
-  } catch (e) {
+  } catch (e: any) {
     if (e.code === 'P2025') {
       return res.status(404).json({ error: 'Empresa não encontrada' });
     }
@@ -87,7 +87,7 @@ adminCompaniesRouter.patch('/companies/:id', [
 });
 
 // Deletar empresa (soft delete)
-adminCompaniesRouter.delete('/companies/:id', async (req, res) => {
+adminCompaniesRouter.delete('/companies/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 

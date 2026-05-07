@@ -595,6 +595,72 @@ export async function calcularOEE(machineId: string, mes: number, ano: number) {
   }
 }
 
+export async function listWorkOrderStatusHistories() {
+  return prisma.workOrderStatusHistory.findMany({
+    orderBy: { createdAt: 'desc' },
+    include: {
+      workOrder: { select: { number: true } },
+      user: { select: { fullName: true } },
+    },
+  });
+}
+
+export async function createWorkOrderStatusHistory(data: {
+  workOrderId: string;
+  previousStatus: string;
+  newStatus: string;
+  userId?: string;
+  notes?: string;
+}) {
+  return prisma.workOrderStatusHistory.create({
+    data: {
+      workOrderId: data.workOrderId,
+      previousStatus: data.previousStatus,
+      newStatus: data.newStatus,
+      userId: data.userId,
+      notes: data.notes,
+    },
+  });
+}
+
+export async function listProductionAppointments() {
+  return prisma.productionAppointment.findMany({
+    orderBy: { createdAt: 'desc' },
+    include: {
+      workOrder: { select: { number: true } },
+      user: { select: { fullName: true } },
+    },
+  });
+}
+
+export async function createProductionAppointment(data: {
+  workOrderId: string;
+  userId?: string;
+  startTime: string;
+  endTime?: string;
+  quantityProduced: number;
+  scrapQuantity?: number;
+  notes?: string;
+  status: string;
+}) {
+  return prisma.productionAppointment.create({
+    data,
+  });
+}
+
+export async function updateProductionAppointment(id: string, data: Partial<{
+  endTime: string;
+  quantityProduced: number;
+  scrapQuantity: number;
+  notes: string;
+  status: string;
+}>) {
+  return prisma.productionAppointment.update({
+    where: { id },
+    data,
+  });
+}
+
 function calcularDiasUteis(inicio: Date, fim: Date): number {
   let dias = 0
   const data = new Date(inicio)

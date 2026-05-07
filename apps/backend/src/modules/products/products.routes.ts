@@ -27,19 +27,86 @@ function mimeFor(p: string) {
 
 productsRouter.use(authenticate);
 
+productsRouter.get('/', requirePermission('ver_estoque'), async (req, res) => {
+  try {
+    const { search, tipo } = req.query;
+    const products = await prisma.product.findMany({
+      where: {
+        ...(search ? {
+          OR: [
+            { name: { contains: search as string, mode: 'insensitive' } },
+            { code: { contains: search as string, mode: 'insensitive' } },
+          ]
+        } : {}),
+        ...(tipo ? { type: tipo as string } : {}),
+      },
+      orderBy: { name: 'asc' },
+    });
+    res.json({ success: true, data: products });
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : 'Erro' });
+  }
+});
+
+productsRouter.get('/:id', requirePermission('ver_estoque'), async (req, res) => {
+  try {
+    const product = await prisma.product.findUnique({
+      where: { id: req.params.id },
+    });
+    if (!product) return res.status(404).json({ error: 'Produto não encontrado' });
+    res.json({ success: true, data: product });
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : 'Erro' });
+  }
+});
+
+productsRouter.post('/', requirePermission('editar_estoque'), async (req, res) => {
+  try {
+    const product = await prisma.product.create({
+      data: req.body,
+    });
+    res.json({ success: true, data: product });
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : 'Erro' });
+  }
+});
+
+productsRouter.put('/:id', requirePermission('editar_estoque'), async (req, res) => {
+  try {
+    const product = await prisma.product.update({
+      where: { id: req.params.id },
+      data: req.body,
+    });
+    res.json({ success: true, data: product });
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : 'Erro' });
+  }
+});
+
+productsRouter.delete('/:id', requirePermission('editar_estoque'), async (req, res) => {
+  try {
+    await prisma.product.delete({
+      where: { id: req.params.id },
+    });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : 'Erro' });
+  }
+});
+
 productsRouter.get('/by-code/:code/bom', requirePermission('ver_chao_fabrica'), async (req, res) => {
   try {
-    const record = await svc.findProdutoEntityRecordByCode(req.params.code);
-    if (!record) return res.json({ success: true, data: { lines: [], bomStatus: 'EMPTY', lineCount: 0 } });
-    const lines = await svc.listBomLines(record.id);
-    const meta = await prisma.productIndustrialMeta.findUnique({ where: { entityRecordId: record.id } });
+    const product = await svc.findProductByCode(req.params.code);
+    if (!product) return res.json({ success: true, data: { lines: [], bomStatus: 'EMPTY', lineCount: 0 } });
+    const lines = await svc.listBomLines(product.id);
+    const meta = await prisma.productIndustrialMeta.findUnique({ where: { entityRecordId: product.id } });
     res.json({
       success: true,
       data: {
         lines,
         bomStatus: meta?.bomStatus ?? 'EMPTY',
         lineCount: lines.length,
-        productRecordId: record.id,
+        productRecordId: product.id,
       },
     });
   } catch (e) {
