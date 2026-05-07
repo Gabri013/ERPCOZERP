@@ -144,6 +144,47 @@ recordsRouter.post('/', async (req, res) => {
     record: { id: created.id, data: created.data },
   });
 
+  // Enviar email para cotação de compra
+  if (parsed.data.entity === 'cotacao_compra') {
+    void (async () => {
+      try {
+        const { enviarEmail, templateCotacao } = await import('../../lib/email.service.js');
+        const data = created.data as any;
+        const fornecedorId = data.fornecedorId;
+        if (fornecedorId) {
+          const fornecedor = await prisma.entityRecord.findUnique({
+            where: { id: fornecedorId },
+            select: { data: true }
+          });
+          const fornecedorData = fornecedor?.data as any;
+          const email = fornecedorData?.email;
+          if (email) {
+            const itens = Array.isArray(data.itens) ? data.itens.map((i: any) => ({
+              produto: i.produto || i.descricao || 'Produto',
+              quantidade: i.quantidade || 1,
+              unidade: i.unidade || 'UN'
+            })) : [];
+            await enviarEmail({
+              para: email,
+              assunto: `Solicitação de Cotação #${data.numero || created.id}`,
+              html: templateCotacao({
+                fornecedor: fornecedorData?.razaoSocial || fornecedorData?.nome || 'Fornecedor',
+                numero: data.numero || created.id,
+                itens,
+                prazo: data.dataResposta ? new Date(data.dataResposta).toLocaleDateString('pt-BR') : 'A definir',
+                observacao: data.observacao || ''
+              })
+            });
+          }
+        }
+      } catch (error) {
+        // Graceful degradation — log error mas não falha a criação
+        const { logger } = await import('../../lib/logger.js');
+        logger.error('Erro ao enviar email de cotação', { error });
+      }
+    })();
+  }
+
   if (parsed.data.entity === 'produto') {
     const { onProdutoRecordCreated } = await import('../products/products.service.js');
     void onProdutoRecordCreated(created.id, userId);

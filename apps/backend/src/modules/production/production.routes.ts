@@ -78,6 +78,21 @@ productionRouter.get('/machines', requirePermission(['ver_maquinas']), async (_r
   }
 });
 
+productionRouter.get('/machines/:id/oee', requirePermission(['ver_maquinas']), async (req, res) => {
+  const { mes, ano } = req.query;
+  const mesNum = parseInt(mes as string, 10);
+  const anoNum = parseInt(ano as string, 10);
+  if (!mesNum || !anoNum || mesNum < 1 || mesNum > 12 || anoNum < 2020) {
+    return res.status(400).json({ error: 'Parâmetros mes e ano obrigatórios (mes 1-12, ano >=2020)' });
+  }
+  try {
+    const data = await svc.calcularOEE(req.params.id, mesNum, anoNum);
+    res.json({ success: true, data });
+  } catch (e) {
+    err(res, e, 500);
+  }
+});
+
 productionRouter.post('/machines', requirePermission(['editar_op']), async (req, res) => {
   const parsed = createMachineSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Dados inválidos', details: parsed.error.flatten() });

@@ -774,6 +774,7 @@ model Machine {
   name          String
   sector        String?
   active        Boolean                 @default(true)
+  capacidadeHoraria Float @default(10) // peças por hora
   createdAt     DateTime                @default(now()) @map("created_at")
   updatedAt     DateTime                @updatedAt @map("updated_at")
   appointments  ProductionAppointment[]

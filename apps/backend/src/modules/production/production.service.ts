@@ -533,6 +533,79 @@ export async function listMachines() {
   return prisma.machine.findMany({ orderBy: { code: 'asc' } });
 }
 
+export async function calcularOEE(machineId: string, mes: number, ano: number) {
+  const inicio = new Date(ano, mes - 1, 1)
+  const fim = new Date(ano, mes, 0, 23, 59, 59)
+
+  const machine = await prisma.machine.findUnique({
+    where: { id: machineId }
+  })
+  if (!machine) throw new Error('Máquina não encontrada')
+
+  // Busca apontamentos da máquina no período
+  const apontamentos = await prisma.productionAppointment.findMany({
+    where: {
+      machineId: machineId,
+      createdAt: { gte: inicio, lte: fim }
+    }
+  })
+
+  // Calcula horas trabalhadas
+  const horasTrabalhadas = apontamentos.reduce((total, ap) => {
+    if (ap.inicio && ap.fim) {
+      return total + (new Date(ap.fim).getTime() - new Date(ap.inicio).getTime()) / 3600000
+    }
+    return total + (ap.horasTrabalhadas || 0)
+  }, 0)
+
+  // Dias úteis do mês × turno (8h)
+  const diasUteis = calcularDiasUteis(inicio, fim)
+  const tempoPlanejado = diasUteis * 8
+
+  // Quantidades
+  const qtdBoa = apontamentos.reduce((s, ap) => s + (ap.quantidadeBoa || ap.quantidade || 0), 0)
+  const qtdRefugo = apontamentos.reduce((s, ap) => s + (ap.quantidadeRefugo || 0), 0)
+  const qtdTotal = qtdBoa + qtdRefugo
+
+  // Componentes OEE
+  const disponibilidade = tempoPlanejado > 0 ? horasTrabalhadas / tempoPlanejado : 0
+  const capacHoraria = machine.capacidadeHoraria || 10
+  const desempenho = horasTrabalhadas > 0
+    ? Math.min(qtdBoa / (horasTrabalhadas * capacHoraria), 1)
+    : 0
+  const qualidade = qtdTotal > 0 ? qtdBoa / qtdTotal : 1
+
+  const oee = disponibilidade * desempenho * qualidade * 100
+
+  const ranking =
+    oee >= 85 ? 'excelente' :
+    oee >= 75 ? 'bom' :
+    oee >= 65 ? 'regular' : 'ruim'
+
+  return {
+    maquina: { id: machine.id, nome: machine.name },
+    periodo: { mes, ano },
+    disponibilidade: Math.round(disponibilidade * 1000) / 10,
+    desempenho: Math.round(desempenho * 1000) / 10,
+    qualidade: Math.round(qualidade * 1000) / 10,
+    oee: Math.round(oee * 10) / 10,
+    horasTrabalhadas: Math.round(horasTrabalhadas * 10) / 10,
+    tempoPlanejado,
+    ranking
+  }
+}
+
+function calcularDiasUteis(inicio: Date, fim: Date): number {
+  let dias = 0
+  const data = new Date(inicio)
+  while (data <= fim) {
+    const diaSemana = data.getDay()
+    if (diaSemana !== 0 && diaSemana !== 6) dias++
+    data.setDate(data.getDate() + 1)
+  }
+  return dias
+}
+
 export async function listRoutings() {
   return prisma.routing.findMany({
     orderBy: { code: 'asc' },

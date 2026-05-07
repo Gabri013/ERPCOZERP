@@ -197,6 +197,14 @@ Railway oferece:
 
 ---
 
+## 🔒 SSL/TLS
+
+O Railway provê HTTPS automaticamente para domínios customizados.
+Para Render: SSL é provido automaticamente em todos os planos.
+Para VPS próprio: execute scripts/setup-ssl.sh seu-dominio.com.br admin@seu-dominio.com.br
+
+---
+
 ## 🆘 TROUBLESHOOTING
 
 ### App não inicia?
