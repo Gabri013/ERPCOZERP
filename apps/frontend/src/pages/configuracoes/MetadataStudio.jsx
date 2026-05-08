@@ -150,6 +150,10 @@ export default function MetadataStudio() {
         </Button>
       </div>
 
+      <div style={{ background: '#fef9c3', border: '1px solid #ca8a04', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#854d0e' }}>
+        ⚠️ O Metadata Studio é para campos extras em módulos existentes. Não crie entidades que dupliquem módulos do sistema (pedidos, leads, oportunidades, etc.).
+      </div>
+
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="entities">Entidades</TabsTrigger>
