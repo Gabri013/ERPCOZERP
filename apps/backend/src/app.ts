@@ -47,9 +47,21 @@ import {
 } from './modules/error-monitor/error-monitor.module.js';
 import { registerQualityGateModule } from './modules/quality-gate/quality-gate.module.js';
 import { tenantMiddleware } from './middleware/tenant.js';
+import { registrarHandlersProducao } from './modules/production/production.events.js';
+import { registrarHandlersFinanceiro } from './modules/financial/financial.events.js';
+import { registrarHandlersEstoque } from './modules/stock/stock.events.js';
+
+let handlersRegistrados = false;
 
 export function createApp() {
   const app = express();
+
+  if (!handlersRegistrados) {
+    registrarHandlersProducao();
+    registrarHandlersFinanceiro();
+    registrarHandlersEstoque();
+    handlersRegistrados = true;
+  }
 
   registerWebhooksModule(app);
 

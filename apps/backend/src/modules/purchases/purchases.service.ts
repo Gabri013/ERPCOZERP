@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../infra/prisma.js';
-import { applyStockMovement } from '../stock/stock.service.js';
+import { eventBus, ERP_EVENTS } from '../../lib/events.js';
 
 /** Acesso a modelos gerados após `npx prisma generate`. */
 function px(): any {
@@ -24,19 +24,6 @@ async function nextOcNumber(year: number) {
     if (m) max = Math.max(max, parseInt(m[1], 10));
   }
   return `${start}${padSeq(max + 1)}`;
-}
-
-async function defaultLocation() {
-  const existing = await prisma.location.findUnique({ where: { code: 'DEFAULT' } });
-  if (existing) return existing;
-  return prisma.location.create({
-    data: {
-      code: 'DEFAULT',
-      name: 'Depósito principal',
-      warehouse: 'Principal',
-      active: true,
-    },
-  });
 }
 
 export async function listSuppliers() {
@@ -168,7 +155,6 @@ export async function receivePurchaseOrder(
   })) as PoRow | null;
   if (!order) throw new Error('Ordem de compra não encontrada');
   if (order.status === 'CANCELADO') throw new Error('OC cancelada');
-  const loc = await defaultLocation();
 
   await prisma.$transaction(async (tx) => {
     const txp = tx as typeof tx & {
@@ -187,18 +173,6 @@ export async function receivePurchaseOrder(
         where: { id: item.id },
         data: { receivedQty: newRec },
       });
-      await applyStockMovement(
-        {
-          productId: line.productId,
-          locationId: loc.id,
-          type: 'ENTRADA',
-          quantity: q,
-          userId: userId ?? null,
-          reference: order.number,
-          notes: 'Recebimento de compra',
-        },
-        tx,
-      );
     }
 
     const refreshed = (await txp.purchaseOrderItem.findMany({
@@ -214,5 +188,26 @@ export async function receivePurchaseOrder(
     });
   });
 
-  return getPurchaseOrder(orderId);
+  const updated = await getPurchaseOrder(orderId);
+  if (updated) {
+    const valorTotal = updated.items.reduce((acc, item) => {
+      const qty = item.receivedQty?.toNumber() ?? 0;
+      const unit = item.unitCost?.toNumber() ?? 0;
+      return acc + qty * unit;
+    }, 0);
+
+    eventBus.emit(ERP_EVENTS.COMPRA_RECEBIDA, {
+      compraId: updated.id,
+      companyId: updated.companyId,
+      supplierId: updated.supplierId,
+      valorTotal,
+      userId: userId ?? null,
+      itens: lines.map((line) => ({
+        productId: line.productId,
+        quantidade: line.quantity,
+      })),
+    });
+  }
+
+  return updated;
 }

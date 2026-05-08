@@ -6,6 +6,7 @@ import { decimalToNumber } from '../stock/stock.service.js';
 import { saleOrdersRestrictedToOwner } from '../../lib/saleOrderScope.js';
 import { notifyNewSaleOrder } from '../../services/socket.service.js';
 import { triggerWebhooks } from '../webhooks/webhook.service.js';
+import { eventBus, ERP_EVENTS } from '../../lib/events.js';
 
 function padSeq(n: number, len = 5) {
   return String(n).padStart(len, '0');
@@ -248,7 +249,7 @@ export async function patchSaleOrder(
   const existing = await prisma.saleOrder.findUnique({ where: { id } });
   if (!existing) throw new Error('Pedido não encontrado');
 
-  return prisma.$transaction(async (tx) => {
+  const updated = await prisma.$transaction(async (tx) => {
     if (input.items && input.items.length) {
       await tx.saleOrderItem.deleteMany({ where: { saleOrderId: id } });
       let total = new Prisma.Decimal(0);
@@ -312,6 +313,21 @@ export async function patchSaleOrder(
       include: { customer: true, items: { include: { product: true } } },
     });
   });
+
+  if (
+    updated &&
+    existing.status !== 'DELIVERED' &&
+    updated.status === 'DELIVERED'
+  ) {
+    eventBus.emit(ERP_EVENTS.PEDIDO_ENTREGUE, {
+      pedidoId: updated.id,
+      companyId: updated.companyId,
+      valorTotal: decimalToNumber(updated.totalAmount) ?? 0,
+      customerId: updated.customerId ?? null,
+    });
+  }
+
+  return updated;
 }
 
 export async function approveSaleOrder(
@@ -320,9 +336,19 @@ export async function approveSaleOrder(
   viewer?: { userId: string; roles: string[] },
 ) {
   await assertSaleOrderAccessible(id, viewer);
-  const o = await prisma.saleOrder.findUnique({ where: { id } });
+  const o = await prisma.saleOrder.findUnique({
+    where: { id },
+    include: {
+      items: {
+        select: {
+          productId: true,
+          quantity: true,
+        },
+      },
+    },
+  });
   if (!o) throw new Error('Pedido não encontrado');
-  return prisma.saleOrder.update({
+  const updated = await prisma.saleOrder.update({
     where: { id },
     data: {
       status: 'APPROVED',
@@ -332,6 +358,18 @@ export async function approveSaleOrder(
     },
     include: { customer: true, items: { include: { product: true } } },
   });
+
+  eventBus.emit(ERP_EVENTS.PEDIDO_APROVADO, {
+    pedidoId: updated.id,
+    companyId: updated.companyId,
+    userId,
+    itens: o.items.map((item) => ({
+      productId: item.productId,
+      quantidade: item.quantity.toNumber(),
+    })),
+  });
+
+  return updated;
 }
 
 export async function patchKanban(

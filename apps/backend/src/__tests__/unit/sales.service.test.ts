@@ -20,6 +20,12 @@ describe('approveSaleOrder', () => {
       companyId: 'c1',
       customerId: 'cu1',
       totalAmount: new Prisma.Decimal(500),
+      items: [
+        {
+          productId: 'p1',
+          quantity: new Prisma.Decimal(5),
+        },
+      ],
     });
     prismaMock.saleOrder.update.mockResolvedValue({
       id: 'so1',
