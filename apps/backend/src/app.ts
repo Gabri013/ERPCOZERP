@@ -3,6 +3,7 @@ import helmet from 'helmet';
 import cors from 'cors';
 
 import { env } from './config/env.js';
+import { httpLogger } from './infra/logger.js';
 import { registerHealthModule } from './modules/health/health.module.js';
 import { registerAuthModule } from './modules/auth/auth.module.js';
 import { registerEntitiesModule } from './modules/entities/entities.module.js';
@@ -91,7 +92,6 @@ export function createApp() {
     const start = Date.now();
     res.on('finish', () => {
       const duration = Date.now() - start;
-      const { httpLogger } = require('./infra/logger.js');
       httpLogger.info('HTTP_REQUEST', {
         method: req.method,
         url: req.url,
