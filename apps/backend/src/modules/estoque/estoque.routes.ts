@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import { checkEntityRecordsAccess } from '../../infra/entity-permissions.js';
 import { emitAfterRecordSaved } from '../../realtime/record-hooks.js';
 import { onProdutoRecordCreated } from '../products/products.service.js';
+import { getCompanyFilter } from '../../lib/companyFilter.js';
 
 export const estoqueRouter = Router();
 
@@ -30,7 +31,7 @@ estoqueRouter.get('/', async (req, res) => {
   const tipo = typeof req.query.tipo === 'string' ? req.query.tipo.trim() : '';
 
   const rows = await prisma.entityRecord.findMany({
-    where: { entityId: entity.id, deletedAt: null },
+    where: { entityId: entity.id, deletedAt: null, companyId: req.user?.companyId },
     orderBy: { createdAt: 'desc' },
     take: 5000,
   });
@@ -60,7 +61,7 @@ estoqueRouter.get('/:id', async (req, res) => {
   if (!can) return res.status(403).json({ error: 'Forbidden' });
 
   const row = await prisma.entityRecord.findFirst({
-    where: { id: req.params.id, deletedAt: null },
+    where: { id: req.params.id, deletedAt: null, companyId: req.user?.companyId },
   });
   if (!row) return res.status(404).json({ error: 'Não encontrado' });
   const entity = await prisma.entity.findUnique({ where: { id: row.entityId } });
@@ -97,6 +98,7 @@ estoqueRouter.post('/', async (req, res) => {
   const created = await prisma.entityRecord.create({
     data: {
       entityId: entity.id,
+      companyId: req.user?.companyId,
       data: body as Prisma.InputJsonValue,
       createdBy: userId,
       updatedBy: userId,

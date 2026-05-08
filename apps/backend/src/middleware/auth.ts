@@ -51,12 +51,37 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
         permissions = [];
       }
     }
+    const companyId = String(decoded.companyId || '');
+
+    // ✅ VALIDAÇÃO CRÍTICA: Verificar se companyId existe e está ativa
+    if (!companyId || companyId.length === 0) {
+      return res.status(400).json({ error: 'Token inválido - companyId ausente' });
+    }
+
+    try {
+      const company = await prisma.company.findUnique({
+        where: { id: companyId },
+        select: { id: true, ativo: true }
+      });
+
+      if (!company || !company.ativo) {
+        return res.status(403).json({
+          error: 'Empresa inativa ou não existe'
+        });
+      }
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('[authenticate] Erro validando company:', e instanceof Error ? e.message : e);
+      // Não bloqueia completamente, pode estar durante migração
+      // Mas loga para debug
+    }
+
     req.user = {
       userId: sub,
       email: String(decoded.email || ''),
       roles,
       permissions,
-      companyId: String(decoded.companyId || ''),
+      companyId,
     };
     return next();
   } catch {

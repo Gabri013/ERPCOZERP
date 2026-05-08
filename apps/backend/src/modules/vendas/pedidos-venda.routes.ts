@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../../infra/prisma.js';
 import { Prisma } from '@prisma/client';
+import { getCompanyFilter } from '../../lib/companyFilter.js';
 import {
   pedidoVendaSeesFullDetail,
   sanitizePedidoForResponse,
@@ -43,7 +44,11 @@ pedidosVendaRouter.get('/', async (req, res) => {
   const take = Math.min(200, Math.max(1, Number(req.query.limit || 200)));
 
   const rows = await prisma.entityRecord.findMany({
-    where: { entityId: entity.id, deletedAt: null },
+    where: { 
+      entityId: entity.id, 
+      deletedAt: null,
+      companyId: req.user?.companyId // ✅ Filtro companyId
+    },
     orderBy: { createdAt: 'desc' },
     take,
   });
@@ -89,7 +94,11 @@ pedidosVendaRouter.post('/', async (req, res) => {
     if (assigned) (data as any).numero = assigned;
     else {
       const existing = await prisma.entityRecord.findMany({
-        where: { entityId: entity.id, deletedAt: null },
+        where: { 
+          entityId: entity.id, 
+          deletedAt: null,
+          companyId: req.user?.companyId // ✅ Filtro companyId
+        },
         orderBy: { createdAt: 'desc' },
         take: 200,
         select: { data: true },
@@ -101,6 +110,7 @@ pedidosVendaRouter.post('/', async (req, res) => {
   const created = await prisma.entityRecord.create({
     data: {
       entityId: entity.id,
+      companyId: req.user?.companyId, // ✅ Armazena companyId
       data: data as Prisma.InputJsonValue,
       createdBy: req.user?.userId,
       updatedBy: req.user?.userId,
@@ -119,7 +129,14 @@ pedidosVendaRouter.put('/:id', async (req, res) => {
   const { id } = req.params;
   const fullDetail = pedidoVendaSeesFullDetail(req.user);
 
-  const existing = await prisma.entityRecord.findFirst({ where: { id, entityId: entity.id, deletedAt: null } });
+  const existing = await prisma.entityRecord.findFirst({ 
+    where: { 
+      id, 
+      entityId: entity.id, 
+      deletedAt: null,
+      companyId: req.user?.companyId // ✅ Filtro companyId
+    } 
+  });
   if (!existing) return res.status(404).json({ error: 'Pedido não encontrado' });
 
   let incoming = (req.body?.data ?? req.body) as Record<string, unknown>;
@@ -143,7 +160,14 @@ pedidosVendaRouter.delete('/:id', async (req, res) => {
   const entity = await ensureEntity();
   const { id } = req.params;
 
-  const existing = await prisma.entityRecord.findFirst({ where: { id, entityId: entity.id, deletedAt: null } });
+  const existing = await prisma.entityRecord.findFirst({ 
+    where: { 
+      id, 
+      entityId: entity.id, 
+      deletedAt: null,
+      companyId: req.user?.companyId // ✅ Filtro companyId
+    } 
+  });
   if (!existing) return res.status(404).json({ error: 'Pedido não encontrado' });
 
   await prisma.entityRecord.update({
