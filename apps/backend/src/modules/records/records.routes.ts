@@ -16,8 +16,23 @@ import {
   validateCrmLeadWrite,
   validateCrmOpportunityWrite,
 } from '../crm/crm-record-validation.js';
+import { logger } from '../../lib/logger.js';
 
 export const recordsRouter = Router();
+
+recordsRouter.use((req, res, next) => {
+  res.setHeader('X-Deprecated', 'true');
+  res.setHeader(
+    'X-Migration-Guide',
+    'Use módulos específicos: /api/crm/leads, /api/sales/sale-orders, /api/compras/*, /api/financeiro/*',
+  );
+  logger.warn('Rota deprecated acessada', {
+    path: req.path,
+    method: req.method,
+    ip: req.ip,
+  });
+  next();
+});
 
 function coerceEmpty(v: unknown): unknown {
   if (typeof v === 'string' && v.trim() === '') return undefined;

@@ -4,12 +4,9 @@ import StatusBadge from '@/components/common/StatusBadge';
 import { CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import {
   CONFIG,
-  aprovarPedidoGerencialApi,
-  fetchPedidosAguardandoAp,
   fetchPedidosDraftParaAprovacaoPrisma,
-  rejeitarPedidoApi,
 } from '@/services/businessLogicApi';
-import { api } from '@/services/api';
+import { approveSaleOrder, patchSaleOrder } from '@/services/salesApi';
 import { toast } from 'sonner';
 
 const fmtR = (v) => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
@@ -41,17 +38,8 @@ export default function AprovacaoPedidos() {
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      const [legacyRows, prismaRes] = await Promise.allSettled([
-        fetchPedidosAguardandoAp(),
-        fetchPedidosDraftParaAprovacaoPrisma(),
-      ]);
-
-      const legacy = legacyRows.status === 'fulfilled' ? legacyRows.value : [];
-      const prismaOrders = prismaRes.status === 'fulfilled' ? prismaRes.value : [];
-
-      const legacyIds = new Set(legacy.map((r) => r.numero));
-      const deduped = [...legacy, ...prismaOrders.filter((o) => !legacyIds.has(o.numero))];
-      setPedidos(deduped);
+      const prismaOrders = await fetchPedidosDraftParaAprovacaoPrisma();
+      setPedidos(prismaOrders.map(normalizeSaleOrder));
     } catch (e) {
       toast.error(e?.message || 'Não foi possível carregar pedidos.');
       setPedidos([]);
@@ -66,11 +54,7 @@ export default function AprovacaoPedidos() {
 
   const handleAprovar = async (pedido) => {
     try {
-      if (pedido._source === 'prisma') {
-        await api.post(`/api/sales/sale-orders/${pedido._prismaId}/approve`);
-      } else {
-        await aprovarPedidoGerencialApi(pedido.id);
-      }
+      await approveSaleOrder(pedido._prismaId);
       toast.success('Pedido aprovado');
       await reload();
     } catch (e) {
@@ -82,11 +66,7 @@ export default function AprovacaoPedidos() {
     const p = pedidos.find((x) => x.id === rejeitando);
     if (!p) return;
     try {
-      if (p._source === 'prisma') {
-        await api.patch(`/api/sales/sale-orders/${p._prismaId}`, { status: 'CANCELLED', notes: motivo });
-      } else {
-        await rejeitarPedidoApi(rejeitando, motivo);
-      }
+      await patchSaleOrder(p._prismaId, { status: 'CANCELLED', notes: motivo });
       toast.success('Pedido rejeitado');
       setRejeitando(null);
       setMotivo('');
