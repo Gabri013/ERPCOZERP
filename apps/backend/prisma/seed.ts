@@ -1404,27 +1404,30 @@ async function main() {
     }
   }
 
-  // --- Vendas (Customer / Quote / SaleOrder Prisma) — 5 pedidos, 3 orçamentos quando vazio ---
-  if ((await prisma.customer.count()) === 0 && (await prisma.product.count()) > 0) {
-    const vendasSeedOwner = await prisma.user.findUnique({ where: { email: 'vendas@cozinha.com' } });
-    const products = await prisma.product.findMany({ orderBy: { code: 'asc' }, take: 8 });
-    const c1 = await prisma.customer.create({
-      data: {
-        code: 'CLI-V01',
-        name: 'Metalúrgica ABC Ltda',
-        document: '12.345.678/0001-90',
-        active: true,
-      },
-    });
-    const c2 = await prisma.customer.create({
-      data: {
-        code: 'CLI-V02',
-        name: 'TechParts Ltda',
-        document: '23.456.789/0001-01',
-        active: true,
-      },
-    });
-    const year = new Date().getFullYear();
+   // --- Vendas (Customer / Quote / SaleOrder Prisma) — 5 pedidos, 3 orçamentos quando vazio ---
+   if ((await prisma.customer.count()) === 0 && (await prisma.product.count()) > 0) {
+     const vendasSeedOwner = await prisma.user.findUnique({ where: { email: 'vendas@cozinha.com' } });
+     const products = await prisma.product.findMany({ orderBy: { code: 'asc' }, take: 8 });
+     const defaultCompany = await prisma.company.findFirst();
+     const c1 = await prisma.customer.create({
+       data: {
+         code: 'CLI-V01',
+         name: 'Metalúrgica ABC Ltda',
+         document: '12.345.678/0001-90',
+         active: true,
+         companyId: defaultCompany?.id,
+       },
+     });
+      const c2 = await prisma.customer.create({
+        data: {
+          code: 'CLI-V02',
+          name: 'TechParts Ltda',
+          document: '23.456.789/0001-01',
+          active: true,
+          companyId: defaultCompany?.id,
+        },
+      });
+     const year = new Date().getFullYear();
     const pt = await prisma.priceTable.create({
       data: {
         code: `TAB-${year}`,
@@ -1511,17 +1514,18 @@ async function main() {
           lineTotal: lt,
         };
       });
-      await prisma.saleOrder.create({
-        data: {
-          number: `PV-${os.num}`,
-          customerId: os.cust,
-          status: os.st,
-          kanbanColumn: os.col,
-          totalAmount: total,
-          ownerUserId: vendasSeedOwner?.id ?? null,
-          items: { create: lines },
-        },
-      });
+       await prisma.saleOrder.create({
+         data: {
+           number: `PV-${os.num}`,
+           customerId: os.cust,
+           status: os.st,
+           kanbanColumn: os.col,
+           totalAmount: total,
+           ownerUserId: vendasSeedOwner?.id ?? null,
+           companyId: defaultCompany?.id,
+           items: { create: lines },
+         },
+       });
     }
   }
 
@@ -1538,22 +1542,24 @@ async function main() {
     /* schema antigo sem owner_user_id */
   }
 
-  // --- Compras (Supplier / PurchaseOrder) quando vazio ---
-  if ((await prisma.supplier.count()) === 0 && (await prisma.product.count()) > 0) {
-    const products = await prisma.product.findMany({ orderBy: { code: 'asc' }, take: 4 });
-    const s1 = await prisma.supplier.create({
-      data: { code: 'FOR-P01', name: 'Distribuidora Sul Ltda', document: '11.222.333/0001-44', active: true },
-    });
-    const s2 = await prisma.supplier.create({
-      data: { code: 'FOR-P02', name: 'Fixadores do Brasil', document: '55.666.777/0001-88', active: true },
-    });
+   // --- Compras (Supplier / PurchaseOrder) quando vazio ---
+   if ((await prisma.supplier.count()) === 0 && (await prisma.product.count()) > 0) {
+     const products = await prisma.product.findMany({ orderBy: { code: 'asc' }, take: 4 });
+     const defaultCompany = await prisma.company.findFirst();
+     const s1 = await prisma.supplier.create({
+       data: { code: 'FOR-P01', name: 'Distribuidora Sul Ltda', document: '11.222.333/0001-44', active: true, companyId: defaultCompany?.id },
+     });
+     const s2 = await prisma.supplier.create({
+       data: { code: 'FOR-P02', name: 'Fixadores do Brasil', document: '55.666.777/0001-88', active: true, companyId: defaultCompany?.id },
+     });
     const year = new Date().getFullYear();
-    await prisma.purchaseOrder.create({
-      data: {
-        number: `OC-${year}-00001`,
-        supplierId: s1.id,
-        status: 'ENVIADO',
-        items: {
+     await prisma.purchaseOrder.create({
+       data: {
+         number: `OC-${year}-00001`,
+         supplierId: s1.id,
+         status: 'ENVIADO',
+         companyId: defaultCompany?.id,
+         items: {
           create: [
             {
               productId: products[0].id,
@@ -1571,12 +1577,13 @@ async function main() {
         },
       },
     });
-    await prisma.purchaseOrder.create({
-      data: {
-        number: `OC-${year}-00002`,
-        supplierId: s2.id,
-        status: 'RASCUNHO',
-        items: {
+     await prisma.purchaseOrder.create({
+       data: {
+         number: `OC-${year}-00002`,
+         supplierId: s2.id,
+         status: 'RASCUNHO',
+         companyId: defaultCompany?.id,
+         items: {
           create: {
             productId: products[0].id,
             quantity: new Prisma.Decimal(5),
@@ -1638,29 +1645,30 @@ async function main() {
       const so = await prisma.saleOrder.findFirst({ orderBy: { createdAt: 'desc' } });
       const statuses = ['DRAFT', 'IN_PROGRESS', 'RELEASED', 'PAUSED', 'DONE'] as const;
       const cols = ['BACKLOG', 'WIP', 'WIP', 'QA', 'DONE'] as const;
-      for (let i = 0; i < 5; i += 1) {
-        await prisma.workOrder.create({
-          data: {
-            id: randomUUID(),
-            number: `OP-PRD-${String(i + 1).padStart(5, '0')}`,
-            status: statuses[i],
-            saleOrderId: i < 4 ? so?.id : undefined,
-            productId: products[i % products.length].id,
-            routingId: routingA.id,
-            quantityPlanned: new Prisma.Decimal(10 + i * 2),
-            kanbanColumn: cols[i],
-            kanbanOrder: i,
-            dueDate: new Date(Date.now() + (5 + i) * 86400000),
-            items: {
-              create: {
-                id: randomUUID(),
-                productId: products[i % products.length].id,
-                quantity: new Prisma.Decimal(10 + i * 2),
-              },
-            },
-          },
-        });
-      }
+       for (let i = 0; i < 5; i += 1) {
+         await prisma.workOrder.create({
+           data: {
+             id: randomUUID(),
+             number: `OP-PRD-${String(i + 1).padStart(5, '0')}`,
+             status: statuses[i],
+             saleOrderId: i < 4 ? so?.id : undefined,
+             productId: products[i % products.length].id,
+             routingId: routingA.id,
+             quantityPlanned: new Prisma.Decimal(10 + i * 2),
+             kanbanColumn: cols[i],
+             kanbanOrder: i,
+             dueDate: new Date(Date.now() + (5 + i) * 86400000),
+             companyId: products[0]?.companyId,
+             items: {
+               create: {
+                 id: randomUUID(),
+                 productId: products[i % products.length].id,
+                 quantity: new Prisma.Decimal(10 + i * 2),
+               },
+             },
+           },
+         });
+       }
 
       const woApp = await prisma.workOrder.findFirst({ where: { number: 'OP-PRD-00001' } });
       const st = await prisma.routingStage.findFirst({
@@ -1683,65 +1691,71 @@ async function main() {
     }
 
     if ((await prisma.employee.count()) === 0) {
-      const emps = [
-        { code: 'EMP001', fullName: 'João Melo', department: 'Produção', salaryBase: 3200, hire: '2021-03-15' },
-        { code: 'EMP002', fullName: 'Pedro Alves', department: 'Produção', salaryBase: 3800, hire: '2019-07-22' },
-        { code: 'EMP003', fullName: 'Maria Lima', department: 'Qualidade', salaryBase: 4500, hire: '2020-11-05' },
-        { code: 'EMP004', fullName: 'Carlos Santos', department: 'Vendas', salaryBase: 7200, hire: '2018-01-10' },
-        { code: 'EMP005', fullName: 'Ana Paula', department: 'Financeiro', salaryBase: 5100, hire: '2022-06-18' },
-      ];
-      for (const e of emps) {
-        await prisma.employee.create({
-          data: {
-            id: randomUUID(),
-            code: e.code,
-            fullName: e.fullName,
-            department: e.department,
-            salaryBase: new Prisma.Decimal(e.salaryBase),
-            hireDate: new Date(e.hire),
-            active: true,
-          },
-        });
-      }
+       const emps = [
+         { code: 'EMP001', fullName: 'João Melo', department: 'Produção', salaryBase: 3200, hire: '2021-03-15' },
+         { code: 'EMP002', fullName: 'Pedro Alves', department: 'Produção', salaryBase: 3800, hire: '2019-07-22' },
+         { code: 'EMP003', fullName: 'Maria Lima', department: 'Qualidade', salaryBase: 4500, hire: '2020-11-05' },
+         { code: 'EMP004', fullName: 'Carlos Santos', department: 'Vendas', salaryBase: 7200, hire: '2018-01-10' },
+         { code: 'EMP005', fullName: 'Ana Paula', department: 'Financeiro', salaryBase: 5100, hire: '2022-06-18' },
+       ];
+       const defaultCompany = await prisma.company.findFirst();
+       for (const e of emps) {
+         await prisma.employee.create({
+           data: {
+             id: randomUUID(),
+             code: e.code,
+             fullName: e.fullName,
+             department: e.department,
+             salaryBase: new Prisma.Decimal(e.salaryBase),
+             hireDate: new Date(e.hire),
+             active: true,
+             companyId: defaultCompany?.id,
+           },
+         });
+       }
     }
 
-    if ((await prisma.fiscalNfe.count()) === 0) {
-      await prisma.fiscalNfe.createMany({
-        data: [
-          {
-            id: randomUUID(),
-            number: '1245',
-            series: '1',
-            accessKey: '35260412345678901234550010002450011010266123456789',
-            status: 'AUTORIZADA',
-            customerName: 'Metalúrgica ABC Ltda',
-            totalAmount: new Prisma.Decimal(45200),
-            issuedAt: new Date('2026-04-18'),
-          },
-          {
-            id: randomUUID(),
-            number: '1244',
-            series: '1',
-            accessKey: '35260412345678901234550010002440012010266123456790',
-            status: 'AUTORIZADA',
-            customerName: 'Ind. XYZ S/A',
-            totalAmount: new Prisma.Decimal(12800),
-            issuedAt: new Date('2026-04-16'),
-          },
-          {
-            id: randomUUID(),
-            number: '1243',
-            series: '1',
-            accessKey: null,
-            status: 'CANCELADA',
-            customerName: 'Comércio Beta',
-            totalAmount: new Prisma.Decimal(8900),
-            issuedAt: new Date('2026-04-14'),
-            cancelledAt: new Date('2026-04-15'),
-          },
-        ],
-      });
-    }
+     if ((await prisma.fiscalNfe.count()) === 0) {
+       const defaultCompany = await prisma.company.findFirst();
+       await prisma.fiscalNfe.createMany({
+         data: [
+           {
+             id: randomUUID(),
+             number: '1245',
+             series: '1',
+             accessKey: '35260412345678901234550010002450011010266123456789',
+             status: 'AUTORIZADA',
+             customerName: 'Metalúrgica ABC Ltda',
+             totalAmount: new Prisma.Decimal(45200),
+             issuedAt: new Date('2026-04-18'),
+             companyId: defaultCompany?.id,
+           },
+           {
+             id: randomUUID(),
+             number: '1244',
+             series: '1',
+             accessKey: '35260412345678901234550010002440012010266123456790',
+             status: 'AUTORIZADA',
+             customerName: 'Ind. XYZ S/A',
+             totalAmount: new Prisma.Decimal(12800),
+             issuedAt: new Date('2026-04-16'),
+             companyId: defaultCompany?.id,
+           },
+           {
+             id: randomUUID(),
+             number: '1243',
+             series: '1',
+             accessKey: null,
+             status: 'CANCELADA',
+             customerName: 'Comércio Beta',
+             totalAmount: new Prisma.Decimal(8900),
+             issuedAt: new Date('2026-04-14'),
+             cancelledAt: new Date('2026-04-15'),
+             companyId: defaultCompany?.id,
+           },
+         ],
+       });
+     }
   }
 
   // ── More conta_receber / conta_pagar (more realistic volume) ───────────────
@@ -2117,40 +2131,41 @@ async function main() {
     }
   }
 
-  // ── Account Entries (lançamentos contábeis) ───────────────────────────────
-  if ((await prisma.accountEntry.count()) === 0) {
-    const entries = [
-      // Vendas — reconhecimento de receita
-      { entryDate: new Date('2026-04-01'), description: 'Venda produtos — NF 1240', debitAccount: '1.1.2.1', creditAccount: '4.1.1', amount: new Prisma.Decimal(3100), origin: 'VENDAS', module: 'vendas', referenceId: 'NF-1240' },
-      { entryDate: new Date('2026-04-03'), description: 'Venda produtos — NF 1241', debitAccount: '1.1.2.1', creditAccount: '4.1.1', amount: new Prisma.Decimal(945), origin: 'VENDAS', module: 'vendas', referenceId: 'NF-1241' },
-      { entryDate: new Date('2026-04-05'), description: 'Venda produtos — NF 1242', debitAccount: '1.1.2.1', creditAccount: '4.1.1', amount: new Prisma.Decimal(8200), origin: 'VENDAS', module: 'vendas', referenceId: 'NF-1242' },
-      { entryDate: new Date('2026-04-18'), description: 'Venda produtos — NF 1247', debitAccount: '1.1.2.1', creditAccount: '4.1.1', amount: new Prisma.Decimal(12750), origin: 'VENDAS', module: 'vendas', referenceId: 'NF-1247' },
-      // Recebimentos
-      { entryDate: new Date('2026-04-05'), description: 'Recebimento NF 1241 — TechParts', debitAccount: '1.1.1.2', creditAccount: '1.1.2.1', amount: new Prisma.Decimal(945), origin: 'FINANCEIRO', module: 'financeiro', referenceId: 'NF-1241' },
-      // Compras e estoques
-      { entryDate: new Date('2026-04-02'), description: 'Compra rolamentos — OC-2026-00001', debitAccount: '1.1.3.1', creditAccount: '2.1.1.1', amount: new Prisma.Decimal(4100), origin: 'COMPRAS', module: 'compras', referenceId: 'OC-2026-00001' },
-      { entryDate: new Date('2026-04-10'), description: 'Compra chapas aço — OC-2026-00002', debitAccount: '1.1.3.1', creditAccount: '2.1.1.1', amount: new Prisma.Decimal(8200), origin: 'COMPRAS', module: 'compras', referenceId: 'OC-2026-00002' },
-      // Custos de produção
-      { entryDate: new Date('2026-04-17'), description: 'Consumo matéria-prima — OP-PRD-00001', debitAccount: '5.1.1', creditAccount: '1.1.3.1', amount: new Prisma.Decimal(3700), origin: 'PRODUCAO', module: 'producao', referenceId: 'OP-PRD-00001' },
-      { entryDate: new Date('2026-04-17'), description: 'MOD apurada — OP-PRD-00001', debitAccount: '5.1.2', creditAccount: '2.1.2.1', amount: new Prisma.Decimal(960), origin: 'PRODUCAO', module: 'producao', referenceId: 'OP-PRD-00001' },
-      { entryDate: new Date('2026-04-18'), description: 'CIF alocado — OP-PRD-00001', debitAccount: '5.1.3', creditAccount: '2.1.2.1', amount: new Prisma.Decimal(480), origin: 'PRODUCAO', module: 'producao', referenceId: 'OP-PRD-00001' },
-      // Despesas
-      { entryDate: new Date('2026-04-01'), description: 'Aluguel fábrica — Abril/2026', debitAccount: '5.2.2', creditAccount: '2.1.1.1', amount: new Prisma.Decimal(8500), origin: 'FINANCEIRO', module: 'financeiro', referenceId: 'REC-0412' },
-      { entryDate: new Date('2026-04-15'), description: 'Energia elétrica — Abril/2026', debitAccount: '5.2.2', creditAccount: '2.1.3.1', amount: new Prisma.Decimal(3840), origin: 'FINANCEIRO', module: 'financeiro', referenceId: 'FAT-EL-04' },
-      { entryDate: new Date('2026-04-30'), description: 'Salários — Abril/2026', debitAccount: '5.2.1', creditAccount: '2.1.2.1', amount: new Prisma.Decimal(27540), origin: 'RH', module: 'rh', referenceId: 'FP-2026-04' },
-      { entryDate: new Date('2026-04-30'), description: 'INSS patronal — Abril/2026', debitAccount: '5.2.1', creditAccount: '2.1.3.2', amount: new Prisma.Decimal(5508), origin: 'RH', module: 'rh', referenceId: 'GPS-04/26' },
-      { entryDate: new Date('2026-04-30'), description: 'FGTS — Abril/2026', debitAccount: '5.2.1', creditAccount: '2.1.3.2', amount: new Prisma.Decimal(2203), origin: 'RH', module: 'rh', referenceId: 'GRF-04/26' },
-      // Impostos sobre vendas
-      { entryDate: new Date('2026-04-18'), description: 'ICMS sobre vendas — NF 1247', debitAccount: '4.2.2', creditAccount: '2.1.3.1', amount: new Prisma.Decimal(1530), origin: 'FISCAL', module: 'fiscal', referenceId: 'NF-1247' },
-      { entryDate: new Date('2026-04-18'), description: 'PIS/COFINS — NF 1247', debitAccount: '4.2.2', creditAccount: '2.1.3.2', amount: new Prisma.Decimal(510), origin: 'FISCAL', module: 'fiscal', referenceId: 'NF-1247' },
-      // Pagamentos
-      { entryDate: new Date('2026-04-10'), description: 'Pagamento aluguel', debitAccount: '2.1.1.1', creditAccount: '1.1.1.2', amount: new Prisma.Decimal(8500), origin: 'FINANCEIRO', module: 'financeiro', referenceId: 'REC-0412' },
-      { entryDate: new Date('2026-04-20'), description: 'Pagamento energia elétrica', debitAccount: '2.1.3.1', creditAccount: '1.1.1.2', amount: new Prisma.Decimal(3840), origin: 'FINANCEIRO', module: 'financeiro', referenceId: 'FAT-EL-04' },
-    ];
-    for (const e of entries) {
-      await prisma.accountEntry.create({ data: { id: randomUUID(), ...e, history: e.description } });
-    }
-  }
+   // ── Account Entries (lançamentos contábeis) ───────────────────────────────
+   if ((await prisma.accountEntry.count()) === 0) {
+     const defaultCompany = await prisma.company.findFirst();
+     const entries = [
+       // Vendas — reconhecimento de receita
+       { entryDate: new Date('2026-04-01'), description: 'Venda produtos — NF 1240', debitAccount: '1.1.2.1', creditAccount: '4.1.1', amount: new Prisma.Decimal(3100), origin: 'VENDAS', module: 'vendas', referenceId: 'NF-1240' },
+       { entryDate: new Date('2026-04-03'), description: 'Venda produtos — NF 1241', debitAccount: '1.1.2.1', creditAccount: '4.1.1', amount: new Prisma.Decimal(945), origin: 'VENDAS', module: 'vendas', referenceId: 'NF-1241' },
+       { entryDate: new Date('2026-04-05'), description: 'Venda produtos — NF 1242', debitAccount: '1.1.2.1', creditAccount: '4.1.1', amount: new Prisma.Decimal(8200), origin: 'VENDAS', module: 'vendas', referenceId: 'NF-1242' },
+       { entryDate: new Date('2026-04-18'), description: 'Venda produtos — NF 1247', debitAccount: '1.1.2.1', creditAccount: '4.1.1', amount: new Prisma.Decimal(12750), origin: 'VENDAS', module: 'vendas', referenceId: 'NF-1247' },
+       // Recebimentos
+       { entryDate: new Date('2026-04-05'), description: 'Recebimento NF 1241 — TechParts', debitAccount: '1.1.1.2', creditAccount: '1.1.2.1', amount: new Prisma.Decimal(945), origin: 'FINANCEIRO', module: 'financeiro', referenceId: 'NF-1241' },
+       // Compras e estoques
+       { entryDate: new Date('2026-04-02'), description: 'Compra rolamentos — OC-2026-00001', debitAccount: '1.1.3.1', creditAccount: '2.1.1.1', amount: new Prisma.Decimal(4100), origin: 'COMPRAS', module: 'compras', referenceId: 'OC-2026-00001' },
+       { entryDate: new Date('2026-04-10'), description: 'Compra chapas aço — OC-2026-00002', debitAccount: '1.1.3.1', creditAccount: '2.1.1.1', amount: new Prisma.Decimal(8200), origin: 'COMPRAS', module: 'compras', referenceId: 'OC-2026-00002' },
+       // Custos de produção
+       { entryDate: new Date('2026-04-17'), description: 'Consumo matéria-prima — OP-PRD-00001', debitAccount: '5.1.1', creditAccount: '1.1.3.1', amount: new Prisma.Decimal(3700), origin: 'PRODUCAO', module: 'producao', referenceId: 'OP-PRD-00001' },
+       { entryDate: new Date('2026-04-17'), description: 'MOD apurada — OP-PRD-00001', debitAccount: '5.1.2', creditAccount: '2.1.2.1', amount: new Prisma.Decimal(960), origin: 'PRODUCAO', module: 'producao', referenceId: 'OP-PRD-00001' },
+       { entryDate: new Date('2026-04-18'), description: 'CIF alocado — OP-PRD-00001', debitAccount: '5.1.3', creditAccount: '2.1.2.1', amount: new Prisma.Decimal(480), origin: 'PRODUCAO', module: 'producao', referenceId: 'OP-PRD-00001' },
+       // Despesas
+       { entryDate: new Date('2026-04-01'), description: 'Aluguel fábrica — Abril/2026', debitAccount: '5.2.2', creditAccount: '2.1.1.1', amount: new Prisma.Decimal(8500), origin: 'FINANCEIRO', module: 'financeiro', referenceId: 'REC-0412' },
+       { entryDate: new Date('2026-04-15'), description: 'Energia elétrica — Abril/2026', debitAccount: '5.2.2', creditAccount: '2.1.3.1', amount: new Prisma.Decimal(3840), origin: 'FINANCEIRO', module: 'financeiro', referenceId: 'FAT-EL-04' },
+       { entryDate: new Date('2026-04-30'), description: 'Salários — Abril/2026', debitAccount: '5.2.1', creditAccount: '2.1.2.1', amount: new Prisma.Decimal(27540), origin: 'RH', module: 'rh', referenceId: 'FP-2026-04' },
+       { entryDate: new Date('2026-04-30'), description: 'INSS patronal — Abril/2026', debitAccount: '5.2.1', creditAccount: '2.1.3.2', amount: new Prisma.Decimal(5508), origin: 'RH', module: 'rh', referenceId: 'GPS-04/26' },
+       { entryDate: new Date('2026-04-30'), description: 'FGTS — Abril/2026', debitAccount: '5.2.1', creditAccount: '2.1.3.2', amount: new Prisma.Decimal(2203), origin: 'RH', module: 'rh', referenceId: 'GRF-04/26' },
+       // Impostos sobre vendas
+       { entryDate: new Date('2026-04-18'), description: 'ICMS sobre vendas — NF 1247', debitAccount: '4.2.2', creditAccount: '2.1.3.1', amount: new Prisma.Decimal(1530), origin: 'FISCAL', module: 'fiscal', referenceId: 'NF-1247' },
+       { entryDate: new Date('2026-04-18'), description: 'PIS/COFINS — NF 1247', debitAccount: '4.2.2', creditAccount: '2.1.3.2', amount: new Prisma.Decimal(510), origin: 'FISCAL', module: 'fiscal', referenceId: 'NF-1247' },
+       // Pagamentos
+       { entryDate: new Date('2026-04-10'), description: 'Pagamento aluguel', debitAccount: '2.1.1.1', creditAccount: '1.1.1.2', amount: new Prisma.Decimal(8500), origin: 'FINANCEIRO', module: 'financeiro', referenceId: 'REC-0412' },
+       { entryDate: new Date('2026-04-20'), description: 'Pagamento energia elétrica', debitAccount: '2.1.3.1', creditAccount: '1.1.1.2', amount: new Prisma.Decimal(3840), origin: 'FINANCEIRO', module: 'financeiro', referenceId: 'FAT-EL-04' },
+     ];
+     for (const e of entries) {
+       await prisma.accountEntry.create({ data: { id: randomUUID(), ...e, companyId: defaultCompany?.id, history: e.description } });
+     }
+   }
 
   // ── Product Standard Costs ────────────────────────────────────────────────
   if ((await prisma.productStandardCost.count()) === 0 && (await prisma.product.count()) > 0) {
