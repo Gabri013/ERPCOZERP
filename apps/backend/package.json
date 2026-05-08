@@ -18,6 +18,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:unit": "vitest run src/__tests__/unit",
+    "test:unit:watch": "vitest src/__tests__/unit",
     "test:integration": "vitest run src/__tests__/integration"
   },
   "dependencies": {

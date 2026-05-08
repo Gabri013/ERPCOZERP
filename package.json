@@ -16,6 +16,7 @@
     "test:smoke:core": "node tests/smoke/smoke-test-core.cjs",
     "test": "node ./apps/backend/node_modules/tsx/dist/cli.mjs tests/smoke/api-smoke.ts",
     "test:backend": "npm run test --prefix apps/backend",
+    "test:unit": "npm run test:unit --prefix apps/backend",
     "test:frontend": "npm run test --prefix apps/frontend",
     "test:backend:coverage": "npm run test:coverage --prefix apps/backend",
     "test:frontend:coverage": "npm run test:coverage --prefix apps/frontend",

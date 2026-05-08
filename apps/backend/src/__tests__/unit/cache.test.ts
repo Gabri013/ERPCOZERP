@@ -2,17 +2,20 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import Redis from 'ioredis';
 import { Cache } from '../../lib/cache.js';
 
-// Mock Redis
-const mockRedis = {
-  get: vi.fn(),
-  set: vi.fn(),
-  setex: vi.fn(),
-  del: vi.fn(),
-  keys: vi.fn(),
-} as any;
+const { mockRedis } = vi.hoisted(() => ({
+  mockRedis: {
+    get: vi.fn(),
+    set: vi.fn(),
+    setex: vi.fn(),
+    del: vi.fn(),
+    keys: vi.fn(),
+  },
+}));
 
 vi.mock('ioredis', () => ({
-  default: vi.fn(() => mockRedis),
+  default: function RedisMock() {
+    return mockRedis;
+  },
 }));
 
 describe('Cache', () => {
@@ -20,7 +23,7 @@ describe('Cache', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    cache = new Cache(mockRedis);
+    cache = new Cache(mockRedis as unknown as Redis);
   });
 
   describe('get', () => {
