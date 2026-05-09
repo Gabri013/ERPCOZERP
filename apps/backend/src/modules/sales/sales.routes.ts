@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type Request, type Response } from 'express';
 import { body } from 'express-validator';
 import { authenticate, requirePermission } from '../../middleware/auth.js';
 import { validate } from '../../middleware/validate.js';
@@ -54,7 +54,7 @@ salesRouter.post('/customers', canEdit, [
   body('name').trim().isLength({ min: 2 }).withMessage('Nome deve ter pelo menos 2 caracteres'),
   body('email').optional().isEmail().normalizeEmail(),
   body('cnpj').optional().isLength({ min: 14, max: 14 }).withMessage('CNPJ deve ter 14 dígitos')
-], validate, async (req, res) => {
+], validate, async (req: Request, res: Response): Promise<void> => {
   const parsed = createCustomerSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: 'Dados inválidos', details: parsed.error.flatten() });

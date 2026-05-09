@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type Request, type Response } from 'express';
 import { body } from 'express-validator';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
@@ -34,7 +34,7 @@ export const authRouter = Router();
 authRouter.post('/login', loginRateLimit, [
   body('email').isEmail().normalizeEmail(),
   body('password').isLength({ min: 6 }).withMessage('Senha deve ter pelo menos 6 caracteres')
-], validate, async (req, res) => {
+], validate, async (req: Request, res: Response): Promise<void> => {
   const parsed = loginSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: 'Dados inválidos', details: parsed.error.flatten() });

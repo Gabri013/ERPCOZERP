@@ -604,6 +604,7 @@ export async function convertQuoteToSaleOrder(quoteId: string, ownerUserId?: str
         number,
         customerId: q.customerId,
         quoteId: q.id,
+        companyId: q.companyId,
         status: 'DRAFT',
         kanbanColumn: 'PEDIDO',
         orderDate: new Date(),
