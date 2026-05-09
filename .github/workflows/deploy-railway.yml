@@ -1,4 +1,4 @@
-﻿name: Deploy to Railway
+name: Deploy to Railway
 on:
   push:
     branches: [main]
@@ -36,6 +36,8 @@ jobs:
 
       - name: Output URL
         run: |
-          echo "✅ Deploy concluído!"
+          echo "? Deploy conclu�do!"
           echo "Backend URL: https://erpcozerp-backend.up.railway.app"
           echo "Frontend: https://erpcozerp.vercel.app"
+
+
