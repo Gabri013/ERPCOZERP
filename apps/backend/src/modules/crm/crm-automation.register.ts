@@ -11,7 +11,7 @@ import {
 import { recordOpportunityStageChange } from './crm-analytics.service.js';
 import { handleInboundMessageReceived } from './crm-inbox.service.js';
 import { appendCrmLog } from './crm-log.service.js';
-import { ENT, entityId, parseData } from './crm.service.js';
+import { ENT, parseData } from './crm.service.js';
 import { normalizeOpportunityStage } from './crm-constants.js';
 import { opportunityHasFuturePendingActivity } from './crm-opportunity-activity.js';
 
@@ -24,7 +24,10 @@ function addDays(d: Date, n: number): Date {
 }
 
 async function createAtividadeRecord(data: Record<string, unknown>, userId?: string | null) {
-  const eid = await entityId(ENT.atividade);
+  // Get atividade entity directly by code (workaround for CTX requirement)
+  const ent = await prisma.entity.findUnique({ where: { code: 'atividade' } });
+  if (!ent) throw new Error('Entity atividade not found');
+  const eid = ent.id;
   return prisma.entityRecord.create({
     data: {
       entityId: eid,

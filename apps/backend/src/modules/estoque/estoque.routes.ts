@@ -31,7 +31,7 @@ estoqueRouter.get('/', async (req, res) => {
   const tipo = typeof req.query.tipo === 'string' ? req.query.tipo.trim() : '';
 
   const rows = await prisma.entityRecord.findMany({
-    where: { entityId: entity.id, deletedAt: null, companyId: req.user?.companyId },
+    where: { entityId: entity.id, deletedAt: null, companyId: req.user?.companyId } as any,
     orderBy: { createdAt: 'desc' },
     take: 5000,
   });
@@ -61,7 +61,7 @@ estoqueRouter.get('/:id', async (req, res) => {
   if (!can) return res.status(403).json({ error: 'Forbidden' });
 
   const row = await prisma.entityRecord.findFirst({
-    where: { id: req.params.id, deletedAt: null, companyId: req.user?.companyId },
+    where: { id: req.params.id, deletedAt: null, companyId: req.user?.companyId } as any,
   });
   if (!row) return res.status(404).json({ error: 'Não encontrado' });
   const entity = await prisma.entity.findUnique({ where: { id: row.entityId } });

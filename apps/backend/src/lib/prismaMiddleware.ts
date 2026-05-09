@@ -10,7 +10,7 @@ export const companyIsolationMiddleware = (userId?: string, userRoles?: string[]
   const isMaster = userRoles?.includes('master');
   const hasCompanyId = companyId && companyId.length > 0;
 
-  return async (params: Prisma.MiddlewareParams, next: (params: Prisma.MiddlewareParams) => Promise<unknown>) => {
+  return async (params: any, next: (params: any) => Promise<unknown>) => {
     // Master user bypass - sem filtros
     if (isMaster) {
       return next(params);

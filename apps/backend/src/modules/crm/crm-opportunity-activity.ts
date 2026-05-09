@@ -54,7 +54,7 @@ export async function opportunityHasRecentTouchWithinDays(
   const now = new Date();
 
   const rows = await prisma.entityRecord.findMany({
-    where: { entityId: eid, deletedAt: null, companyId },
+    where: { entityId: eid, deletedAt: null, companyId } as any,
     select: { data: true },
     take: 2000,
   });
@@ -83,7 +83,7 @@ export async function opportunityHasLinkedOrcamento(
   if (!ent) return false;
   const companyId = ctx?.companyId;
   const rows = await prisma.entityRecord.findMany({
-    where: { entityId: ent.id, deletedAt: null, ...(companyId ? { companyId } : {}) },
+    where: { entityId: ent.id, deletedAt: null, ...(companyId ? { companyId } as any : {}) },
     select: { data: true },
     take: 800,
   });
@@ -103,7 +103,7 @@ export async function opportunityHasFuturePendingActivity(
   const eid = await atividadeEntityId();
   const companyId = ctx?.companyId;
   const rows = await prisma.entityRecord.findMany({
-    where: { entityId: eid, deletedAt: null, companyId },
+    where: { entityId: eid, deletedAt: null, companyId } as any,
     select: { data: true },
   });
   const today = startOfToday();

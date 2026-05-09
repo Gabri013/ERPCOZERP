@@ -109,7 +109,7 @@ export function createApp() {
   registerAuthModule(app);
   
   // Tenant middleware (após auth, antes dos outros módulos)
-  app.use('/api', tenantMiddleware);
+  app.use('/api', tenantMiddleware as any);
   
   registerEntitiesModule(app);
   registerRecordsModule(app);

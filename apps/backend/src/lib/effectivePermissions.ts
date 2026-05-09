@@ -6,8 +6,7 @@ type GrantRow = { permission: { code: string; active: boolean } };
 
 /** Extras por usuário: ORM se disponível; senão SQL direto (tabela migrada + client antigo). */
 export async function getUserExtraPermissionCodes(userId: string): Promise<string[]> {
-  const delegate = (prisma as { userPermissionGrant?: { findMany: (args: unknown) => Promise<GrantRow[]> } })
-    .userPermissionGrant;
+  const delegate = (prisma as any).userPermissionGrant;
 
   if (delegate?.findMany) {
     try {

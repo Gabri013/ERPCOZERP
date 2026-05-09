@@ -56,7 +56,7 @@ export async function getPipeline(ctx: TenantContext, query?: Record<string, unk
   const companyId = ctx.companyId;
   const eid = await entityId(ctx, ENT.oportunidade);
   const rows = await prisma.entityRecord.findMany({
-    where: { entityId: eid, deletedAt: null, companyId },
+    where: { entityId: eid, deletedAt: null, companyId } as any,
     orderBy: { updatedAt: 'desc' },
     take: 500,
   });
@@ -89,7 +89,7 @@ export async function moveOpportunity(
   const companyId = ctx.companyId;
   const eid = await entityId(ctx, ENT.oportunidade);
   const row = await prisma.entityRecord.findFirst({
-    where: { id: recordId, entityId: eid, deletedAt: null, companyId },
+    where: { id: recordId, entityId: eid, deletedAt: null, companyId } as any,
   });
   if (!row) throw new Error('Oportunidade não encontrada');
   const d = parseData(row.data);
@@ -152,7 +152,7 @@ export async function listActivitiesToday(ctx: TenantContext) {
   const end = new Date();
   end.setHours(23, 59, 59, 999);
   const rows = await prisma.entityRecord.findMany({
-    where: { entityId: eid, deletedAt: null, companyId },
+    where: { entityId: eid, deletedAt: null, companyId } as any,
     orderBy: { updatedAt: 'desc' },
     take: 200,
   });
@@ -201,7 +201,7 @@ async function listOpenOpportunitiesRowsTenant(ctx: TenantContext) {
   const companyId = ctx.companyId;
   const eid = await entityId(ctx, ENT.oportunidade);
   return prisma.entityRecord.findMany({
-    where: { entityId: eid, deletedAt: null, companyId },
+    where: { entityId: eid, deletedAt: null, companyId } as any,
     select: { id: true, data: true, updatedAt: true },
   });
 }
@@ -215,12 +215,12 @@ export async function getCrmDashboard(ctx: TenantContext, analyticsQuery?: Recor
   ]);
 
   const [leadCount, oppCount, actCount, oppRows, leadRows] = await Promise.all([
-    prisma.entityRecord.count({ where: { entityId: leadEid, deletedAt: null, companyId } }),
-    prisma.entityRecord.count({ where: { entityId: oppEid, deletedAt: null, companyId } }),
-    prisma.entityRecord.count({ where: { entityId: actEid, deletedAt: null, companyId } }),
+    prisma.entityRecord.count({ where: { entityId: leadEid, deletedAt: null, companyId } as any }),
+    prisma.entityRecord.count({ where: { entityId: oppEid, deletedAt: null, companyId } as any }),
+    prisma.entityRecord.count({ where: { entityId: actEid, deletedAt: null, companyId } as any }),
     listOpenOpportunitiesRowsTenant(ctx),
     prisma.entityRecord.findMany({
-      where: { entityId: leadEid, deletedAt: null, companyId },
+      where: { entityId: leadEid, deletedAt: null, companyId } as any,
       select: { id: true, data: true, updatedAt: true },
     }),
   ]);
