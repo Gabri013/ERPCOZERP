@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type Request, type Response } from 'express';
 import { body } from 'express-validator';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
@@ -84,7 +84,7 @@ usersRouter.post('/', manageUsersGate, [
   body('password').isLength({ min: 6 }).withMessage('Senha deve ter pelo menos 6 caracteres'),
   body('full_name').trim().isLength({ min: 2 }).withMessage('Nome completo deve ter pelo menos 2 caracteres'),
   body('role').isIn(['admin', 'manager', 'user', 'viewer']).withMessage('Role inválido')
-], validate, async (req, res) => {
+], validate, async (req: Request, res: Response): Promise<void> => {
   const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Dados inválidos', details: parsed.error.flatten() });
 
@@ -114,7 +114,7 @@ usersRouter.post('/', manageUsersGate, [
 });
 
 /** Assign roles only (same gate as manage users; no password / profile fields). */
-usersRouter.put('/:id/roles', manageUsersGate, async (req, res) => {
+usersRouter.put('/:id/roles', manageUsersGate, async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const parsed = rolesOnlySchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Dados inválidos', details: parsed.error.flatten() });

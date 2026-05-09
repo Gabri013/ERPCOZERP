@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type Request, type Response } from 'express';
 import { body } from 'express-validator';
 import { prisma } from '../../infra/prisma.js';
 import { validate } from '../../middleware/validate.js';
@@ -41,7 +41,7 @@ webhooksRouter.get('/api-keys', async (req, res) => {
       },
     });
     res.json({ success: true, data: apiKeys });
-  } catch (e) {
+  } catch (e: unknown) {
     res.status(500).json({ error: 'Erro interno' });
   }
 });
@@ -108,8 +108,9 @@ webhooksRouter.patch('/api-keys/:id', [
     });
 
     res.json({ success: true, data: apiKey });
-  } catch (e) {
-    if (e.code === 'P2025') {
+  } catch (e: unknown) {
+    const err = e instanceof Error ? e : new Error(String(e));
+    if (e instanceof Error && 'code' in e && e.code === 'P2025') {
       return res.status(404).json({ error: 'API Key não encontrada' });
     }
     res.status(500).json({ error: 'Erro interno' });
@@ -126,8 +127,8 @@ webhooksRouter.delete('/api-keys/:id', async (req, res) => {
     });
 
     res.json({ success: true });
-  } catch (e) {
-    if (e.code === 'P2025') {
+  } catch (e: unknown) {
+    if (e instanceof Error && 'code' in e && e.code === 'P2025') {
       return res.status(404).json({ error: 'API Key não encontrada' });
     }
     res.status(500).json({ error: 'Erro interno' });
