@@ -12,6 +12,7 @@
         "prisma:migrate": "prisma migrate deploy",
         "prisma:seed": "tsx prisma/seed.ts",
         "seed:materials": "node scripts/seed-raw-materials.js",
+        "seed:producao": "tsx prisma/seed-producao.ts",
         "sync:cozinca-team": "tsx scripts/sync-cozinca-team-users.ts",
         "codemod:tenant": "tsx scripts/codemods/prisma-tenant.ts",
         "test": "vitest run",

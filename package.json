@@ -45,6 +45,7 @@
                     "sync:cozinca-team":  "npm run sync:cozinca-team --prefix apps/backend",
                     "migrate:legacy":  "node scripts/migrate-legacy-data.js",
                     "seed:materials":  "node scripts/seed-raw-materials.js",
+                    "seed:producao": "npm run seed:producao --prefix apps/backend",
                     "quality:gate":  "node scripts/quality-gate/run.mjs",
                     "quality:gate:strict":  "node scripts/quality-gate/run.mjs --strict",
                     "validate:backend":  "node scripts/quality-gate/validate-backend.mjs",
