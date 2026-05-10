@@ -9,6 +9,8 @@ export interface AuthenticatedRequest extends Request {
     companyId: string;
     email: string;
     role: string;
+    roles: string[];
+    permissions: string[];
   };
 }
 
@@ -44,7 +46,9 @@ export const tenantMiddleware = async (
       userId: decoded.userId,
       companyId: decoded.companyId,
       email: decoded.email,
-      role: decoded.role
+      role: decoded.role,
+      roles: decoded.roles ?? [],
+      permissions: decoded.permissions ?? [],
     };
 
     // Run the remainder of request handling inside the tenant context

@@ -102,7 +102,7 @@ estoqueRouter.post('/', async (req, res) => {
       data: body as Prisma.InputJsonValue,
       createdBy: userId,
       updatedBy: userId,
-    },
+    } as any,
   });
 
   void onProdutoRecordCreated(created.id, userId);

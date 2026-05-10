@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { prisma } from '../../infra/prisma.js';
+import { getCurrentCompanyId } from '../../infra/tenantContext.js';
 
 /** INSS e IRRF tabelas oficiais 2025. */
 export function calcularINSS(salario: number): number {
@@ -139,6 +140,7 @@ export async function createEmployee(input: {
   salaryBase?: number | null;
   active?: boolean;
 }) {
+  const companyId = getCurrentCompanyId?.();
   const hire = input.hireDate ? new Date(input.hireDate) : null;
   return prisma.employee.create({
     data: {
@@ -149,7 +151,8 @@ export async function createEmployee(input: {
       hireDate: hire && !Number.isNaN(hire.getTime()) ? hire : null,
       salaryBase: input.salaryBase != null ? new Prisma.Decimal(input.salaryBase) : null,
       active: input.active ?? true,
-    },
+      ...(companyId ? { companyId } : {}),
+    } as any,
   });
 }
 

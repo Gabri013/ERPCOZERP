@@ -339,7 +339,7 @@ stockRouter.patch(
       return res.status(400).json({ error: 'Dados inválidos', details: parsed.error.flatten() });
     }
     try {
-      const data = await svc.patchInventoryItem(req.params.itemId, parsed.data);
+      const data = await svc.patchInventoryItem(req.params.itemId, { ...parsed.data, qtyCounted: parsed.data.qtyCounted ?? 0 } as any);
       res.json({ success: true, data });
     } catch (e) {
       handleError(res, e);

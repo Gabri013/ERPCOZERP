@@ -102,7 +102,6 @@ permissionsRouter.put(
       if (!cleared.ok) {
         return res.status(503).json({
           error: 'Não foi possível limpar permissões extras.',
-          details: cleared.message,
         });
       }
       return res.json({ success: true, data: { codes: [] } });
@@ -129,7 +128,6 @@ permissionsRouter.put(
     if (!replaced.ok) {
       return res.status(503).json({
         error: 'Não foi possível gravar permissões extras.',
-        details: replaced.message,
       });
     }
 

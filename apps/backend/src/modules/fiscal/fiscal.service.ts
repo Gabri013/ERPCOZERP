@@ -10,6 +10,7 @@ export async function listNfes(companyId?: string) {
 }
 
 export async function issueMockNfe(input: { customerName?: string; totalAmount?: number }) {
+  const companyId = getCurrentCompanyId();
   const accessKey = `${Date.now()}`.padStart(44, '0').slice(-44);
   return prisma.fiscalNfe.create({
     data: {
@@ -21,7 +22,8 @@ export async function issueMockNfe(input: { customerName?: string; totalAmount?:
       customerName: input.customerName ?? 'Cliente mock',
       totalAmount: input.totalAmount ?? 100,
       issuedAt: new Date(),
-    },
+      ...(companyId ? { companyId } : {}),
+    } as any,
   });
 }
 
@@ -46,7 +48,7 @@ export async function saveNfeReference(referencia: string, data: any) {
       totalAmount: data.valor_total,
       issuedAt: new Date(),
       ...(companyId ? { companyId } : {}),
-    },
+    } as any,
   });
 }
 

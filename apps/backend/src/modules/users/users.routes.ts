@@ -86,7 +86,7 @@ usersRouter.post('/', manageUsersGate, [
   body('role').isIn(['admin', 'manager', 'user', 'viewer']).withMessage('Role inválido')
 ], validate, async (req: Request, res: Response): Promise<void> => {
   const parsed = createSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: 'Dados inválidos', details: parsed.error.flatten() });
+  if (!parsed.success) { res.status(400).json({ error: 'Dados inválidos', details: parsed.error.flatten() }); return; }
 
   const hash = await bcrypt.hash(parsed.data.password, 12);
   const created = await prisma.user.create({
@@ -117,10 +117,10 @@ usersRouter.post('/', manageUsersGate, [
 usersRouter.put('/:id/roles', manageUsersGate, async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const parsed = rolesOnlySchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: 'Dados inválidos', details: parsed.error.flatten() });
+  if (!parsed.success) { res.status(400).json({ error: 'Dados inválidos', details: parsed.error.flatten() }); return; }
 
   const existing = await prisma.user.findUnique({ where: { id } });
-  if (!existing) return res.status(404).json({ error: 'Usuário não encontrado' });
+  if (!existing) { res.status(404).json({ error: 'Usuário não encontrado' }); return; }
 
   await replaceUserRoles(id, parsed.data.roles, req.user?.userId);
   res.json({ success: true });

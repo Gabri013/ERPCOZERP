@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { QuoteStatus } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../infra/prisma.js';
+import { getCurrentCompanyId } from '../../infra/tenantContext.js';
 import { decimalToNumber } from '../stock/stock.service.js';
 import { saleOrdersRestrictedToOwner } from '../../lib/saleOrderScope.js';
 import { notifyNewSaleOrder } from '../../services/socket.service.js';
@@ -76,6 +77,7 @@ export async function createCustomer(data: {
   address?: string | null;
   active?: boolean;
 }) {
+  const companyId = getCurrentCompanyId?.();
   let code = data.code?.trim();
   if (!code) {
     const n = await prisma.customer.count();
@@ -90,7 +92,8 @@ export async function createCustomer(data: {
       phone: data.phone ?? null,
       address: data.address ?? null,
       active: data.active ?? true,
-    },
+      ...(companyId ? { companyId } : {}),
+    } as any,
   });
 }
 
@@ -245,7 +248,7 @@ export async function patchSaleOrder(
   }>,
   viewer?: { userId: string; roles: string[] },
 ) {
-  await assertSaleOrderAccessible(id, viewer);
+  await assertSaleOrderAccessible(id, viewer as any);
   const existing = await prisma.saleOrder.findUnique({ where: { id } });
   if (!existing) throw new Error('Pedido não encontrado');
 
@@ -335,7 +338,7 @@ export async function approveSaleOrder(
   userId: string,
   viewer?: { userId: string; roles: string[] },
 ) {
-  await assertSaleOrderAccessible(id, viewer);
+  await assertSaleOrderAccessible(id, viewer as any);
   const o = await prisma.saleOrder.findUnique({
     where: { id },
     include: {
@@ -378,7 +381,7 @@ export async function patchKanban(
   kanbanOrder: number | undefined,
   viewer?: { userId: string; roles: string[] },
 ) {
-  await assertSaleOrderAccessible(id, viewer);
+  await assertSaleOrderAccessible(id, viewer as any);
   return prisma.saleOrder.update({
     where: { id },
     data: {
@@ -393,7 +396,7 @@ export async function generateWorkOrderStub(
   saleOrderId: string,
   viewer?: { userId: string; roles: string[] },
 ) {
-  await assertSaleOrderAccessible(saleOrderId, viewer);
+  await assertSaleOrderAccessible(saleOrderId, viewer as any);
   const so = await prisma.saleOrder.findUnique({
     where: { id: saleOrderId },
     include: { items: true, workOrders: true },
@@ -418,7 +421,7 @@ export async function generateWorkOrderStub(
           quantity: it.quantity,
         })),
       },
-    },
+    } as any,
     include: { items: { include: { product: true } } },
   });
 }
@@ -577,7 +580,7 @@ export async function patchQuote(
 export async function convertQuoteToSaleOrder(quoteId: string, ownerUserId?: string | null) {
   const q = await prisma.quote.findUnique({
     where: { id: quoteId },
-    include: { items: true, saleOrder: true },
+    include: { items: true, saleOrder: true, customer: { select: { companyId: true } } },
   });
   if (!q) throw new Error('Orçamento não encontrado');
   if (q.lockedAt) throw new Error('Proposta bloqueada — já foi convertida em pedido de venda.');
@@ -599,12 +602,12 @@ export async function convertQuoteToSaleOrder(quoteId: string, ownerUserId?: str
   });
 
   return prisma.$transaction(async (tx) => {
-    const so = await tx.saleOrder.create({
+    const so = (await tx.saleOrder.create({
       data: {
         number,
         customerId: q.customerId,
         quoteId: q.id,
-        companyId: q.companyId,
+        companyId: q.customer.companyId,
         status: 'DRAFT',
         kanbanColumn: 'PEDIDO',
         orderDate: new Date(),
@@ -613,7 +616,7 @@ export async function convertQuoteToSaleOrder(quoteId: string, ownerUserId?: str
         items: { create: itemCreates },
       },
       include: { items: { include: { product: true } }, customer: true },
-    });
+    })) as any;
     await tx.quote.update({
       where: { id: quoteId },
       data: { status: 'CONVERTIDO', lockedAt: new Date() },
@@ -751,7 +754,7 @@ export async function createOpportunity(input: {
       potential: input.potential ?? null,
       scopeNotes: input.scopeNotes ?? null,
       deliveryNotes: input.deliveryNotes ?? null,
-    },
+    } as any,
     include: {
       customer: true,
       owner: { select: { id: true, fullName: true, email: true } },

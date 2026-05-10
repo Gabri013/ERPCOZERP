@@ -115,7 +115,7 @@ export async function applyStockMovement(
       notes: notes ?? undefined,
       userId: userId ?? undefined,
       product: { connect: { id: productId } },
-    },
+    } as any,
     include: { product: true, location: true, user: { select: { id: true, fullName: true, email: true } } },
   });
 }
@@ -314,7 +314,7 @@ export async function createProduct(
           quantity: new Prisma.Decimal(0),
         },
       },
-    },
+    } as any,
     include: { locations: { include: { location: true } } },
   });
 

@@ -34,7 +34,7 @@ export async function entityId(ctx: TenantContext, code: string) {
     where: {
       code,
       companyId,
-    },
+    } as any,
   });
   if (!e) throw new Error(`Entidade ${code} não configurada. Rode o seed.`);
   return e.id;
@@ -101,7 +101,7 @@ export async function moveOpportunity(
   });
 
   const updated = await prisma.entityRecord.updateMany({
-    where: { id: recordId, companyId },
+    where: { id: recordId, companyId } as any,
     data: {
       data: merged as Prisma.InputJsonValue,
       updatedAt: new Date(),

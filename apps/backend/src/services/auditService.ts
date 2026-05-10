@@ -1,4 +1,5 @@
 import { prisma } from '../infra/prisma.js';
+import { Prisma } from '@prisma/client';
 
 /**
  * Serviço de auditoria para registrar ações sensíveis
@@ -41,7 +42,7 @@ export async function logAuditAction(data: AuditLogData) {
         reason: data.reason,
         ipAddress: data.ipAddress,
         userAgent: data.userAgent,
-        metadata: data.metadata,
+        metadata: (data.metadata ?? {}) as Prisma.InputJsonValue,
         companyId: data.companyId,
       },
     });

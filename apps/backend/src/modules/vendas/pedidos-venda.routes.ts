@@ -46,8 +46,7 @@ pedidosVendaRouter.get('/', async (req, res) => {
   const rows = await prisma.entityRecord.findMany({
     where: { 
       entityId: entity.id, 
-      deletedAt: null,
-      companyId: req.user?.companyId // ✅ Filtro companyId
+      deletedAt: null
     },
     orderBy: { createdAt: 'desc' },
     take,
@@ -96,8 +95,7 @@ pedidosVendaRouter.post('/', async (req, res) => {
       const existing = await prisma.entityRecord.findMany({
         where: { 
           entityId: entity.id, 
-          deletedAt: null,
-          companyId: req.user?.companyId // ✅ Filtro companyId
+          deletedAt: null
         },
         orderBy: { createdAt: 'desc' },
         take: 200,
@@ -110,7 +108,6 @@ pedidosVendaRouter.post('/', async (req, res) => {
   const created = await prisma.entityRecord.create({
     data: {
       entityId: entity.id,
-      companyId: req.user?.companyId, // ✅ Armazena companyId
       data: data as Prisma.InputJsonValue,
       createdBy: req.user?.userId,
       updatedBy: req.user?.userId,
@@ -133,8 +130,7 @@ pedidosVendaRouter.put('/:id', async (req, res) => {
     where: { 
       id, 
       entityId: entity.id, 
-      deletedAt: null,
-      companyId: req.user?.companyId // ✅ Filtro companyId
+      deletedAt: null
     } 
   });
   if (!existing) return res.status(404).json({ error: 'Pedido não encontrado' });
@@ -164,8 +160,7 @@ pedidosVendaRouter.delete('/:id', async (req, res) => {
     where: { 
       id, 
       entityId: entity.id, 
-      deletedAt: null,
-      companyId: req.user?.companyId // ✅ Filtro companyId
+      deletedAt: null
     } 
   });
   if (!existing) return res.status(404).json({ error: 'Pedido não encontrado' });

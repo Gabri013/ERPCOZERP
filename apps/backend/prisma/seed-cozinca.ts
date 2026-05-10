@@ -66,8 +66,8 @@ async function main() {
   for (const c of clientesReais) {
     const created = await prisma.customer.upsert({
       where: { code: c.code },
-      update: { name: c.name, document: c.document, active: true },
-      create: { id: uuid(), code: c.code, name: c.name, document: c.document, email: c.email, phone: c.phone, address: c.address, active: true },
+      update: { name: c.name, document: c.document, active: true, companyId: company.id },
+      create: { id: uuid(), code: c.code, name: c.name, document: c.document, email: c.email, phone: c.phone, address: c.address, active: true, companyId: company.id },
     });
     clientMap[c.code] = created.id;
   }
@@ -83,12 +83,15 @@ async function main() {
     { code: "FOR-002", name: "Forno El\u00e9trico Convec\u00e7\u00e3o 10 Bandejas", unit: "UN", type: "Produto", group: "Fornos",      cost: 9800,  sale: 17900, min: 2 },
     { code: "REF-001", name: "C\u00e2mara Refrigerada 2m x 2m",           unit: "UN", type: "Produto", group: "Refrigera\u00e7\u00e3o",cost: 11200, sale: 20800, min: 2 },
     { code: "REF-002", name: "C\u00e2mara Frigor\u00edfica 3m x 3m",            unit: "UN", type: "Produto", group: "Refrigera\u00e7\u00e3o",cost: 18500, sale: 34500, min: 1 },
+    { code: "REF-003", name: "C\u00e2mara Refrigerada 4m x 3m",            unit: "UN", type: "Produto", group: "Refrigera\u00e7\u00e3o",cost: 27500, sale: 54000, min: 1 },
     { code: "PRE-001", name: "Prensa de Batatas Industrial 20kg",    unit: "UN", type: "Produto", group: "Prensas",     cost: 2800,  sale: 5200,  min: 3 },
     { code: "PRO-001", name: "Processador de Alimentos 25L",         unit: "UN", type: "Produto", group: "Processadores",cost: 6800,  sale: 12500, min: 2 },
-    { code: "BAL-001", name: "Balc\u00e3o Refrigerado 2m",                 unit: "UN", type: "Produto", group: "Balc\u00f5es",     cost: 6200,  sale: 11500, min: 2 },
+    { code: "PRO-002", name: "Processador de Alimentos 40L",         unit: "UN", type: "Produto", group: "Processadores",cost: 11200, sale: 20500, min: 2 },
+    { code: "BAL-001", name: "Balcão Refrigerado 2m",                 unit: "UN", type: "Produto", group: "Balcões",     cost: 6200,  sale: 11500, min: 2 },
     { code: "COI-001", name: "Coifa de Parede 2m",                    unit: "UN", type: "Produto", group: "Coifas",      cost: 3800,  sale: 7000,  min: 3 },
-    { code: "LAV-001", name: "Lava-lou\u00e7as de Porta 60x60",           unit: "UN", type: "Produto", group: "Lava-lou\u00e7as", cost: 5200,  sale: 9600,  min: 2 },
-    { code: "UTI-001", name: "Panelas de Press\u00e3o Industriais 20L",   unit: "UN", type: "Produto", group: "Utens\u00edlios",  cost: 450,   sale: 850,   min: 10 },
+    { code: "LAV-001", name: "Lava-louças de Porta 60x60",           unit: "UN", type: "Produto", group: "Lava-louças", cost: 5200,  sale: 9600,  min: 2 },
+    { code: "LAV-002", name: "Lava-louças de Porta 80x80",           unit: "UN", type: "Produto", group: "Lava-louças", cost: 8500,  sale: 15800, min: 1 },
+    { code: "UTI-001", name: "Panelas de Pressão Industriais 20L",   unit: "UN", type: "Produto", group: "Utensílios",  cost: 450,   sale: 850,   min: 10 },
     { code: "UTI-003", name: "Grelha Charbroiler 80cm",              unit: "UN", type: "Produto", group: "Utens\u00edlios",  cost: 2400,  sale: 4400,  min: 3 },
   ];
 
@@ -167,6 +170,7 @@ async function main() {
       create: {
         id: uuid(), number: soNum,
         customerId: clientId,
+        companyId: company.id,
         status: v.status, kanbanColumn: v.kanban, totalAmount: dec(total),
         orderDate: d(daysAgo(v.daysAgo).toISOString()),
         deliveryDate: d(daysFrom(30 - v.daysAgo).toISOString()),

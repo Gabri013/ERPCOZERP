@@ -247,7 +247,7 @@ export async function createWorkOrder(
             quantity: new Prisma.Decimal(input.quantityPlanned),
           },
         },
-      },
+      } as any,
       include: woInclude,
     });
     return mapWoRow(wo);
@@ -543,12 +543,12 @@ export async function calcularOEE(machineId: string, mes: number, ano: number) {
   if (!machine) throw new Error('Máquina não encontrada')
 
   // Busca apontamentos da máquina no período
-  const apontamentos = await prisma.productionAppointment.findMany({
+  const apontamentos = (await prisma.productionAppointment.findMany({
     where: {
       machineId: machineId,
       createdAt: { gte: inicio, lte: fim }
     }
-  })
+  })) as any[]
 
   // Calcula horas trabalhadas
   const horasTrabalhadas = apontamentos.reduce((total, ap) => {
@@ -619,7 +619,7 @@ export async function createWorkOrderStatusHistory(data: {
       newStatus: data.newStatus,
       userId: data.userId,
       notes: data.notes,
-    },
+    } as any,
   });
 }
 
@@ -629,7 +629,7 @@ export async function listProductionAppointments() {
     include: {
       workOrder: { select: { number: true } },
       user: { select: { fullName: true } },
-    },
+    } as any,
   });
 }
 
@@ -773,7 +773,7 @@ export async function getRefugoSummary(params?: { mes?: number; ano?: number; gr
   const startDate = new Date(ano, mes - 1, 1);
   const endDate = new Date(ano, mes, 0, 23, 59, 59);
 
-  const apontamentos = await prisma.productionAppointment.findMany({
+  const apontamentos = (await prisma.productionAppointment.findMany({
     where: {
       scheduledStart: { gte: startDate, lte: endDate },
     },
@@ -781,8 +781,8 @@ export async function getRefugoSummary(params?: { mes?: number; ano?: number; gr
       workOrder: { include: { product: true } },
       machine: true,
       employee: true,
-    },
-  });
+    } as any,
+  })) as any[]
 
   type Produto = { produto: string; qtdBoa: number; qtdRefugo: number; eficiencia: number };
   type Operador = { operador: string; qtdBoa: number; qtdRefugo: number; eficiencia: number };
