@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Keyboard, Bell, Search, Settings, Users, LayoutDashboard, Package, Factory, DollarSign, FileText, HelpCircle, ChevronRight } from 'lucide-react';
+import { Keyboard, Search, Settings, Users, LayoutDashboard, Package, Factory, DollarSign, FileText, HelpCircle, ChevronRight } from 'lucide-react';
 import PageHeader from '@/components/common/PageHeader';
 
 const ATALHOS = [

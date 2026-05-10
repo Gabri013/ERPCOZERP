@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Search, ChevronRight, Package, Truck, Factory, ShoppingCart, ArrowRight, Filter } from 'lucide-react';
+import { Search, Package, Truck, Factory, ShoppingCart, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/services/api';
 

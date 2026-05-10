@@ -1,8 +1,7 @@
 ﻿import { useState, useMemo, useEffect, useCallback } from 'react';
-import {
-  Plus, Search, Download, Upload, Eye, ChevronDown, CheckCircle,
-  XCircle, Clock, AlertCircle, Calendar, RefreshCw, DollarSign,
-  FileText, Send, RotateCcw, Ban, Banknote,
+import { Search, Eye, ChevronDown, CheckCircle,
+  XCircle, Calendar,
+  FileText, Send,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { contasReceberService } from '@/services/financeiroService';

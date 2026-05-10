@@ -2,7 +2,6 @@
 import PageHeader from '@/components/common/PageHeader';
 import DataTable from '@/components/common/DataTable';
 import { Plus } from 'lucide-react';
-import { recordsServiceApi } from '@/services/recordsServiceApi';
 import { api } from '@/services/api';
 
 const statusMaq = {'Ativo':'bg-green-100 text-green-700','Inativo':'bg-gray-100 text-gray-600','Manutenção':'bg-orange-100 text-orange-700'};

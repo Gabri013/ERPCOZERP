@@ -1,5 +1,5 @@
 ﻿import { useState, useMemo, useEffect, useCallback } from 'react';
-import { RefreshCw, ChevronDown, ChevronUp, AlertCircle, Calendar, DollarSign } from 'lucide-react';
+import { ChevronDown, ChevronUp, AlertCircle, DollarSign } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { toast } from 'sonner';
 import { api } from '@/services/api';

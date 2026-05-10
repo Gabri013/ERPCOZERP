@@ -1,6 +1,6 @@
-import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, ReferenceLine } from 'recharts';
-import { Calendar, AlertTriangle, CheckCircle, Clock, Zap, TrendingUp, RefreshCw, ChevronLeft, ChevronRight, Maximize2 } from 'lucide-react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Line, ReferenceLine } from 'recharts';
+import { Calendar, AlertTriangle, CheckCircle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/services/api';
 

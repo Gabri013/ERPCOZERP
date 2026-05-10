@@ -5,7 +5,7 @@ import FilterBar from '@/components/common/FilterBar';
 import DataTable from '@/components/common/DataTable';
 import StatusBadge from '@/components/common/StatusBadge';
 import ModalCliente from '@/components/vendas/ModalCliente';
-import { Plus, Download, ShoppingCart, FileText, Phone, Mail, MapPin, DollarSign, CreditCard, AlertTriangle } from 'lucide-react';
+import { Plus, Download, ShoppingCart, FileText, Phone, Mail, MapPin, CreditCard, AlertTriangle } from 'lucide-react';
 import { exportPdfReport } from '@/services/pdfExport';
 import { clientesServiceApi } from '@/services/clientesServiceApi';
 import { toast } from 'sonner';

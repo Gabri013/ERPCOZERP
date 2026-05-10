@@ -1,10 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { listDatabooks, createDatabook, updateDatabook, addDatabookDocument } from '@/services/qualityApi.js';
+import { listDatabooks } from '@/services/qualityApi.js';
 import {
-  BookMarked, Plus, Download, Printer, Mail, CheckCircle, Clock,
-  AlertTriangle, Upload, Search, ChevronDown, ChevronRight,
-  FileText, Shield, Package, Tag, Eye, X, RefreshCw,
-  Layers, ClipboardCheck, Image, FilePlus,
+  BookMarked, Plus, Download, Mail, CheckCircle, Clock,
+  AlertTriangle, Upload, Search, ChevronDown, ChevronRight, Shield, Eye, X, RefreshCw, FilePlus,
 } from 'lucide-react';
 import { toast } from 'sonner';
 

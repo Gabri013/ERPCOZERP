@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import PageHeader from '@/components/common/PageHeader';
 import FilterBar from '@/components/common/FilterBar';
 import DataTable from '@/components/common/DataTable';
-import StatusBadge from '@/components/common/StatusBadge';
 import ModalPedidoVenda from '@/components/vendas/ModalPedidoVenda';
 import DetalheModal from '@/components/common/DetalheModal';
 import {

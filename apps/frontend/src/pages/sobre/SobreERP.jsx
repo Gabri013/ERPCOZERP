@@ -3,9 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Zap, BookOpen, ShoppingCart, DollarSign, Package, Factory,
   BarChart2, Globe, Truck, FolderKanban, Users, ClipboardCheck,
-  FileText, Boxes, Settings, ChevronRight, CheckCircle, Star,
-  Play, Code2, Puzzle, TrendingUp, Shield, Clock, Wrench,
-  PhoneCall, ArrowRight, ExternalLink, ChevronDown,
+  FileText, Boxes, CheckCircle, Code2, Puzzle, TrendingUp, Shield, Clock, Wrench, ArrowRight, ChevronDown,
 } from 'lucide-react';
 
 const MODULOS = [

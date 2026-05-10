@@ -14,7 +14,6 @@ import { usePermissions } from '@/lib/PermissaoContext';
 import {
   AlertTriangle,
   CheckCircle2,
-  ChevronRight,
   Clock,
   ExternalLink,
   Loader2,

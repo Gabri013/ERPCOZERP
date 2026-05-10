@@ -1,7 +1,6 @@
 ﻿import { useState, useMemo, useEffect, useCallback } from 'react';
-import {
-  Plus, Search, Eye, ChevronDown, CheckCircle, XCircle, Clock,
-  AlertCircle, Calendar, RefreshCw, FileText, Ban, AlertTriangle,
+import { Eye, ChevronDown, CheckCircle, XCircle,
+  AlertCircle, Calendar, AlertTriangle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { contasPagarService } from '@/services/financeiroService';

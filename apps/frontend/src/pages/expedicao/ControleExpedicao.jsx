@@ -1,10 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { listExpeditionOrders, createExpeditionOrder, updateExpeditionOrder, addLoad, listManifests, createManifest } from '@/services/expeditionApi.js';
+import { listExpeditionOrders, listManifests } from '@/services/expeditionApi.js';
 import {
   Truck, Package, Plus, Download, Printer, Mail, CheckCircle,
-  AlertTriangle, Search, QrCode, Barcode, Layers, ClipboardList,
-  X, RefreshCw, Eye, Tag, ChevronDown, ChevronRight, Smartphone,
-  MapPin, Clock, ArrowRight,
+  AlertTriangle, QrCode, Barcode, Layers, ClipboardList,
+  X, Tag, Smartphone, Clock,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {

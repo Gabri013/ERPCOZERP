@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Upload, FileText, CheckCircle, XCircle, AlertCircle, Eye, ChevronRight } from 'lucide-react';
+import { Upload, FileText, CheckCircle, XCircle, AlertCircle, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/services/api';
 

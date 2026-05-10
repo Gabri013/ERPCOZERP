@@ -1,8 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, Save, CheckCircle, XCircle, AlertTriangle, FileText,
-  Upload, Scale, RefreshCw, Info, Printer,
+  ArrowLeft, Save, CheckCircle, XCircle, AlertTriangle, FileText, Info, Printer,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/services/api';

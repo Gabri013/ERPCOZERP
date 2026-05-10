@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Plus, Search, Eye, CheckCircle, XCircle, AlertTriangle, Globe, Ship, FileText } from 'lucide-react';
+import { Plus, Search, CheckCircle, XCircle, Globe, FileText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { api } from '@/services/api';

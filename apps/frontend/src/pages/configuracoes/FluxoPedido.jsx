@@ -5,7 +5,7 @@ import {
   Users, ShoppingCart, Wrench, DollarSign, Factory,
   CheckCircle2, Truck, FileText, ArrowRight, ArrowDown,
   ChevronDown, ChevronUp, Info, ShieldCheck, Eye, GitBranch,
-  Star, AlertCircle, Clock,
+  Star, AlertCircle,
 } from 'lucide-react';
 
 // ─── Canais de entrada ────────────────────────────────────────────────────────

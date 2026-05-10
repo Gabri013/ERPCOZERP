@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { listDocuments, createDocument, updateDocument } from '@/services/qualityApi.js';
+import { listDocuments } from '@/services/qualityApi.js';
 import {
-  FileText, Plus, Download, Printer, Mail, CheckCircle, Clock,
-  Edit3, Eye, Search, Upload, PenTool, Layers, AlertTriangle,
+  FileText, Plus, Download, Printer, Mail, CheckCircle,
+  Edit3, Eye, Search, PenTool, Layers, AlertTriangle,
   Shield, FilePlus, Tag, ChevronDown, ChevronRight, X,
 } from 'lucide-react';
 import { toast } from 'sonner';

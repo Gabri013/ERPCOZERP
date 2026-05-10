@@ -1,6 +1,6 @@
 ﻿import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Play, Download, Printer, Package, Tag, Plus, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Play, Download, Printer, Package, Plus, CheckCircle, XCircle } from 'lucide-react';
 import { opService } from '@/services/opService';
 import { apontamentoService } from '@/services/apontamentoService';
 import { api } from '@/services/api';

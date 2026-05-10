@@ -1,13 +1,13 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { listStandardCosts } from '@/services/accountingApi.js';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, AreaChart, Area,
+  ResponsiveContainer, LineChart, Line, AreaChart, Area,
 } from 'recharts';
 import {
-  TrendingUp, TrendingDown, DollarSign, Package, AlertTriangle,
+  TrendingUp, DollarSign, Package,
   CheckCircle, RefreshCw, Download, ChevronDown, ChevronRight,
-  Clock, Users, FileText, BarChart2,
+  Clock, Users, BarChart2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 

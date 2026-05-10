@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   BarChart, Bar, LineChart, Line, AreaChart, Area,
-  PieChart, Pie, Cell, ScatterChart, Scatter,
+  PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, ReferenceLine,
 } from 'recharts';
 import {
   Tv, RefreshCw, Download, Maximize2, Minimize2, X, Settings2,
-  TrendingUp, TrendingDown, Minus, Target, ChevronDown,
+  TrendingUp, TrendingDown, Minus, Target,
   BarChart2, LineChartIcon, PieChart as PieIcon, Activity,
   CheckCircle, AlertCircle, Filter,
 } from 'lucide-react';

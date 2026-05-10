@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import bcrypt from 'bcryptjs';
 import { randomUUID } from 'node:crypto';
 import { Prisma, PrismaClient } from '@prisma/client';
@@ -449,6 +450,190 @@ async function main() {
   await ensureDemoUser('expedicao@cozinha.com',        'Expedi\u00e7\u00e3o',     'expedicao',          'Expedi\u00e7\u00e3o');
   await ensureDemoUser('financeiro@cozinha.com',       'Financeiro',              'financeiro',         'Financeiro');
   await ensureDemoUser('rh@cozinha.com',               'RH Departamento',         'rh',                 'RH');
+
+  // ═══════════════════════════════════════════
+  // EQUIPE COZINCA INOX — Usuários do sistema
+  // Senha inicial: Cozinca@2026
+  // ═══════════════════════════════════════════
+
+  const equipePassword = process.env.DEFAULT_EQUIPE_PASSWORD || 'Cozinca@2026'
+  const equipeHash = await bcrypt.hash(equipePassword, 12)
+
+  async function ensureEquipeUser(
+    email: string,
+    fullName: string,
+    roleCode: string,
+    sector?: string
+  ) {
+    const role = rolesByCode.get(roleCode)
+    if (!role) {
+      console.warn(`⚠️  Role não encontrada: ${roleCode}`)
+      return null
+    }
+    const user = await prisma.user.upsert({
+      where: { email },
+      update: {
+        passwordHash: equipeHash,
+        fullName,
+        active: true,
+        emailVerified: true,
+        sector: sector ?? null,
+      },
+      create: {
+        email,
+        passwordHash: equipeHash,
+        fullName,
+        active: true,
+        emailVerified: true,
+        sector: sector ?? null,
+      },
+    })
+    await prisma.userRole.upsert({
+      where: { userId_roleId: { userId: user.id, roleId: role.id } },
+      update: {},
+      create: {
+        userId: user.id,
+        roleId: role.id,
+        assignedBy: master.id,
+      },
+    })
+    console.log(`✅ Usuário: ${fullName} (${roleCode}) — ${email}`)
+    return user
+  }
+
+  // ─── ADMINISTRAÇÃO ─────────────────────────
+  await ensureEquipeUser(
+    'gabriel.costa@cozinca.com.br',
+    'Gabriel Costa',
+    'master',
+    'Administração'
+  )
+
+  // ─── GERÊNCIA DE PRODUÇÃO ──────────────────
+  await ensureEquipeUser(
+    'roberto.mendes@cozinca.com.br',
+    'Roberto Mendes',
+    'gerente_producao',
+    'Produção'
+  )
+
+  // ─── ENGENHARIA / PROJETOS ─────────────────
+  await ensureEquipeUser(
+    'lucas.ferreira@cozinca.com.br',
+    'Lucas Ferreira',
+    'projetista',
+    'Engenharia'
+  )
+
+  await ensureEquipeUser(
+    'ana.rodrigues@cozinca.com.br',
+    'Ana Rodrigues',
+    'projetista',
+    'Engenharia'
+  )
+
+  // ─── OPERADORES DE PRODUÇÃO ────────────────
+  await ensureEquipeUser(
+    'marcos.oliveira@cozinca.com.br',
+    'Marcos Oliveira',
+    'operador_laser',
+    'Produção - Corte Laser'
+  )
+
+  await ensureEquipeUser(
+    'diego.santos@cozinca.com.br',
+    'Diego Santos',
+    'operador_dobra',
+    'Produção - Dobra e Montagem'
+  )
+
+  await ensureEquipeUser(
+    'felipe.lima@cozinca.com.br',
+    'Felipe Lima',
+    'operador_dobra',
+    'Produção - Solda e Acabamento'
+  )
+
+  // ─── QUALIDADE ─────────────────────────────
+  await ensureEquipeUser(
+    'patricia.souza@cozinca.com.br',
+    'Patrícia Souza',
+    'qualidade',
+    'Qualidade'
+  )
+
+  // ─── EXPEDIÇÃO ─────────────────────────────
+  await ensureEquipeUser(
+    'carlos.alves@cozinca.com.br',
+    'Carlos Alves',
+    'expedicao',
+    'Expedição'
+  )
+
+  // ─── VENDAS / COMERCIAL ────────────────────
+  await ensureEquipeUser(
+    'juliana.martins@cozinca.com.br',
+    'Juliana Martins',
+    'vendas',
+    'Comercial'
+  )
+
+  await ensureEquipeUser(
+    'thiago.pereira@cozinca.com.br',
+    'Thiago Pereira',
+    'vendas',
+    'Comercial'
+  )
+
+  // ─── COMPRAS ───────────────────────────────
+  await ensureEquipeUser(
+    'fernanda.nascimento@cozinca.com.br',
+    'Fernanda Nascimento',
+    'compras',
+    'Compras'
+  )
+
+  // ─── FINANCEIRO ────────────────────────────
+  await ensureEquipeUser(
+    'marcelo.ribeiro@cozinca.com.br',
+    'Marcelo Ribeiro',
+    'financeiro',
+    'Financeiro'
+  )
+
+  // ─── RH ────────────────────────────────────
+  await ensureEquipeUser(
+    'camila.barbosa@cozinca.com.br',
+    'Camila Barbosa',
+    'rh',
+    'Recursos Humanos'
+  )
+
+  console.log(`
+╔══════════════════════════════════════════════╗
+║   EQUIPE COZINCA INOX — 14 usuários criados  ║
+╠══════════════════════════════════════════════╣
+║  Senha inicial: Cozinca@2026                 ║
+║  ⚠️  Oriente cada usuário a trocar a senha   ║
+║     no primeiro acesso em /perfil            ║
+╠══════════════════════════════════════════════╣
+║  USUÁRIOS CRIADOS:                           ║
+║  gabriel.costa        → Master/Admin         ║
+║  roberto.mendes       → Gerente Produção     ║
+║  lucas.ferreira       → Projetista           ║
+║  ana.rodrigues        → Projetista           ║
+║  marcos.oliveira      → Operador Laser       ║
+║  diego.santos         → Operador Dobra       ║
+║  felipe.lima          → Operador Solda       ║
+║  patricia.souza       → Qualidade            ║
+║  carlos.alves         → Expedição            ║
+║  juliana.martins      → Vendas               ║
+║  thiago.pereira       → Vendas               ║
+║  fernanda.nascimento  → Compras              ║
+║  marcelo.ribeiro      → Financeiro           ║
+║  camila.barbosa       → RH                   ║
+╚══════════════════════════════════════════════╝
+`)
 
   // Notificações iniciais (somente se não existir nenhuma ainda)
   const notifCount = await prisma.userNotification.count({ where: { userId: master.id } });

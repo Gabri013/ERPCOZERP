@@ -61,7 +61,7 @@ export default function Inventario() {
       return;
     }
     loadDetalhe(detalheId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [detalheId]);
 
   const rows = useMemo(() => {

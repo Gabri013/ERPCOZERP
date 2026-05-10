@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { listStandardCosts, upsertStandardCost } from '@/services/accountingApi.js';
+import { listStandardCosts } from '@/services/accountingApi.js';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
-import { Calculator, ChevronRight, ChevronDown, TrendingUp, Target, DollarSign, Package, AlertTriangle, CheckCircle, Printer, Download } from 'lucide-react';
+import { Calculator, ChevronRight, ChevronDown, Package, AlertTriangle, CheckCircle, Printer, Download } from 'lucide-react';
 import { toast } from 'sonner';
 
 const R$ = (v) => `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;

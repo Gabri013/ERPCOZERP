@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { api } from '@/services/api';
 import {
   Link2, Upload, Download, CheckCircle, AlertTriangle, RefreshCw,
-  FileText, Settings, Package, DollarSign, BookOpen, Plus, Eye,
+  FileText, Settings, Package, BookOpen, Plus,
   ChevronRight, Building2, FileCode2, Globe, Users,
 } from 'lucide-react';
 import { toast } from 'sonner';

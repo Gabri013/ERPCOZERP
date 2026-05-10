@@ -1,5 +1,5 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
-import { RefreshCw, Download, ChevronDown, TrendingUp, TrendingDown } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/services/api';
 

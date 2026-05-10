@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Activity, Cpu, User, AlertTriangle, CheckCircle, Clock, Pause, Wrench, Search, RefreshCw, Eye, QrCode, Paperclip } from 'lucide-react';
+import { Activity, AlertTriangle, CheckCircle, Clock, Pause, Wrench, Search, RefreshCw, Paperclip } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/services/api';
 

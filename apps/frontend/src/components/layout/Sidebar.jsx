@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, ShoppingCart, Truck, Factory,
-  DollarSign, ChevronDown, ChevronRight,
-  FileText, Boxes, Database, Users, X, Wrench,
+  DollarSign, ChevronDown,
+  FileText, Boxes, Database, Users, Wrench,
   PanelLeftClose, PanelLeftOpen, BarChart2, Settings, Briefcase, Globe, BookOpen, ClipboardCheck, FolderKanban,
   Activity, ClipboardSignature,
 } from 'lucide-react';

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   DollarSign, Factory, Package, Users, Settings, RotateCcw,
-  Bell, ShoppingCart, Briefcase, TrendingUp, TrendingDown, RefreshCw,
+  Bell, ShoppingCart, Briefcase, RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { resolveApiUrl } from '@/config/appConfig';
@@ -227,7 +227,7 @@ export default function Dashboard() {
       if (mounted) setLayoutReady(true);
     })().catch(() => { if (mounted) setLayoutReady(true); });
     return () => { mounted = false; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [user?.id, user?.sector, roleCode]);
 
   const handleRefresh = async () => {

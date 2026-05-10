@@ -6,7 +6,7 @@ import {
 import PageHeader from '@/components/common/PageHeader';
 import { api } from '@/services/api';
 import { exportPdfReport } from '@/services/pdfExport';
-import { RefreshCw, TrendingUp, TrendingDown, Download, DollarSign, ShoppingCart, Users, Percent } from 'lucide-react';
+import { RefreshCw, TrendingUp, TrendingDown, Download, DollarSign, ShoppingCart, Percent } from 'lucide-react';
 
 const COLORS = ['#0066cc', '#3399ff', '#00aa5b', '#ff6b35', '#8b5cf6', '#ec4899'];
 const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];

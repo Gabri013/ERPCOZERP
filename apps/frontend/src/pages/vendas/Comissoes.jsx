@@ -4,7 +4,6 @@ import DataTable from '@/components/common/DataTable';
 import { Download, RefreshCw, DollarSign, TrendingUp, Users, Percent } from 'lucide-react';
 import { api } from '@/services/api';
 import { exportPdfReport } from '@/services/pdfExport';
-import { toast } from 'sonner';
 
 const fmtR = (v) => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 const fmtD = (v) => v ? new Date(v).toLocaleDateString('pt-BR') : '—';

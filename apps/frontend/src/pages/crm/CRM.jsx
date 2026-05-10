@@ -1,21 +1,14 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   listCrmProcesses,
-  createCrmProcess,
-  updateCrmProcess,
-  changeCrmProcessStage,
-  deleteCrmProcess,
-  addCrmNote,
 } from '@/services/crmProcessesApi.js';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, FunnelChart, Funnel, LabelList,
+  ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell,
 } from 'recharts';
 import {
-  Users, Plus, Search, Filter, Eye, MessageSquare, Paperclip,
-  ChevronDown, ChevronRight, ArrowRight, CheckCircle, XCircle,
-  MoreVertical, Pencil, Trash2, ShoppingCart, PhoneCall, Wrench,
-  TrendingUp, BarChart2, Star, Clock, Tag, Settings,
+  Users, Plus, Search, Eye, MessageSquare, Paperclip, CheckCircle, Pencil, ShoppingCart, PhoneCall, Wrench,
+  TrendingUp, Star, Clock, Tag,
 } from 'lucide-react';
 import { toast } from 'sonner';
 

@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Plus, Search, Mail, CheckCircle, XCircle, Clock, FileText, Send, ArrowRight, Eye, Download } from 'lucide-react';
+import { Plus, Search, Mail, XCircle, FileText, Send, ArrowRight, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/services/api';
 

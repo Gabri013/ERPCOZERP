@@ -1,13 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { listInspections, createInspection, listNonConformities, createNonConformity, updateNonConformity, listInstruments, listInspectionPlans, getQualityStats } from '@/services/qualityApi.js';
+import { listInspections, listNonConformities, listInstruments, listInspectionPlans } from '@/services/qualityApi.js';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, RadarChart, Radar, PolarGrid, PolarAngleAxis,
 } from 'recharts';
 import {
   ClipboardCheck, AlertTriangle, CheckCircle, XCircle, Plus, Download,
-  Upload, Printer, Mail, Search, ChevronDown, ChevronRight, Eye,
-  Thermometer, Gauge, Ruler, RefreshCw, FileText, Star,
+  Upload, Printer, Mail, Eye, Gauge, FileText,
 } from 'lucide-react';
 import { toast } from 'sonner';
 

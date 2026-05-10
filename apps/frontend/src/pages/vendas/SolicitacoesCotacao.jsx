@@ -5,7 +5,7 @@ import DataTable from '@/components/common/DataTable';
 import FilterBar from '@/components/common/FilterBar';
 import FormModal, { inp, lbl, req } from '@/components/common/FormModal';
 import DetalheModal from '@/components/common/DetalheModal';
-import { Plus, ArrowRight, FileText, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react';
+import { Plus, FileText, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react';
 import { recordsServiceApi } from '@/services/recordsServiceApi';
 import { toast } from 'sonner';
 

@@ -7,7 +7,7 @@
  *   3. Pré-visualização com peso calculado e indicação de itens novos
  *   4. Confirmar importação → relatório de resultados
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import { Button } from '@/components/ui/button';

@@ -1,14 +1,12 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
-import { listProjects, createProject, addTimeEntry, addCostEntry, addProjectNote } from '@/services/projectsApi.js';
+import { useState, useEffect, useCallback } from 'react';
+import { listProjects } from '@/services/projectsApi.js';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area,
+  ResponsiveContainer, AreaChart, Area,
 } from 'recharts';
 import {
-  FolderKanban, Plus, ChevronDown, ChevronRight, CheckCircle,
-  AlertTriangle, Clock, DollarSign, Users, MessageSquare,
-  Paperclip, TrendingUp, Calendar, BarChart2, Eye,
-  PlayCircle, PauseCircle, Settings, Download,
+  FolderKanban, Plus, Clock, DollarSign, Users, MessageSquare,
+  Paperclip, TrendingUp, Calendar, BarChart2, Eye, Download,
 } from 'lucide-react';
 import { toast } from 'sonner';
 

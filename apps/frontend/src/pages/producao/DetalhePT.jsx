@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Plus, CheckCircle, XCircle, AlertTriangle,
-  Truck, Package, ArrowRight, DollarSign, Save, FileText,
-  Info, Printer,
+  Truck, Package, ArrowRight, FileText,
+  Info,
 } from 'lucide-react';
 import { toast } from 'sonner';
 

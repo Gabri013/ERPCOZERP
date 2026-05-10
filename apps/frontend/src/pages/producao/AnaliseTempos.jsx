@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from 'recharts';
-import { TrendingUp, Trophy, Cpu, Clock, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Clock } from 'lucide-react';
 import { api } from '@/services/api';
 
 const fmtMin = (v) => `${Math.floor(v / 60)}h${String(v % 60).padStart(2, '0')}`;

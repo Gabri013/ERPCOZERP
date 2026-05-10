@@ -1,11 +1,9 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { listCategories, listArticles, getArticle, createArticle, createCategory, likeArticle, addRevision } from '@/services/knowledgeApi.js';
+import { listCategories, listArticles } from '@/services/knowledgeApi.js';
 import {
-  BookOpen, Plus, Search, Folder, FolderOpen, FileText, Tag,
-  ChevronRight, ChevronDown, Eye, Pencil, History, Paperclip,
-  CheckCircle, Clock, Star, AlertTriangle, Download, Printer,
-  ThumbsUp, ThumbsDown, X, ArrowLeft, MoreVertical, Trash2,
-  Filter, SortAsc, Users, Globe, Lock,
+  BookOpen, Plus, Search, Folder, FileText,
+  ChevronRight, ChevronDown, Eye, Pencil, History, Paperclip, Star, Download, Printer,
+  ThumbsUp, ThumbsDown, X, ArrowLeft, Globe, Lock,
 } from 'lucide-react';
 import { toast } from 'sonner';
 

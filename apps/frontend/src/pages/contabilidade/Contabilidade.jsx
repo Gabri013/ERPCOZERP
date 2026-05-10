@@ -1,13 +1,13 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { listEntries, createEntry, listAccountPlan, getDRE } from '@/services/accountingApi.js';
+import { listEntries, listAccountPlan, getDRE } from '@/services/accountingApi.js';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell,
+  ResponsiveContainer,
 } from 'recharts';
 import {
-  BookOpen, TrendingUp, TrendingDown, RefreshCw, Plus, Download,
+  BookOpen, RefreshCw, Plus, Download,
   Settings, FileText, ChevronRight, ChevronDown, CheckCircle,
-  Search, Filter, Eye,
+  Search,
 } from 'lucide-react';
 import { toast } from 'sonner';
 

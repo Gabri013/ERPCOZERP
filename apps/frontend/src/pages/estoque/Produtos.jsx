@@ -49,7 +49,7 @@ export default function Produtos() {
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- debounce below
+     
   }, []);
 
   useEffect(() => {
