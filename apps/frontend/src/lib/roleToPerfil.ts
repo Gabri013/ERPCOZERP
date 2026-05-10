@@ -4,7 +4,7 @@ import { PERFIS_LABELS } from '@/lib/perfis';
  * Código em `roles.code` (API) → chave em PERFIS_LABELS (UI).
  * Quando o código e a chave coincidem (setores: corte_laser, solda, …), usa identidade.
  */
-const ROLE_CODE_TO_PERFIL_UX = {
+const ROLE_CODE_TO_PERFIL_UX: Record<string, string> = {
   master:             'dono',
   gerente:            'gerente_geral',
   gerente_producao:   'gerente_producao',
@@ -22,7 +22,7 @@ const ROLE_CODE_TO_PERFIL_UX = {
 };
 
 /** Converte o papel principal do usuário para a chave de perfil exibida na UI. */
-export function roleCodeToPerfilUxKey(roleCode) {
+export function roleCodeToPerfilUxKey(roleCode: string | undefined | null): string {
   const code = typeof roleCode === 'string' ? roleCode.trim() : '';
   if (!code) return ROLE_CODE_TO_PERFIL_UX.user;
 

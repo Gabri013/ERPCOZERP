@@ -1,7 +1,7 @@
 // Perfis de acesso do sistema e suas permissões padrão
 // Para integrar com backend: mapeie user.role → perfil abaixo
 
-export const PERFIS_LABELS = {
+export const PERFIS_LABELS: Record<string, string> = {
   dono: 'Dono / Admin',
   gerente_geral: 'Gerente',
   gerente_vendas: 'Gerente de Vendas',
@@ -23,13 +23,13 @@ export const PERFIS_LABELS = {
 };
 
 /** Opções do `<select>` de perfil em Usuários — sem `producao` (legado; use setor: corte_laser, solda, …). */
-export const PERFIS_SELECT_KEYS = Object.keys(PERFIS_LABELS).filter((k) => k !== 'producao');
+export const PERFIS_SELECT_KEYS: string[] = Object.keys(PERFIS_LABELS).filter((k) => k !== 'producao');
 
 /**
  * Valor sempre compatível com `<option value>` — evita `<select>` controlado com value inexistente
  * (Chrome/Edge podem destacar a opção errada, p.ex. Visualizador).
  */
-export function normalizePerfilSelectValue(raw) {
+export function normalizePerfilSelectValue(raw: unknown): string {
   if (raw == null || raw === '') return 'visualizador';
   const s = String(raw).trim();
   if (s === 'producao') return 'corte_laser';
@@ -38,7 +38,13 @@ export function normalizePerfilSelectValue(raw) {
 }
 
 // Todas as permissões disponíveis no sistema
-export const TODAS_PERMISSOES = [
+export interface Permissao {
+  key: string;
+  label: string;
+  modulo: string;
+}
+
+export const TODAS_PERMISSOES: Permissao[] = [
   // Vendas
   { key: 'ver_pedidos', label: 'Ver Pedidos de Venda', modulo: 'Vendas' },
   { key: 'criar_pedidos', label: 'Criar Pedidos', modulo: 'Vendas' },
@@ -82,7 +88,7 @@ export const TODAS_PERMISSOES = [
 ];
 
 // Permissões padrão por perfil
-export const PERMISSOES_PERFIL = {
+export const PERMISSOES_PERFIL: Record<string, string[]> = {
   dono: TODAS_PERMISSOES.map(p => p.key), // tudo
   gerente_geral: ['ver_pedidos','criar_pedidos','editar_pedidos','aprovar_pedidos','ver_clientes','editar_clientes','ver_orcamentos','criar_orcamentos','ver_estoque','ver_compras','criar_oc','ver_op','criar_op','editar_op','apontar','ver_kanban','ver_pcp','ver_roteiros','ver_maquinas','ver_chao_fabrica','ver_financeiro','editar_financeiro','aprovar_financeiro','ver_relatorio_financeiro','ver_rh','ver_relatorios'],
   gerente_vendas: ['ver_pedidos','criar_pedidos','editar_pedidos','aprovar_pedidos','ver_clientes','editar_clientes','ver_orcamentos','criar_orcamentos','ver_relatorios'],
@@ -103,6 +109,6 @@ export const PERMISSOES_PERFIL = {
   visualizador: ['ver_relatorios'],
 };
 
-export function getPermissoesPorPerfil(perfil) {
+export function getPermissoesPorPerfil(perfil: string): string[] {
   return PERMISSOES_PERFIL[perfil] || PERMISSOES_PERFIL['visualizador'];
 }

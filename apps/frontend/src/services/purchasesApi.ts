@@ -1,4 +1,4 @@
-import { api } from '@/services/api.js';
+import { api } from '@/services/api';
 
 function unwrap<T>(res: { data?: unknown }): T {
   const d = res?.data as Record<string, unknown> | undefined;

@@ -1,5 +1,5 @@
 /** Mesma precedência que apps/backend/src/lib/roleOrder.ts — manter em sync */
-export const ROLE_PRIORITY_ORDER = [
+export const ROLE_PRIORITY_ORDER: string[] = [
   'master',
   'gerente',
   'gerente_producao',
@@ -15,9 +15,9 @@ export const ROLE_PRIORITY_ORDER = [
   'user',
 ];
 
-export function sortRolesByPriority(codes) {
+export function sortRolesByPriority(codes: string[]): string[] {
   if (!codes?.length) return [];
-  const rank = (c) => {
+  const rank = (c: string): number => {
     const i = ROLE_PRIORITY_ORDER.indexOf(c);
     return i === -1 ? 999 : i;
   };
@@ -25,7 +25,7 @@ export function sortRolesByPriority(codes) {
 }
 
 /** Papel único a usar em UI quando há várias roles */
-export function primaryRole(codes) {
+export function primaryRole(codes: string[]): string {
   const sorted = sortRolesByPriority(codes);
   return sorted[0] || 'user';
 }

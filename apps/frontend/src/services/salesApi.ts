@@ -1,4 +1,4 @@
-import { api } from '@/services/api.js';
+import { api } from '@/services/api';
 
 function unwrap<T>(body: unknown): T {
   if (body && typeof body === 'object' && 'data' in body && (body as { data?: T }).data !== undefined) {

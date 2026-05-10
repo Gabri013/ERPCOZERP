@@ -1,10 +1,10 @@
 /**
  * Espelha apps/backend/src/lib/notificationVisibility.ts — manter regras alinhadas.
  */
-const CAN_SEE_ALL = new Set(['master']);
-const GERENTE_SEES_ALL_SECTORS = true;
+const CAN_SEE_ALL: Set<string> = new Set(['master']);
+const GERENTE_SEES_ALL_SECTORS: boolean = true;
 
-const SECTOR_KEY_ALIASES = {
+const SECTOR_KEY_ALIASES: Record<string, string> = {
   vendas: 'vendas',
   estoque: 'estoque',
   producao: 'producao',
@@ -20,7 +20,7 @@ const SECTOR_KEY_ALIASES = {
   sistema: 'sistema',
 };
 
-const SECTOR_VISIBLE_ROLES = {
+const SECTOR_VISIBLE_ROLES: Record<string, string[]> = {
   vendas: ['gerente', 'orcamentista_vendas', 'gerente_producao'],
   estoque: ['gerente', 'gerente_producao', 'projetista', 'qualidade', 'corte_laser', 'dobra_montagem', 'solda'],
   producao: ['gerente', 'gerente_producao', 'corte_laser', 'dobra_montagem', 'solda', 'expedicao', 'qualidade'],
@@ -34,7 +34,7 @@ const SECTOR_VISIBLE_ROLES = {
   sistema: ['gerente', 'gerente_producao'],
 };
 
-export function normalizeNotificationSector(sector) {
+export function normalizeNotificationSector(sector: string | undefined | null): string {
   if (!sector || typeof sector !== 'string') return '';
   const t = sector
     .trim()
@@ -45,7 +45,7 @@ export function normalizeNotificationSector(sector) {
 }
 
 /** @param {string[]|undefined} roleCodes */
-export function rolesCanSeeNotificationSector(sector, roleCodes) {
+export function rolesCanSeeNotificationSector(sector: string, roleCodes: string[] | undefined): boolean {
   const roles = new Set(roleCodes || []);
   for (const r of roles) {
     if (CAN_SEE_ALL.has(r)) return true;

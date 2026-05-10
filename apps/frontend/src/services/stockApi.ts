@@ -1,4 +1,4 @@
-import { api } from '@/services/api.js';
+import { api } from '@/services/api';
 
 export type StockProduct = {
   id: string;

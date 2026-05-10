@@ -1,4 +1,4 @@
-import { api } from '@/services/api.js';
+import { api } from '@/services/api';
 
 function qs(p) {
   const u = new URLSearchParams();
