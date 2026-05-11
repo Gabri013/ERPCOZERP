@@ -14,7 +14,10 @@ void ensureUploadDirs();
 const app = createApp();
 const httpServer = http.createServer(app);
 
-const jwtSecret = env.JWT_SECRET || process.env.JWT_SECRET || 'dev_change_me';
+const jwtSecret = env.JWT_SECRET || process.env.JWT_SECRET;
+if (!jwtSecret) {
+  throw new Error('[backend-core] JWT_SECRET obrigatório para iniciar o Socket.IO.');
+}
 
 initSocketIOServer(httpServer, env.ALLOWED_ORIGINS, jwtSecret);
 scheduleOverdueProductionScan(180_000);

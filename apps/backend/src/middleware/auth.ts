@@ -1,14 +1,15 @@
 import type { NextFunction, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../infra/prisma.js';
-import { getEffectivePermissionCodesForUserId } from '../lib/effectivePermissions.js';
+import { env } from '../config/env.js';
 import { runWithTenant } from '../infra/tenantContext.js';
+import { getEffectivePermissionCodesForUserId } from '../lib/effectivePermissions.js';
 
 export type AuthUser = {
   userId: string;
   email: string;
   roles: string[];
-  /** Códigos de permissão efetivos (papéis + extras por usuário + master), alinhados ao banco. */
+  /** Codigos de permissao efetivos (papeis + extras por usuario + master), alinhados ao banco. */
   permissions: string[];
   companyId: string;
 };
@@ -28,10 +29,11 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
   }
 
   try {
-    const secret = process.env.JWT_SECRET;
+    const secret = env.JWT_SECRET;
     if (!secret) {
-      throw new Error('JWT_SECRET environment variable is required');
+      return res.status(500).json({ error: 'JWT nao configurado no servidor' });
     }
+
     const decoded = jwt.verify(token, secret) as {
       sub?: string;
       email?: string;
@@ -43,40 +45,38 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
     if (!sub) {
       return res.status(401).json({ error: 'Invalid token' });
     }
+
     const roles = Array.isArray(decoded.roles) ? decoded.roles : [];
     let permissions = Array.isArray(decoded.permissions) ? decoded.permissions : [];
-    // Tokens antigos (só `roles`): hidratar permissões do banco para RBAC condizente.
     if (!permissions.length) {
       try {
         permissions = await getEffectivePermissionCodesForUserId(sub);
       } catch (e) {
-        // eslint-disable-next-line no-console
-        console.error('[authenticate] falha ao hidratar permissões:', e instanceof Error ? e.message : e);
+        console.error('[authenticate] falha ao hidratar permissoes:', e instanceof Error ? e.message : e);
         permissions = [];
       }
     }
-    const companyId = String(decoded.companyId || '');
 
-    // ✅ VALIDAÇÃO CRÍTICA: Verificar se companyId existe e está ativa
-    if (!companyId || companyId.length === 0) {
-      return res.status(400).json({ error: 'Token inválido - companyId ausente' });
+    const companyId = String(decoded.companyId || '');
+    if (!companyId) {
+      return res.status(400).json({ error: 'Token invalido - companyId ausente' });
     }
 
     try {
       const company = await prisma.company.findUnique({
         where: { id: companyId },
-        select: { id: true, ativo: true }
+        select: { id: true, ativo: true },
       });
 
       if (!company || !company.ativo) {
         return res.status(403).json({
-          error: 'Empresa inativa ou não existe'
+          error: 'Empresa inativa ou nao existe',
         });
       }
-    } catch (e) {
-      // Fail-closed: any error in company validation blocks access
-      console.error('[authenticate] Erro validando company:', e instanceof Error ? e.message : e);
-      return res.status(500).json({ error: 'Erro interno na validação de empresa' });
+    } catch {
+      return res.status(503).json({
+        error: 'Falha ao validar tenant da sessao',
+      });
     }
 
     req.user = {
@@ -87,7 +87,6 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
       companyId,
     };
 
-    // Set tenant context for the request
     return runWithTenant({ companyId }, () => next());
   } catch {
     return res.status(401).json({ error: 'Invalid token' });
@@ -118,4 +117,3 @@ export function requirePermission(permissionCodeOrList: string | string[]) {
     }
   };
 }
-

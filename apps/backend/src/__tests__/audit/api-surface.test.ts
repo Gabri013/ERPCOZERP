@@ -55,7 +55,7 @@ describe.skipIf(!hasDb)('Auditoria API — token master (smoke)', () => {
   let token = '';
 
   beforeAll(async () => {
-    const email = process.env.AUDIT_MASTER_EMAIL || 'master@Cozinha.com';
+    const email = process.env.AUDIT_MASTER_EMAIL || 'master@cozinha.com';
     const user = await prisma.user.findUnique({
       where: { email },
       include: { roles: { include: { role: true } } },
@@ -71,7 +71,7 @@ describe.skipIf(!hasDb)('Auditoria API — token master (smoke)', () => {
       return;
     }
     const roles = user.roles.map((ur) => ur.role.code);
-    token = jwt.sign({ sub: user.id, email: user.email, roles, type: 'access' }, JWT_SECRET, { expiresIn: '1h' });
+    token = jwt.sign({ sub: user.id, email: user.email, roles, companyId: user.companyId, type: 'access' }, JWT_SECRET, { expiresIn: '1h' });
   });
 
   const authedGets = [

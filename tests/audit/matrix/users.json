@@ -2,7 +2,7 @@
   {
     "key": "master",
     "label": "Master",
-    "email": "master@Cozinha.com",
+    "email": "master@cozinha.com",
     "password": "master123_dev",
     "passwordEnv": "E2E_MASTER_PASSWORD"
   },

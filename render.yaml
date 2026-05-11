@@ -1,25 +1,23 @@
-databases:
-  - name: erp-postgres
-    plan: basic-256mb
-
 services:
   - type: web
-    name: erp-backend
-    runtime: docker
-    dockerContext: apps/backend
-    dockerfilePath: apps/backend/Dockerfile
+    name: erpcoz-backend
+    runtime: node
+    rootDir: apps/backend
+    plan: starter
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
+    autoDeploy: true
     healthCheckPath: /health
-    autoDeployTrigger: commit
     envVars:
       - key: NODE_ENV
         value: production
-      - key: FRONTEND_URL
+      - key: PORT
+        value: 10000
+      - key: JWT_SECRET
         sync: false
       - key: DATABASE_URL
-        fromDatabase:
-          name: erp-postgres
-          property: connectionString
-      - key: JWT_SECRET
-        generateValue: true
-      - key: SEED_ENABLED
-        value: true
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false

@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../infra/prisma.js';
 import { runWithTenant } from '../infra/tenantContext.js';
+import { env } from '../config/env.js';
+import type { AuthUser } from './auth.js';
 
 export interface AuthenticatedRequest extends Request {
   user?: {
@@ -20,13 +22,28 @@ export const tenantMiddleware = async (
   next: NextFunction
 ) => {
   try {
+    const existingUser = req.user as AuthUser | undefined;
+    if (existingUser?.companyId) {
+      const company = await prisma.company.findUnique({
+        where: { id: existingUser.companyId },
+        select: { id: true, ativo: true }
+      });
+      if (!company || !company.ativo) {
+        return res.status(403).json({ error: 'Empresa inativa ou não encontrada' });
+      }
+      return runWithTenant({ companyId: existingUser.companyId }, () => next());
+    }
+
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({ error: 'Token não fornecido' });
     }
 
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+    if (!env.JWT_SECRET) {
+      return res.status(500).json({ error: 'JWT não configurado no servidor' });
+    }
+    const decoded = jwt.verify(token, env.JWT_SECRET) as any;
 
     if (!decoded.companyId) {
       return res.status(400).json({ error: 'Token inválido - companyId ausente' });

@@ -8,7 +8,7 @@
 2. **E2E (Playwright)** — `tests/e2e/audit/route-sweep.spec.ts`  
    Para cada perfil em `matrix/users.json`, login e visita a cada rota em `matrix/frontend-routes.json`, com registo de `pageerror`, `console.error` / `console.warn`, “Acesso restrito” e capturas em `shots/` quando há `pageerror`.
 
-3. **Relatório** — `tests/audit/aggregate-report.mjs` gera `RELATORIO_AUDITORIA.md` e `findings.json` dentro da pasta da corrida.
+3. **Relatório** — `tests/audit/aggregate-report.ts` gera `RELATORIO_AUDITORIA.md` e `findings.json` dentro da pasta da corrida.
 
 ## Como executar
 

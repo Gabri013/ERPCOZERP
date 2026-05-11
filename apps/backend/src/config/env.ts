@@ -15,6 +15,10 @@ function buildPostgresUrl(): string {
   const direct = optional('DATABASE_URL') || optional('POSTGRES_URL') || optional('DATABASE_PUBLIC_URL');
   if (direct) return direct;
 
+  if ((process.env.NODE_ENV || '').toLowerCase() === 'test') {
+    return 'postgresql://postgres:postgres@127.0.0.1:5432/erpcoz_test';
+  }
+
   const host = optional('PGHOST') || optional('POSTGRES_HOST');
   const port = optional('PGPORT') || optional('POSTGRES_PORT') || '5432';
   const database = optional('PGDATABASE') || optional('POSTGRES_DB');
@@ -61,4 +65,3 @@ export const env = {
 if (env.DATABASE_URL && !process.env.DATABASE_URL) {
   process.env.DATABASE_URL = env.DATABASE_URL;
 }
-

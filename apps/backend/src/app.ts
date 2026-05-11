@@ -80,7 +80,7 @@ export function createApp() {
   }));
 
   app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: env.ALLOWED_ORIGINS,
     credentials: true,
     methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
     allowedHeaders: ['Content-Type','Authorization']
@@ -96,7 +96,9 @@ export function createApp() {
     standardHeaders: true,
     legacyHeaders: false,
   });
-  app.use('/api', globalLimiter);
+  if (process.env.DISABLE_RATE_LIMIT !== '1' && env.NODE_ENV !== 'test') {
+    app.use('/api', globalLimiter);
+  }
 
   app.use(express.json({ limit: '20mb' }));
 
@@ -171,4 +173,3 @@ export function createApp() {
 
   return app;
 }
-

@@ -4,6 +4,14 @@ ERP industrial completo para a **indústria de equipamentos em aço inox** — c
 
 Stack: **React 18 + Vite**, **Node.js + Express + Prisma**, **PostgreSQL**, **Redis**, organizado como **monorepo** enterprise.
 
+## Estado atual (transparente)
+
+- Backend: TypeScript (`.ts`) predominante.
+- Frontend: ainda possui componentes/páginas em `.jsx` (migração planejada).
+- Deploy prático: **Vercel (frontend)** + **Render (backend)** com guia para Windows.
+
+> Plano de padronização TypeScript: `docs/TYPESCRIPT_MIGRATION_PLAN.md`.
+
 ## Módulos implementados
 
 | # | Módulo | Páginas | Endpoints |
@@ -206,11 +214,25 @@ Seed com Postgres local: `./scripts/seed-dev.sh` ou `npm run prisma:seed --prefi
 ## Testes
 
 ```bash
+npm run preflight:enterprise # valida dependências e modo docker/local
 npm run smoke             # typecheck backend + build frontend (CI/local rápido)
 npm run test              # smoke principal (API em http://localhost:3001)
 BACKEND_URL=http://host:port npm run test
 npm run test:e2e          # Playwright
+npm run test:production:full # sobe docker, seed, smoke, unit, build e e2e crítico
 ```
+
+> Os comandos acima são **cross-platform** (Windows/Linux/macOS), sem dependência obrigatória de `.sh`.
+
+## Deploy prático (Vercel + Render)
+
+- **Frontend (Vercel)**: raiz `apps/frontend`, build `npm run build`, output `dist`.
+- **Backend (Render Web Service)**: raiz `apps/backend`, build `npm install && npm run build`, start `npm run start`.
+- Configure no backend: `DATABASE_URL`, `JWT_SECRET`, `ALLOWED_ORIGINS` (inclua domínio do Vercel), `REDIS_URL` (opcional recomendado).
+- Configure no frontend: `VITE_BACKEND_URL=https://SEU-BACKEND.onrender.com`.
+
+> Observação: Firebase Hosting serve bem o frontend estático; para API Node/Prisma multi-tenant, Render (ou similar) é o caminho mais simples.
+Guia completo para Windows: `docs/DEPLOY_WINDOWS_VERCEL_RENDER.md`.
 
 ### Troubleshooting: `prisma generate` (Windows, EPERM)
 

@@ -6,7 +6,7 @@ const MASTER_PASSWORD = process.env.E2E_MASTER_PASSWORD || 'master123_dev';
 /** Credenciais alinhadas ao `prisma/seed.ts` e `tests/audit/matrix/users.json`. */
 const BASE_USERS = {
   master: {
-    email: process.env.E2E_MASTER_EMAIL || 'master@Cozinha.com',
+    email: process.env.E2E_MASTER_EMAIL || 'master@cozinha.com',
     password: MASTER_PASSWORD,
   },
   gerente: {
@@ -124,11 +124,16 @@ export async function doLogin(page: Page, role: AuditPersona = 'gerente') {
 }
 
 export interface AuthFixtures {
+  authenticatedPage: Page;
   gerentePage: Page;
   producaoPage: Page;
 }
 
 export const test = base.extend<AuthFixtures>({
+  authenticatedPage: async ({ page }, use) => {
+    await doLogin(page, 'gerente');
+    await use(page);
+  },
   gerentePage: async ({ page }, use) => {
     await doLogin(page, 'gerente');
     await use(page);
