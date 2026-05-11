@@ -106,6 +106,8 @@ const EMPLOYEES_DATA = [
 async function main() {
   console.log('🌱 Iniciando seed de demonstração...\n');
   const master = await getMaster();
+  const demoCompanyId = master.companyId || (await prisma.company.findFirst({ orderBy: { createdAt: 'asc' } }))?.id;
+  if (!demoCompanyId) throw new Error('Empresa base não encontrada — execute seed.ts primeiro');
 
   // ═══════════════════════════════════════════════════════════════
   // 1. CLIENTES
@@ -116,7 +118,7 @@ async function main() {
     const existing = await prisma.customer.findFirst({ where: { code: c.code } });
     if (!existing) {
       const created = await prisma.customer.create({
-        data: { id: uuid(), code: c.code, name: c.name, document: c.document, active: true },
+        data: { id: uuid(), code: c.code, name: c.name, document: c.document, active: true, companyId: demoCompanyId },
       });
       customers[c.code] = created.id;
     } else {
@@ -134,7 +136,7 @@ async function main() {
     const existing = await prisma.supplier.findFirst({ where: { code: s.code } });
     if (!existing) {
       const created = await prisma.supplier.create({
-        data: { id: uuid(), code: s.code, name: s.name, document: s.document, active: true },
+        data: { id: uuid(), code: s.code, name: s.name, document: s.document, active: true, companyId: demoCompanyId },
       });
       suppliers[s.code] = created.id;
     } else {
@@ -160,6 +162,7 @@ async function main() {
           productType: p.type, group: p.group,
           costPrice: dec(p.cost), salePrice: dec(p.sale), minStock: dec(p.min),
           status: 'Ativo',
+          companyId: demoCompanyId,
           locations: { create: { locationId: defaultLoc.id, quantity: dec(p.qty) } },
         },
       });
@@ -182,7 +185,7 @@ async function main() {
     const existing = await prisma.employee.findFirst({ where: { code: e.code } });
     if (!existing) {
       const created = await prisma.employee.create({
-        data: { id: uuid(), code: e.code, fullName: e.fullName, department: e.dept, salaryBase: dec(e.salary), hireDate: d(e.hire), active: true },
+        data: { id: uuid(), code: e.code, fullName: e.fullName, department: e.dept, salaryBase: dec(e.salary), hireDate: d(e.hire), active: true, companyId: demoCompanyId },
       });
       employees[e.code] = created.id;
     } else {
@@ -383,10 +386,11 @@ async function main() {
     const so = await prisma.saleOrder.create({
       data: {
         id: uuid(), number: flow.orderNum,
-        customer: custId ? { connect: { id: custId } } : undefined,
+        customerId: custId,
         status: flow.status, kanbanColumn: flow.kanban, totalAmount: total,
         deliveryDate: daysFrom(flow.daysDelivery),
         ownerUserId: demoVendasOwner?.id ?? null,
+        companyId: demoCompanyId,
         items: { create: lines as any },
       },
     });
@@ -412,6 +416,7 @@ async function main() {
               scheduledStart: daysAgo(flow.daysAgoCreated - 2),
               scheduledEnd: daysFrom(flow.daysDelivery - 2),
               finishedAt: op.opStatus === 'DONE' ? daysAgo(5) : null,
+              companyId: demoCompanyId,
               items: { create: { id: uuid(), productId: prodId, quantity: dec(op.qty) } },
             },
           });
@@ -451,6 +456,7 @@ async function main() {
             customerName: CUSTOMERS_DATA.find((c) => c.code === flow.custCode)?.name ?? '',
             totalAmount: total,
             issuedAt: daysAgo(Math.abs(flow.daysDelivery) + 1),
+            companyId: demoCompanyId,
           },
         });
       }
@@ -485,6 +491,7 @@ async function main() {
     await prisma.purchaseOrder.create({
       data: {
         id: uuid(), number: po.num, supplierId: supId, status: po.status as any,
+        companyId: demoCompanyId,
         items: {
           create: po.prods.map((p) => ({
             productId: products[p.code] ?? null,
@@ -633,7 +640,7 @@ async function main() {
     ];
     for (const e of entries) {
       await prisma.accountEntry.create({
-        data: { id: uuid(), entryDate: e.date, description: e.desc, debitAccount: e.deb, creditAccount: e.cre, amount: e.amt, origin: 'AUTO', module: 'demo', referenceId: e.ref, history: e.desc },
+        data: { id: uuid(), entryDate: e.date, description: e.desc, debitAccount: e.deb, creditAccount: e.cre, amount: e.amt, origin: 'AUTO', module: 'demo', referenceId: e.ref, history: e.desc, companyId: demoCompanyId },
       });
     }
     console.log(`   ✓ ${entries.length} lançamentos contábeis adicionais`);

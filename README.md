@@ -137,7 +137,7 @@ Com dependências instaladas e **Postgres** acessível (`DATABASE_URL` em `apps/
 npm run dev
 ```
 
-- Frontend Vite: **5173**, proxy `/api` e WebSocket → `VITE_BACKEND_URL` ou `http://127.0.0.1:3001`.
+- Frontend Vite: **5173**, proxy `/api` e WebSocket → chamadas relativas para o host do frontend; isso funciona para outros dispositivos na mesma rede local.
 - Backend: `apps/backend` (`tsx watch`), **3001**.
 
 ### Docker (opcional)

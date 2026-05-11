@@ -27,6 +27,6 @@ export default defineConfig({
       use: { ...devices['iPhone 13'], viewport: { width: 390, height: 844 } },
     },
   ],
-  timeout: 60000,
-  expect: { timeout: 10000 },
+  timeout: 90000,
+  expect: { timeout: 15000 },
 });

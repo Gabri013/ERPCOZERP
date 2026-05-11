@@ -47,11 +47,12 @@ async function addRecord(entityCode: string, data: Record<string, unknown>) {
 // ─────────────────────────────────────────────────────────────────────────────
 async function main() {
   console.log('🌱 Populando todos os módulos…\n');
+  const demoCompanyId = (await prisma.company.findFirst({ orderBy: { createdAt: 'asc' } }))?.id;
+  if (!demoCompanyId) throw new Error('Empresa base não encontrada — execute seed.ts primeiro');
 
   // ── 1. LOCALIZATIONS / ENDEREÇAMENTO ─────────────────────────────────────
   console.log('  📦 Endereçamento (locations)…');
   const locationDefs = [
-    { code: 'ALM-A01-R1-P1', name: 'Almoxarifado A01 – Rua 1 – Prateleira 1', warehouse: 'Almoxarifado Principal', aisle: 'A01', rack: 'R1', bin: 'P1' },
     { code: 'ALM-A01-R1-P2', name: 'Almoxarifado A01 – Rua 1 – Prateleira 2', warehouse: 'Almoxarifado Principal', aisle: 'A01', rack: 'R1', bin: 'P2' },
     { code: 'ALM-A01-R2-P1', name: 'Almoxarifado A01 – Rua 2 – Prateleira 1', warehouse: 'Almoxarifado Principal', aisle: 'A01', rack: 'R2', bin: 'P1' },
     { code: 'ALM-B01-R1-P1', name: 'Almoxarifado B01 – Rua 1 – Prateleira 1', warehouse: 'Almoxarifado Secundário', aisle: 'B01', rack: 'R1', bin: 'P1' },
@@ -618,6 +619,7 @@ async function main() {
       create: {
         id: uuid(), ...nfe,
         accessKey,
+        companyId: demoCompanyId,
         issuedAt: nfe.status === 'AUTORIZADA' ? daysAgo(Math.floor(Math.random() * 90)) : null,
         cancelledAt: nfe.status === 'CANCELADA' ? daysAgo(5) : null,
       },
@@ -944,7 +946,7 @@ async function main() {
   ];
   for (const entry of accountEntries) {
     await prisma.accountEntry.create({
-      data: { id: uuid(), ...entry },
+      data: { id: uuid(), ...entry, companyId: demoCompanyId },
     });
   }
 
