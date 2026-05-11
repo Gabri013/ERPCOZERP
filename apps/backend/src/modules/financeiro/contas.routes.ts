@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../../infra/prisma.js';
 import { Prisma } from '@prisma/client';
 import { entityRouteGuard } from '../../infra/entity-permissions.js';
+import { requirePermission } from '../../middleware/auth.js';
 import { cache } from '../../lib/cache.js';
 
 export const contasRouter = Router();
@@ -23,6 +24,11 @@ function isValidStatus(s: string) {
   return v === 'aberto' || v === 'pago' || v === 'vencido' || v === 'cancelado' || v === 'recebido';
 }
 
+function buildCompanyFilter(req: any) {
+  if (!req.user?.companyId) return {};
+  return { data: { path: ['companyId'], equals: req.user.companyId } };
+}
+
 function buildListHandler(entityCode: 'conta_receber' | 'conta_pagar') {
   return async (req: any, res: any) => {
     const entity = await ensureEntity(entityCode, entityCode === 'conta_receber' ? 'Contas a Receber' : 'Contas a Pagar');
@@ -34,6 +40,7 @@ function buildListHandler(entityCode: 'conta_receber' | 'conta_pagar') {
       where: {
         entityId: entity.id,
         deletedAt: null,
+        ...buildCompanyFilter(req),
       },
       orderBy: { createdAt: 'desc' },
       take,
@@ -65,6 +72,11 @@ function buildCreateHandler(entityCode: 'conta_receber' | 'conta_pagar') {
     if (!isValidStatus(status)) return res.status(400).json({ error: 'status inválido' });
     (data as any).status = status;
 
+    const companyId = req.user?.companyId;
+    if (companyId) {
+      (data as any).companyId = companyId;
+    }
+
     const created = await prisma.entityRecord.create({
       data: {
         entityId: entity.id,
@@ -84,7 +96,7 @@ function buildUpdateHandler(entityCode: 'conta_receber' | 'conta_pagar') {
     const { id } = req.params;
     const data = (req.body?.data ?? req.body) as Record<string, unknown>;
 
-    const existing = await prisma.entityRecord.findFirst({ where: { id, entityId: entity.id, deletedAt: null } });
+    const existing = await prisma.entityRecord.findFirst({ where: { id, entityId: entity.id, deletedAt: null, ...buildCompanyFilter(req) } });
     if (!existing) return res.status(404).json({ error: 'Lançamento não encontrado' });
 
     if ((data as any).status) {
@@ -111,12 +123,48 @@ function buildUpdateHandler(entityCode: 'conta_receber' | 'conta_pagar') {
   };
 }
 
+function buildSettleHandler(entityCode: 'conta_receber' | 'conta_pagar', statusValue: 'recebido' | 'pago') {
+  return async (req: any, res: any) => {
+    const entity = await ensureEntity(entityCode, entityCode === 'conta_receber' ? 'Contas a Receber' : 'Contas a Pagar');
+    const { id } = req.params;
+    const existing = await prisma.entityRecord.findFirst({ where: { id, entityId: entity.id, deletedAt: null, ...buildCompanyFilter(req) } });
+    if (!existing) return res.status(404).json({ error: 'Lançamento não encontrado' });
+
+    const body = (req.body?.data ?? req.body) as Record<string, unknown>;
+    const dataPagamento = String(body.dataPagamento ?? body.data_pagamento ?? '').trim();
+    const valorPago = body.valorPago ?? body.valor_pago ?? (body.valor ? Number(body.valor) : undefined);
+    const observacao = String(body.observacao ?? body.observation ?? '').trim();
+
+    if (!dataPagamento) return res.status(400).json({ error: 'dataPagamento é obrigatório' });
+    if (valorPago === undefined || typeof valorPago !== 'number' || !Number.isFinite(valorPago) || Number(valorPago) <= 0) {
+      return res.status(400).json({ error: 'valorPago é obrigatório e deve ser numérico' });
+    }
+
+    const updated = await prisma.entityRecord.update({
+      where: { id },
+      data: {
+        data: {
+          ...(existing.data as any),
+          status: statusValue,
+          data_pagamento: dataPagamento,
+          valor_pago: Number(valorPago),
+          observacao: observacao || undefined,
+          baixado_por: req.user?.userId,
+        } as Prisma.InputJsonValue,
+        updatedBy: req.user?.userId,
+      },
+    });
+
+    res.json({ success: true, data: { id: updated.id, ...(updated.data as any), created_at: updated.createdAt } });
+  };
+}
+
 function buildDeleteHandler(entityCode: 'conta_receber' | 'conta_pagar') {
   return async (req: any, res: any) => {
     const entity = await ensureEntity(entityCode, entityCode === 'conta_receber' ? 'Contas a Receber' : 'Contas a Pagar');
     const { id } = req.params;
 
-    const existing = await prisma.entityRecord.findFirst({ where: { id, entityId: entity.id, deletedAt: null } });
+    const existing = await prisma.entityRecord.findFirst({ where: { id, entityId: entity.id, deletedAt: null, ...buildCompanyFilter(req) } });
     if (!existing) return res.status(404).json({ error: 'Lançamento não encontrado' });
 
     await prisma.entityRecord.update({
@@ -138,38 +186,106 @@ contasRouter.delete('/contas-receber/:id', entityRouteGuard('conta_receber'), bu
 contasRouter.get('/contas-pagar', entityRouteGuard('conta_pagar'), buildListHandler('conta_pagar'));
 contasRouter.post('/contas-pagar', entityRouteGuard('conta_pagar'), buildCreateHandler('conta_pagar'));
 contasRouter.put('/contas-pagar/:id', entityRouteGuard('conta_pagar'), buildUpdateHandler('conta_pagar'));
+contasRouter.patch('/contas-pagar/:id/baixar', entityRouteGuard('conta_pagar'), requirePermission('editar_financeiro'), buildSettleHandler('conta_pagar', 'pago'));
 contasRouter.delete('/contas-pagar/:id', entityRouteGuard('conta_pagar'), buildDeleteHandler('conta_pagar'));
 
 // Cash flow
 contasRouter.get('/cash-flow', entityRouteGuard('conta_receber'), async (req, res) => {
-  const cacheKey = 'financial:cash-flow';
+  const cacheKey = `financial:cash-flow:${req.user?.companyId ?? 'global'}`;
   const cached = await cache.get(cacheKey);
   if (cached) {
     return res.json(cached);
   }
 
-  // Placeholder implementation - contas bancárias, agendamentos atraso, projeção
-  const contas = await prisma.entityRecord.findMany({
-    where: { entity: { code: 'conta_bancaria' }, deletedAt: null },
-    select: { data: true },
-    take: 100,
-  });
+  const hoje = new Date();
+  const mesAtual = hoje.getMonth() + 1;
+  const anoAtual = hoje.getFullYear();
 
-  const agendamentosAtraso = await prisma.entityRecord.findMany({
+  // Entradas projetadas: contas a receber abertas
+  const entradas = await prisma.entityRecord.findMany({
     where: {
       entity: { code: 'conta_receber' },
       deletedAt: null,
-      data: { path: ['status'], equals: 'vencido' }
+      AND: [
+        { data: { path: ['status'], not: 'recebido' } },
+        buildCompanyFilter(req),
+      ],
     },
     select: { data: true },
-    take: 50,
   });
 
-  const projecao = []; // Placeholder
+  // Saídas projetadas: contas a pagar abertas
+  const saidas = await prisma.entityRecord.findMany({
+    where: {
+      entity: { code: 'conta_pagar' },
+      deletedAt: null,
+      AND: [
+        { data: { path: ['status'], not: 'pago' } },
+        buildCompanyFilter(req),
+      ],
+    },
+    select: { data: true },
+  });
+
+  // Realizado no mês atual
+  const entradasRealizadas = entradas.filter(e => {
+    const dataPag = (e.data as any).data_pagamento;
+    if (!dataPag) return false;
+    const d = new Date(dataPag);
+    return d.getMonth() + 1 === mesAtual && d.getFullYear() === anoAtual;
+  });
+
+  const saidasRealizadas = saidas.filter(s => {
+    const dataPag = (s.data as any).data_pagamento;
+    if (!dataPag) return false;
+    const d = new Date(dataPag);
+    return d.getMonth() + 1 === mesAtual && d.getFullYear() === anoAtual;
+  });
+
+  const realizadoEntradas = entradasRealizadas.reduce((sum, e) => sum + Number((e.data as any).valor_pago || (e.data as any).valor || 0), 0);
+  const realizadoSaidas = saidasRealizadas.reduce((sum, s) => sum + Number((s.data as any).valor_pago || (s.data as any).valor || 0), 0);
+
+  // Projetado para os próximos 3 meses
+  const projecao = [];
+  for (let i = 0; i < 3; i++) {
+    const mes = mesAtual + i;
+    const ano = anoAtual + Math.floor((mes - 1) / 12);
+    const mesReal = ((mes - 1) % 12) + 1;
+
+    const entradasMes = entradas.filter(e => {
+      const venc = (e.data as any).data_vencimento;
+      if (!venc) return false;
+      const d = new Date(venc);
+      return d.getMonth() + 1 === mesReal && d.getFullYear() === ano;
+    });
+
+    const saidasMes = saidas.filter(s => {
+      const venc = (s.data as any).data_vencimento;
+      if (!venc) return false;
+      const d = new Date(venc);
+      return d.getMonth() + 1 === mesReal && d.getFullYear() === ano;
+    });
+
+    const projEntradas = entradasMes.reduce((sum, e) => sum + Number((e.data as any).valor || 0), 0);
+    const projSaidas = saidasMes.reduce((sum, s) => sum + Number((s.data as any).valor || 0), 0);
+
+    projecao.push({
+      mes: mesReal,
+      ano,
+      entradas: projEntradas,
+      saidas: projSaidas,
+      saldo: projEntradas - projSaidas
+    });
+  }
 
   const data = {
-    contas: contas.map(c => c.data),
-    agendamentos_atraso: agendamentosAtraso.map(a => a.data),
+    realizado: {
+      mes: mesAtual,
+      ano: anoAtual,
+      entradas: realizadoEntradas,
+      saidas: realizadoSaidas,
+      saldo: realizadoEntradas - realizadoSaidas
+    },
     projecao
   };
 
@@ -177,4 +293,73 @@ contasRouter.get('/cash-flow', entityRouteGuard('conta_receber'), async (req, re
   await cache.set(cacheKey, response, { ttl: 300 }); // 5 minutes
   res.json(response);
 });
+
+// DRE - Demonstrativo de Resultado do Exercício
+contasRouter.get('/dre', entityRouteGuard('conta_receber'), async (req, res) => {
+  const ano = Number(req.query.ano) || new Date().getFullYear();
+  const mes = Number(req.query.mes) || new Date().getMonth() + 1;
+  const cacheKey = `financial:dre:${req.user?.companyId ?? 'global'}:${ano}:${mes}`;
+  const cached = await cache.get(cacheKey);
+  if (cached) {
+    return res.json(cached);
+  }
+
+  // Receitas: contas recebidas no período
+  const receitas = await prisma.entityRecord.findMany({
+    where: {
+      entity: { code: 'conta_receber' },
+      deletedAt: null,
+      AND: [
+        { data: { path: ['status'], equals: 'recebido' } },
+        buildCompanyFilter(req),
+      ],
+    },
+    select: { data: true },
+  });
+
+  const despesas = await prisma.entityRecord.findMany({
+    where: {
+      entity: { code: 'conta_pagar' },
+      deletedAt: null,
+      AND: [
+        { data: { path: ['status'], equals: 'pago' } },
+        buildCompanyFilter(req),
+      ],
+    },
+    select: { data: true },
+  });
+
+  const receitasNoPeriodo = receitas.filter((r) => {
+    const data = r.data as any;
+    const dataPag = data.data_pagamento;
+    if (!dataPag) return false;
+    const d = new Date(dataPag);
+    return d.getMonth() + 1 === mes && d.getFullYear() === ano;
+  });
+
+  const despesasNoPeriodo = despesas.filter((d) => {
+    const data = d.data as any;
+    const dataPag = data.data_pagamento;
+    if (!dataPag) return false;
+    const dt = new Date(dataPag);
+    return dt.getMonth() + 1 === mes && dt.getFullYear() === ano;
+  });
+
+  const receitaBruta = receitasNoPeriodo.reduce((sum, r) => sum + Number((r.data as any).valor_pago || (r.data as any).valor || 0), 0);
+  const despesaTotal = despesasNoPeriodo.reduce((sum, d) => sum + Number((d.data as any).valor_pago || (d.data as any).valor || 0), 0);
+  const resultado = receitaBruta - despesaTotal;
+
+  const data = {
+    periodo: { ano, mes },
+    receitaBruta,
+    despesaTotal,
+    resultado,
+    margem: receitaBruta > 0 ? (resultado / receitaBruta) * 100 : 0
+  };
+
+  const response = { success: true, data };
+  await cache.set(cacheKey, response, { ttl: 300 }); // 5 minutes
+  res.json(response);
+});
+
 

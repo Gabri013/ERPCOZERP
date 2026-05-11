@@ -43,7 +43,7 @@ export const tenantMiddleware = async (
     }
 
     req.user = {
-      userId: decoded.userId,
+      userId: decoded.sub || decoded.userId,
       companyId: decoded.companyId,
       email: decoded.email,
       role: decoded.role,

@@ -72,6 +72,19 @@ async function main() {
 
   const masterRole = rolesByCode.get('master')!;
 
+  // === COMPANY DEFAULT ===
+  let defaultCompany = await prisma.company.findFirst();
+  if (!defaultCompany) {
+    defaultCompany = await prisma.company.create({
+      data: {
+        cnpj: '12.345.678/0001-90',
+        razaoSocial: 'Cozinca Inox Equipamentos LTDA',
+        fantasia: 'Cozinca Inox',
+        ativo: true,
+      },
+    });
+  }
+
   // === PERMISSIONS (legado do frontend) ===
   const perms = [
     // Core engine / no-code
@@ -324,15 +337,15 @@ async function main() {
 
     // ── Operadores de chão de fábrica ─────────────────────────────────────────
     corte_laser: [
-      'ver_op','apontar','ver_chao_fabrica','ver_kanban',
+      'ver_op','apontar','ver_chao_fabrica','ver_roteiros','ver_kanban',
       'ver_estoque','produto.view',              // Ver disponibilidade de matéria-prima
     ],
     dobra_montagem: [
-      'ver_op','apontar','ver_chao_fabrica','ver_kanban',
+      'ver_op','apontar','ver_chao_fabrica','ver_roteiros','ver_kanban',
       'ver_estoque','produto.view',
     ],
     solda: [
-      'ver_op','apontar','ver_chao_fabrica','ver_kanban',
+      'ver_op','apontar','ver_chao_fabrica','ver_roteiros','ver_kanban',
       'ver_estoque','produto.view',
     ],
 
@@ -406,8 +419,8 @@ async function main() {
   const hash = await bcrypt.hash(masterPassword, 12);
   const master = await prisma.user.upsert({
     where: { email: masterEmail },
-    update: { passwordHash: hash, fullName: 'Master / Owner', active: true, emailVerified: true },
-    create: { email: masterEmail, passwordHash: hash, fullName: 'Master / Owner', active: true, emailVerified: true },
+    update: { passwordHash: hash, fullName: 'Master / Owner', active: true, emailVerified: true, companyId: defaultCompany.id },
+    create: { email: masterEmail, passwordHash: hash, fullName: 'Master / Owner', active: true, emailVerified: true, companyId: defaultCompany.id },
   });
 
   await prisma.userRole.upsert({
@@ -425,8 +438,8 @@ async function main() {
 
     const created = await prisma.user.upsert({
       where: { email },
-        update: { passwordHash: demoHash, fullName, active: true, emailVerified: true, sector: sector ?? null },
-        create: { email, passwordHash: demoHash, fullName, active: true, emailVerified: true, sector: sector ?? null },
+        update: { passwordHash: demoHash, fullName, active: true, emailVerified: true, sector: sector ?? null, companyId: defaultCompany.id },
+        create: { email, passwordHash: demoHash, fullName, active: true, emailVerified: true, sector: sector ?? null, companyId: defaultCompany.id },
     });
 
     await prisma.userRole.upsert({
@@ -478,6 +491,7 @@ async function main() {
         active: true,
         emailVerified: true,
         sector: sector ?? null,
+        companyId: defaultCompany.id,
       },
       create: {
         email,
@@ -486,6 +500,7 @@ async function main() {
         active: true,
         emailVerified: true,
         sector: sector ?? null,
+        companyId: defaultCompany.id,
       },
     })
     await prisma.userRole.upsert({
@@ -536,21 +551,21 @@ async function main() {
   await ensureEquipeUser(
     'marcos.oliveira@cozinca.com.br',
     'Marcos Oliveira',
-    'operador_laser',
+    'corte_laser',
     'Produção - Corte Laser'
   )
 
   await ensureEquipeUser(
     'diego.santos@cozinca.com.br',
     'Diego Santos',
-    'operador_dobra',
+    'dobra_montagem',
     'Produção - Dobra e Montagem'
   )
 
   await ensureEquipeUser(
     'felipe.lima@cozinca.com.br',
     'Felipe Lima',
-    'operador_dobra',
+    'solda',
     'Produção - Solda e Acabamento'
   )
 
@@ -574,14 +589,14 @@ async function main() {
   await ensureEquipeUser(
     'juliana.martins@cozinca.com.br',
     'Juliana Martins',
-    'vendas',
+    'orcamentista_vendas',
     'Comercial'
   )
 
   await ensureEquipeUser(
     'thiago.pereira@cozinca.com.br',
     'Thiago Pereira',
-    'vendas',
+    'orcamentista_vendas',
     'Comercial'
   )
 

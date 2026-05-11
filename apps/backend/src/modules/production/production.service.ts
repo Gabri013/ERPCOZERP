@@ -1,5 +1,6 @@
 import { Prisma, StockMovementType } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
+import { eventBus, ERP_EVENTS } from '../../lib/events.js';
 import { prisma } from '../../infra/prisma.js';
 import { applyStockMovement, getOrCreateDefaultLocation } from '../stock/stock.service.js';
 
@@ -410,6 +411,11 @@ export async function updateWorkOrder(
         },
         include: woInclude,
       });
+      eventBus.emit(ERP_EVENTS.OP_CONCLUIDA, {
+        opId: updated.id,
+        companyId: updated.companyId,
+        userId: userId ?? null,
+      });
       return mapWoRow(updated);
     }
 
@@ -523,6 +529,12 @@ export async function finishWorkOrder(
         },
       },
       include: woInclude,
+    });
+
+    eventBus.emit(ERP_EVENTS.OP_CONCLUIDA, {
+      opId: updated.id,
+      companyId: updated.companyId,
+      userId: userId ?? null,
     });
 
     return mapWoRow(updated);

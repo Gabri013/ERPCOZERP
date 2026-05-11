@@ -107,18 +107,19 @@ export async function applyStockMovement(
 
   return db.stockMovement.create({
     data: {
-      productId,
-      locationId,
       type,
       quantity,
       reference: reference ?? undefined,
       notes: notes ?? undefined,
-      userId: userId ?? undefined,
       product: { connect: { id: productId } },
+      location: locationId ? { connect: { id: locationId } } : undefined,
+      user: userId ? { connect: { id: userId } } : undefined,
     } as any,
     include: { product: true, location: true, user: { select: { id: true, fullName: true, email: true } } },
   });
 }
+
+
 
 export async function createMovement(input: {
   productId: string;

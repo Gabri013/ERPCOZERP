@@ -27,6 +27,7 @@ export function registrarHandlersFinanceiro() {
             updatedBy: null,
             data: {
               origem: 'pedido_entregue',
+              companyId: payload.companyId,
               pedidoId: payload.pedidoId,
               customerId: payload.customerId,
               valor: payload.valorTotal,
@@ -53,6 +54,7 @@ export function registrarHandlersFinanceiro() {
             updatedBy: payload.userId ?? null,
             data: {
               origem: 'compra_recebida',
+              companyId: payload.companyId,
               compraId: payload.compraId,
               supplierId: payload.supplierId,
               valor: payload.valorTotal,

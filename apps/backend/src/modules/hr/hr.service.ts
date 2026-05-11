@@ -118,6 +118,54 @@ export async function calculatePayroll(month: string) {
     lines.push(line);
   }
 
+  const accountEntity = await prisma.entity.upsert({
+    where: { code: 'conta_pagar' },
+    update: {},
+    create: { code: 'conta_pagar', name: 'Contas a Pagar' },
+  });
+
+  const existingPayrollPayable = await prisma.entityRecord.findFirst({
+    where: {
+      entityId: accountEntity.id,
+      deletedAt: null,
+      data: { path: ['payrollMonth'], equals: month },
+    },
+  });
+
+  const totalPayrollValue = lines.reduce((sum, line) => sum + (line.net?.toNumber() ?? 0), 0);
+  const dueDate = new Date(Number(month.slice(0, 4)), Number(month.slice(5)) - 1, 5).toISOString().slice(0, 10);
+
+  if (existingPayrollPayable) {
+    await prisma.entityRecord.update({
+      where: { id: existingPayrollPayable.id },
+      data: {
+        updatedBy: null,
+        data: {
+          ...(existingPayrollPayable.data as any),
+          valor: totalPayrollValue,
+          data_vencimento: dueDate,
+          descricao: `Folha de pagamento ${month} — ${lines.length} funcionários`,
+        },
+      },
+    });
+  } else {
+    await prisma.entityRecord.create({
+      data: {
+        entityId: accountEntity.id,
+        createdBy: null,
+        updatedBy: null,
+        data: {
+          origem: 'folha_pagamento',
+          payrollMonth: month,
+          valor: totalPayrollValue,
+          status: 'aberto',
+          data_vencimento: dueDate,
+          descricao: `Folha de pagamento ${month} — ${lines.length} funcionários`,
+        },
+      },
+    });
+  }
+
   return prisma.payrollRun.findUnique({
     where: { id: run.id },
     include: { lines: { include: { employee: true } } },
