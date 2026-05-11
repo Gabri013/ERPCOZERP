@@ -14,8 +14,9 @@ import ERPLayout from '@/components/layout/ERPLayout';
 import PermissaoRoute from '@/components/PermissaoRoute';
 import RouteFallback from '@/components/common/RouteFallback';
 import ErrorMonitorBootstrap from '@/components/ErrorMonitorBootstrap';
-import Dashboard from '@/pages/Dashboard';
-import Login from '@/pages/Login';
+import { salesRoutes } from '@/routes/salesRoutes';
+import { stockRoutes } from '@/routes/stockRoutes';
+import { productionRoutes } from '@/routes/productionRoutes';
 
 const Clientes = lazy(() => import('@/pages/vendas/Clientes'));
 const PedidosVenda = lazy(() => import('@/pages/vendas/PedidosVenda'));
@@ -197,6 +198,16 @@ const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError } = useAuth();
   const location = useLocation();
 
+  const renderRoutesFromArray = (routesArray) => {
+    return routesArray.map((route) => (
+      <Route
+        key={route.path}
+        path={route.path}
+        element={<PermissaoRoute acao={route.permission}>{route.element}</PermissaoRoute>}
+      />
+    ));
+  };
+
   if (location.pathname === '/login') {
     return (
       <Routes>
@@ -233,17 +244,14 @@ const AuthenticatedApp = () => {
           <Route path="/entidades/:codigo" element={<EntityDynamicPage />} />
           <Route path="/relatorios" element={<PermissaoRoute acao="relatorios:view"><Relatorios /></PermissaoRoute>} />
 
-          <Route path="/vendas/pedidos" element={<PermissaoRoute acao="ver_pedidos"><PedidosVenda /></PermissaoRoute>} />
-          <Route path="/vendas/clientes" element={<PermissaoRoute acao="ver_clientes"><Clientes /></PermissaoRoute>} />
-          <Route path="/vendas/orcamentos" element={<PermissaoRoute acao="ver_pedidos"><Orcamentos /></PermissaoRoute>} />
-          <Route path="/vendas/propostas" element={<PermissaoRoute acao="ver_pedidos"><VendasPropostas /></PermissaoRoute>} />
-          <Route path="/vendas/propostas/:id" element={<PermissaoRoute acao="ver_pedidos"><VendasPropostaDetalhe /></PermissaoRoute>} />
-          <Route path="/vendas/oportunidades" element={<PermissaoRoute acao="ver_pedidos"><VendasOportunidades /></PermissaoRoute>} />
-          <Route path="/vendas/oportunidades/:id" element={<PermissaoRoute acao="ver_pedidos"><VendasOportunidadeDetalhe /></PermissaoRoute>} />
-          <Route path="/vendas/tabela-precos" element={<PermissaoRoute acao="ver_pedidos"><TabelaPrecos /></PermissaoRoute>} />
-          <Route path="/vendas/relatorios" element={<PermissaoRoute acao="relatorios:view"><RelatoriosVendas /></PermissaoRoute>} />
-          <Route path="/vendas/solicitacoes-cotacao" element={<PermissaoRoute acao="ver_pedidos"><SolicitacoesCotacao /></PermissaoRoute>} />
-          <Route path="/vendas/comissoes" element={<PermissaoRoute acao="ver_pedidos"><ComissoesVendas /></PermissaoRoute>} />
+          {/* Sales Routes */}
+          {renderRoutesFromArray(salesRoutes)}
+
+          {/* Stock Routes */}
+          {renderRoutesFromArray(stockRoutes)}
+
+          {/* Production Routes */}
+          {renderRoutesFromArray(productionRoutes)}
           <Route path="/paineis-gestao" element={<PermissaoRoute acao="relatorios:view"><PaineisGestao /></PermissaoRoute>} />
           <Route path="/servicos/solicitacoes" element={<PermissaoRoute acao="ver_servicos"><ServicosOrcamentos /></PermissaoRoute>} />
           <Route path="/servicos/propostas" element={<PermissaoRoute acao="ver_servicos"><ServicosPropostas /></PermissaoRoute>} />

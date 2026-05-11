@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../infra/prisma.js';
 import { getEffectivePermissionCodesForUserId } from '../lib/effectivePermissions.js';
+import { runWithTenant } from '../infra/tenantContext.js';
 
 export type AuthUser = {
   userId: string;
@@ -27,7 +28,10 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
   }
 
   try {
-    const secret = process.env.JWT_SECRET || 'dev_change_me';
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      throw new Error('JWT_SECRET environment variable is required');
+    }
     const decoded = jwt.verify(token, secret) as {
       sub?: string;
       email?: string;
@@ -70,10 +74,9 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
         });
       }
     } catch (e) {
-      // eslint-disable-next-line no-console
+      // Fail-closed: any error in company validation blocks access
       console.error('[authenticate] Erro validando company:', e instanceof Error ? e.message : e);
-      // Não bloqueia completamente, pode estar durante migração
-      // Mas loga para debug
+      return res.status(500).json({ error: 'Erro interno na validação de empresa' });
     }
 
     req.user = {
@@ -83,7 +86,9 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
       permissions,
       companyId,
     };
-    return next();
+
+    // Set tenant context for the request
+    return runWithTenant({ companyId }, () => next());
   } catch {
     return res.status(401).json({ error: 'Invalid token' });
   }

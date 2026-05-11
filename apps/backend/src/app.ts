@@ -1,6 +1,7 @@
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
+import rateLimit from 'express-rate-limit';
 
 import { env } from './config/env.js';
 import { httpLogger } from './infra/logger.js';
@@ -47,7 +48,6 @@ import {
   registerErrorMonitorModule,
 } from './modules/error-monitor/error-monitor.module.js';
 import { registerQualityGateModule } from './modules/quality-gate/quality-gate.module.js';
-import { tenantMiddleware } from './middleware/tenant.js';
 import { registrarHandlersProducao } from './modules/production/production.events.js';
 import { registrarHandlersFinanceiro } from './modules/financial/financial.events.js';
 import { registrarHandlersEstoque } from './modules/stock/stock.events.js';
@@ -85,6 +85,19 @@ export function createApp() {
     methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
     allowedHeaders: ['Content-Type','Authorization']
   }));
+
+  // Global rate limiting: 1000 requests per 15 minutes per IP
+  const globalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 1000, // limit each IP to 1000 requests per windowMs
+    message: {
+      error: 'Muitas requisições. Tente novamente mais tarde.',
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+  app.use('/api', globalLimiter);
+
   app.use(express.json({ limit: '20mb' }));
 
   // Logging HTTP
@@ -107,9 +120,6 @@ export function createApp() {
   // modules
   registerHealthModule(app);
   registerAuthModule(app);
-  
-  // Tenant middleware (após auth, antes dos outros módulos)
-  app.use('/api', tenantMiddleware as any);
   
   registerEntitiesModule(app);
   registerRecordsModule(app);
