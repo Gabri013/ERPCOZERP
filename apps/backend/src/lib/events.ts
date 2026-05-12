@@ -6,6 +6,7 @@ export const ERP_EVENTS = {
   PEDIDO_ENTREGUE: 'pedido.entregue',
   OP_CRIADA: 'op.criada',
   OP_CONCLUIDA: 'op.concluida',
+  PRODUTO_BOM_COMPLETO: 'produto.bom.completo',
   COMPRA_RECEBIDA: 'compra.recebida',
   ESTOQUE_CRITICO: 'estoque.critico',
   PAGAMENTO_RECEBIDO: 'pagamento.recebido',
@@ -34,6 +35,11 @@ type EventPayloadMap = {
   };
   [ERP_EVENTS.OP_CONCLUIDA]: {
     opId: string;
+    companyId: string;
+    userId?: string | null;
+  };
+  [ERP_EVENTS.PRODUTO_BOM_COMPLETO]: {
+    productRecordId: string;
     companyId: string;
     userId?: string | null;
   };

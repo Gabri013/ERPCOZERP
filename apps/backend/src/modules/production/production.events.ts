@@ -42,6 +42,33 @@ async function notifyCompanyUsers(companyId: string, type: string, text: string,
   });
 }
 
+async function notifyRoleUsers(companyId: string, roleCodes: string[], type: string, text: string, sector: string) {
+  const users = await prisma.user.findMany({
+    where: {
+      companyId,
+      active: true,
+      roles: {
+        some: {
+          role: {
+            code: { in: roleCodes },
+          },
+        },
+      },
+    },
+    select: { id: true },
+    take: 300,
+  });
+  if (!users.length) return;
+  await prisma.userNotification.createMany({
+    data: users.map((u) => ({
+      userId: u.id,
+      type,
+      text,
+      sector,
+    })),
+  });
+}
+
 export function registrarHandlersProducao() {
   if (handlersRegistered) return;
   handlersRegistered = true;
@@ -90,6 +117,22 @@ export function registrarHandlersProducao() {
         );
       } catch (error) {
         logger.error('Falha no handler de OP concluída', { error, payload });
+      }
+    })();
+  });
+
+  eventBus.on(ERP_EVENTS.PRODUTO_BOM_COMPLETO, (payload) => {
+    void (async () => {
+      try {
+        await notifyRoleUsers(
+          payload.companyId,
+          ['gerente_producao'],
+          'warning',
+          `BOM de produto concluída: ${payload.productRecordId}`,
+          'Produção',
+        );
+      } catch (error) {
+        logger.error('Falha no handler de BOM completa', { error, payload });
       }
     })();
   });

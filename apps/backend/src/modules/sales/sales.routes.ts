@@ -212,6 +212,17 @@ salesRouter.patch('/quotes/:id', canEdit, async (req, res) => {
   }
 });
 
+salesRouter.post('/quotes/:id/approve', canApprove, async (req, res) => {
+  try {
+    const uid = req.user?.userId;
+    if (!uid) return res.status(401).json({ error: 'Authentication required' });
+    const data = await svc.approveQuote(req.params.id, uid);
+    res.json({ success: true, data });
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
 salesRouter.post('/quotes/:id/convert', canEdit, async (req, res) => {
   try {
     const data = await svc.convertQuoteToSaleOrder(req.params.id, req.user?.userId ?? null);

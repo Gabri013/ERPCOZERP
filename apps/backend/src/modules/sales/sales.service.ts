@@ -375,6 +375,32 @@ export async function approveSaleOrder(
   return updated;
 }
 
+export async function approveQuote(id: string, userId: string) {
+  const quote = await prisma.quote.findUnique({ where: { id } });
+  if (!quote) throw new Error('Orçamento não encontrado');
+  if (quote.status === 'CONVERTIDO') throw new Error('Orçamento já convertido');
+  if (quote.status === 'CANCELADO') throw new Error('Orçamento cancelado');
+
+  const updated = await prisma.quote.update({
+    where: { id },
+    data: {
+      status: 'ENVIADO',
+    },
+  });
+
+  await prisma.salesActivity.create({
+    data: {
+      quoteId: id,
+      userId,
+      type: 'APPROVE',
+      body: `Orçamento ${quote.number} aprovado`,
+      metadata: { quoteId: id } as object,
+    },
+  });
+
+  return updated;
+}
+
 export async function patchKanban(
   id: string,
   kanbanColumn: string,

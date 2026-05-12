@@ -15,8 +15,12 @@ async function resolveProductIdByCode(code) {
 }
 
 export const opService = {
-  getAll: async () => {
-    const { data: body } = await api.get('/api/work-orders');
+  getAll: async (params = {}) => {
+    const query = new URLSearchParams();
+    if (params.limit) query.set('limit', String(params.limit));
+    if (params.sector) query.set('sector', String(params.sector));
+    const queryString = query.toString() ? `?${query.toString()}` : '';
+    const { data: body } = await api.get(`/api/work-orders${queryString}`);
     const rows = body?.data ?? [];
     return { success: true, data: rows };
   },

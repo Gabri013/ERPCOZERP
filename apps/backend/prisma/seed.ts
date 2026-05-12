@@ -43,6 +43,12 @@ async function main() {
   // === ROLES ===
   // Obs: o frontend usa "perfis" e permissões legadas (ex: ver_op, apontar).
   // Aqui garantimos que as roles existam e que tenham um conjunto padrão de permissões.
+  // Perfis principais da Cozinca Inox:
+  // - gerente
+  // - gerente_producao
+  // - orcamentista_vendas
+  // - projetista
+  // - compras
   const rolesToEnsure = [
     { code: 'master',            name: 'Dono',                  description: 'Acesso total ao sistema' },
     { code: 'gerente',           name: 'Gerente',               description: 'Gerência geral do sistema' },

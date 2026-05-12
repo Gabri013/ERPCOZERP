@@ -45,7 +45,7 @@ const MENU_SECTIONS = [
           { label: 'Oportunidades', path: '/crm/oportunidades', required: 'ver_crm' },
           { label: 'Pipeline', path: '/crm/pipeline', required: 'ver_crm' },
           { label: 'Atividades', path: '/crm/atividades', required: 'ver_crm' },
-          { label: 'Gestão de processos', path: '/crm', required: 'ver_vendas' },
+          { label: 'Gestão de processos', path: '/crm', required: 'ver_crm' },
           { label: 'Funil pré-venda (ERP)', path: '/vendas/oportunidades', required: 'ver_pedidos' },
         ],
       },
@@ -113,18 +113,18 @@ const MENU_SECTIONS = [
       },
       {
         label: 'Expedição', icon: Truck, children: [
-          { label: 'Controle da Expedição', path: '/expedicao', required: 'ver_vendas' },
+          { label: 'Controle da Expedição', path: '/expedicao', required: 'ver_expedicao' },
         ],
       },
       {
         label: 'Projetos', icon: FolderKanban, children: [
-          { label: 'Gestão de Projetos', path: '/projetos', required: 'ver_vendas' },
+          { label: 'Gestão de Projetos', path: '/projetos', required: 'ver_projetos' },
         ],
       },
       {
         label: 'Conhecimento', icon: BookOpen, children: [
-          { label: 'Base de Conhecimento', path: '/conhecimento', required: 'ver_vendas' },
-          { label: 'Como Funciona / Módulos', path: '/sobre',       required: 'ver_vendas' },
+          { label: 'Base de Conhecimento', path: '/conhecimento', required: 'ver_conhecimento' },
+          { label: 'Como Funciona / Módulos', path: '/sobre',       alwaysShow: true },
         ],
       },
       {
@@ -199,9 +199,9 @@ const MENU_SECTIONS = [
       },
       {
         label: 'Qualidade', icon: ClipboardCheck, children: [
-          { label: 'Controle de Qualidade', path: '/qualidade',            required: 'ver_producao' },
-          { label: 'Gestão de Documentos',  path: '/qualidade/documentos', required: 'ver_producao' },
-          { label: 'Databooks',             path: '/qualidade/databooks',  required: 'ver_producao' },
+          { label: 'Controle de Qualidade', path: '/qualidade',            required: 'ver_qualidade' },
+          { label: 'Gestão de Documentos',  path: '/qualidade/documentos', required: 'ver_qualidade' },
+          { label: 'Databooks',             path: '/qualidade/databooks',  required: 'ver_qualidade' },
         ],
       },
       {
