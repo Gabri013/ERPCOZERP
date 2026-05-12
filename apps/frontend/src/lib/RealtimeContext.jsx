@@ -11,9 +11,12 @@ const RealtimeContext = createContext({
   bumpNotifications: () => {},
 });
 
-/** Em produção (nginx) o websocket usa o mesmo origin; em dev usa proxy do Vite. */
+/** Em produção (nginx) o websocket usa o mesmo origin; em dev usa URL do backend direto. */
 function socketBaseUrl() {
   if (!appConfig.isApi) return '';
+  if (import.meta.env.DEV) {
+    return (appConfig.backendUrl || 'http://127.0.0.1:3001').replace(/\/$/, '');
+  }
   if (typeof window !== 'undefined' && window.location.origin) return window.location.origin;
   const base = (appConfig.backendUrl || '').replace(/\/$/, '');
   return base || '';

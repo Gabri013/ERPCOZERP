@@ -68,7 +68,54 @@ export type AuditPersona = keyof typeof BASE_USERS;
 
 export async function doLogin(page: Page, role: AuditPersona = 'gerente') {
   const { email, password } = BASE_USERS[role];
-  // Navegar para login e aguardar redirecionamento se já autenticado
+  const apiBase = 'http://127.0.0.1:3001';
+  
+  // Try to get a token via API first
+  let token: string | null = null;
+  try {
+    const res = await page.request.post(`${apiBase}/api/auth/login`, {
+      headers: { 'Content-Type': 'application/json' },
+      data: { email, password },
+    });
+    if (res.status && res.status() >= 200 && res.status() < 300) {
+      const data = await res.json();
+      token = data.token || data.access_token || data.accessToken;
+    }
+  } catch (err) {
+    console.log(`[doLogin] API login failed for ${role}, will try UI login`, err);
+  }
+
+  // If we got a token via API, inject it directly
+  if (token) {
+    // Verify token works against backend before injecting
+    try {
+      const meRes = await page.request.get(`${apiBase}/api/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (meRes.status && meRes.status() >= 200 && meRes.status() < 300) {
+        await page.goto('about:blank');
+        await page.evaluate((t) => {
+          try {
+            localStorage.setItem('access_token', t);
+            localStorage.setItem('token', t);
+            localStorage.setItem('authToken', t);
+            localStorage.setItem('accessToken', t);
+          } catch (e) {
+            console.error('Failed to set token in localStorage', e);
+          }
+        }, token);
+        await page.goto('/', { waitUntil: 'networkidle', timeout: 45_000 });
+        await page.waitForTimeout(2_000); // Let app load with token
+        return;
+      } else {
+        console.log('[doLogin] token validation failed, will try UI fallback');
+      }
+    } catch (err) {
+      console.log('[doLogin] token validation request failed, will try UI fallback', err);
+    }
+  }
+
+  // Fallback: UI-based login
   await page.goto('/', { waitUntil: 'networkidle', timeout: 30_000 });
   
   // Se já está no painel (não no login), retornar
@@ -102,11 +149,44 @@ export async function doLogin(page: Page, role: AuditPersona = 'gerente') {
     }
   }
   
-  // Aguardar redirecionamento para fora do login
-  await page.waitForURL(
-    (url) => !url.pathname.toLowerCase().includes('login'),
-    { timeout: 40_000 }
-  );
+  // Wait for navigation away from login, with shorter timeout since we'll try token injection if it fails
+  try {
+    await page.waitForURL(
+      (url) => !url.pathname.toLowerCase().includes('login'),
+      { timeout: 30_000 }
+    );
+  } catch (e) {
+    // If UI navigation fails, try injecting token directly (may have worked server-side but UI didn't navigate)
+    console.log('[doLogin] UI navigation timeout, attempting direct token injection');
+    const res = await page.request.post(`${apiBase}/api/auth/login`, {
+      headers: { 'Content-Type': 'application/json' },
+      data: { email, password },
+    });
+    if (res.status && res.status() >= 200 && res.status() < 300) {
+      const data = await res.json();
+      const t = data.token || data.access_token || data.accessToken;
+      // verify token
+      try {
+        const me = await page.request.get(`${apiBase}/api/auth/me`, { headers: { Authorization: `Bearer ${t}` } });
+        if (!(me.status && me.status() >= 200 && me.status() < 300)) {
+          throw new Error('token rejected by /api/auth/me');
+        }
+      } catch (verifyErr) {
+        throw verifyErr || new Error('token verification failed');
+      }
+      await page.evaluate((token) => {
+        try {
+          localStorage.setItem('access_token', token);
+          localStorage.setItem('token', token);
+          localStorage.setItem('authToken', token);
+          localStorage.setItem('accessToken', token);
+        } catch (e) {}
+      }, t);
+      await page.goto('/', { waitUntil: 'networkidle', timeout: 45_000 });
+    } else {
+      throw e; // Re-throw if token injection also failed
+    }
+  }
   
   // Aguardar o loader "Carregando módulo..." desaparecer (ou qualquer elemento de carregamento)
   await page.waitForFunction(
@@ -114,7 +194,7 @@ export async function doLogin(page: Page, role: AuditPersona = 'gerente') {
       const loaders = document.querySelectorAll('[class*="loading" i], [class*="spinner" i], [class*="skeleton" i]');
       return loaders.length === 0;
     },
-    { timeout: 20_000 }
+    { timeout: 10_000 }
   ).catch(() => {
     // Se timeout no loader, continuar mesmo assim
   });

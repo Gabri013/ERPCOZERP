@@ -541,7 +541,7 @@ export default function PaineisGestao() {
     try {
       const [soRes, woRes] = await Promise.allSettled([
         api.get('/api/sales/sale-orders?take=500'),
-        api.get('/api/production/work-orders?limit=1000'),
+        api.get('/api/work-orders?limit=1000'),
       ]);
       const so = soRes.status === 'fulfilled' ? unwrapApiArray(soRes.value) : [];
       const wo = woRes.status === 'fulfilled' ? unwrapApiArray(woRes.value) : [];

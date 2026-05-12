@@ -364,13 +364,13 @@ const AuthenticatedApp = () => {
           <Route path="/financeiro/crm" element={<PermissaoRoute acao="ver_financeiro"><CRMFinanceiro /></PermissaoRoute>} />
           <Route path="/contabilidade" element={<PermissaoRoute acao="ver_financeiro"><Contabilidade /></PermissaoRoute>} />
           <Route path="/contabilidade/integracao" element={<PermissaoRoute acao="ver_financeiro"><IntegracaoContabil /></PermissaoRoute>} />
-          <Route path="/qualidade" element={<PermissaoRoute acao="ver_producao"><ControleQualidade /></PermissaoRoute>} />
-          <Route path="/qualidade/documentos" element={<PermissaoRoute acao="ver_producao"><GestaoDocumentos /></PermissaoRoute>} />
-          <Route path="/qualidade/databooks" element={<PermissaoRoute acao="ver_producao"><Databooks /></PermissaoRoute>} />
-          <Route path="/expedicao" element={<PermissaoRoute acao="ver_vendas"><ControleExpedicao /></PermissaoRoute>} />
-          <Route path="/projetos" element={<PermissaoRoute acao="ver_vendas"><GestaoProjetos /></PermissaoRoute>} />
-          <Route path="/crm" element={<PermissaoRoute acao="ver_vendas"><CRM /></PermissaoRoute>} />
-          <Route path="/conhecimento" element={<PermissaoRoute acao="ver_vendas"><BaseConhecimento /></PermissaoRoute>} />
+          <Route path="/qualidade" element={<PermissaoRoute acao="ver_qualidade"><ControleQualidade /></PermissaoRoute>} />
+          <Route path="/qualidade/documentos" element={<PermissaoRoute acao="ver_qualidade"><GestaoDocumentos /></PermissaoRoute>} />
+          <Route path="/qualidade/databooks" element={<PermissaoRoute acao="ver_qualidade"><Databooks /></PermissaoRoute>} />
+          <Route path="/expedicao" element={<PermissaoRoute acao="ver_expedicao"><ControleExpedicao /></PermissaoRoute>} />
+          <Route path="/projetos" element={<PermissaoRoute acao="ver_projetos"><GestaoProjetos /></PermissaoRoute>} />
+          <Route path="/crm" element={<PermissaoRoute acao="ver_crm"><CRM /></PermissaoRoute>} />
+          <Route path="/conhecimento" element={<PermissaoRoute acao="ver_conhecimento"><BaseConhecimento /></PermissaoRoute>} />
           <Route path="/sobre" element={<SobreERP />} />
 
           <Route

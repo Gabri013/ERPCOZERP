@@ -24,7 +24,6 @@ model User {
   companyId               String?                  @map("company_id")
   createdAt               DateTime                 @default(now()) @map("created_at")
   updatedAt               DateTime                 @updatedAt @map("updated_at")
-  company                 Company?                 @relation(fields: [companyId], references: [id])
   accessLogs              AccessLog[]
   auditLogs               AuditLog[]
   crmInboxConversations   CrmConversation[]        @relation("CrmConversationResponsible")
@@ -42,6 +41,7 @@ model User {
   permissionGrants        UserPermissionGrant[]
   roles                   UserRole[]
   sessions                UserSession[]
+  company                 Company?                 @relation(fields: [companyId], references: [id])
   workOrderStatusHistory  WorkOrderStatusHistory[]
   responsibleWorkOrders   WorkOrder[]              @relation("WorkOrderResponsible")
 
@@ -259,29 +259,29 @@ model UserSession {
 }
 
 model AuditLog {
-  id         BigInt    @id @default(autoincrement())
-  userId     String?   @map("user_id") @db.Uuid
-  action     String    // LOGIN, LOGOUT, IMPERSONATE_START, IMPERSONATE_END, CREATE, UPDATE, DELETE
-  targetId   String?   @map("target_id") @db.Uuid  // Para impersonation: ID do usuário impersonado
-  masterId   String?   @map("master_id") @db.Uuid  // Para impersonation: ID do master que fez
-  entityId   String?   @map("entity_id") @db.Uuid
-  recordId   String?   @map("record_id") @db.Uuid
-  fieldName  String?   @map("field_name")
-  oldValue   String?   @map("old_value")
-  newValue   String?   @map("new_value")
-  ipAddress  String?   @map("ip_address")
-  userAgent  String?   @map("user_agent")
-  reason     String?   @map("reason")  // Para impersonation: motivo/descrição
-  metadata   Json?
-  companyId  String?   @map("company_id")  // Empresa afetada
-  createdAt  DateTime  @default(now()) @map("created_at")
-  user       User?     @relation(fields: [userId], references: [id])
+  id        BigInt   @id @default(autoincrement())
+  userId    String?  @map("user_id") @db.Uuid
+  action    String
+  entityId  String?  @map("entity_id") @db.Uuid
+  recordId  String?  @map("record_id") @db.Uuid
+  fieldName String?  @map("field_name")
+  oldValue  String?  @map("old_value")
+  newValue  String?  @map("new_value")
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+  companyId String?  @map("company_id")
+  masterId  String?  @map("master_id") @db.Uuid
+  reason    String?  @map("reason")
+  targetId  String?  @map("target_id") @db.Uuid
+  user      User?    @relation(fields: [userId], references: [id])
 
-  @@map("audit_logs")
   @@index([userId])
   @@index([action])
   @@index([createdAt])
   @@index([companyId])
+  @@map("audit_logs")
 }
 
 model AccessLog {
@@ -471,11 +471,11 @@ model Product {
   companyId          String               @map("company_id")
   createdAt          DateTime             @default(now()) @map("created_at")
   updatedAt          DateTime             @updatedAt @map("updated_at")
-  company            Company              @relation(fields: [companyId], references: [id])
   inventoryItems     InventoryCountItem[]
   priceTableItems    PriceTableItem[]
   productFiles       ProductFile[]
   locations          ProductLocation[]
+  company            Company              @relation(fields: [companyId], references: [id])
   entityRecord       EntityRecord?        @relation(fields: [entityRecordId], references: [id])
   purchaseOrderItems PurchaseOrderItem[]
   quoteItems         QuoteItem[]
@@ -588,9 +588,9 @@ model SalesOpportunity {
   updatedAt     DateTime        @updatedAt @map("updated_at")
   quotes        Quote[]
   activities    SalesActivity[]
+  company       Company         @relation(fields: [companyId], references: [id])
   customer      Customer        @relation(fields: [customerId], references: [id])
   owner         User?           @relation("OpportunityOwner", fields: [ownerUserId], references: [id])
-  company       Company         @relation(fields: [companyId], references: [id])
 
   @@index([customerId], map: "idx_opportunities_customer")
   @@index([ownerUserId], map: "idx_opportunities_owner")
@@ -711,10 +711,10 @@ model SaleOrder {
   updatedAt    DateTime        @updatedAt @map("updated_at")
   items        SaleOrderItem[]
   approvedBy   User?           @relation("SaleOrderApprovedBy", fields: [approvedById], references: [id])
+  company      Company         @relation(fields: [companyId], references: [id])
   customer     Customer?       @relation(fields: [customerId], references: [id])
   owner        User?           @relation("SaleOrderOwner", fields: [ownerUserId], references: [id])
   quote        Quote?          @relation(fields: [quoteId], references: [id])
-  company      Company         @relation(fields: [companyId], references: [id])
   workOrders   WorkOrder[]
 
   @@index([status], map: "idx_sale_orders_status")
@@ -757,18 +757,18 @@ model WorkOrder {
   categoryLabel     String?                  @map("category_label") @db.VarChar(128)
   notes             String?
   responsibleUserId String?                  @map("responsible_user_id") @db.Uuid
-  companyId         String                  @map("company_id")
+  companyId         String                   @map("company_id")
   finishedAt        DateTime?                @map("finished_at")
   createdAt         DateTime                 @default(now()) @map("created_at")
   updatedAt         DateTime                 @updatedAt @map("updated_at")
   appointments      ProductionAppointment[]
   items             WorkOrderItem[]
   statusHistory     WorkOrderStatusHistory[]
+  company           Company                  @relation(fields: [companyId], references: [id])
   product           Product?                 @relation("WorkOrderFinishedProduct", fields: [productId], references: [id])
   responsible       User?                    @relation("WorkOrderResponsible", fields: [responsibleUserId], references: [id])
   routing           Routing?                 @relation(fields: [routingId], references: [id])
   saleOrder         SaleOrder?               @relation(fields: [saleOrderId], references: [id])
-  company           Company                  @relation(fields: [companyId], references: [id])
 
   @@index([saleOrderId], map: "idx_work_orders_sale_order")
   @@index([status], map: "idx_work_orders_status")
@@ -777,16 +777,16 @@ model WorkOrder {
 }
 
 model Machine {
-  id            String                  @id @default(uuid()) @db.Uuid
-  code          String                  @unique
-  name          String
-  sector        String?
-  active        Boolean                 @default(true)
-  capacidadeHoraria Float @default(10) // peças por hora
-  createdAt     DateTime                @default(now()) @map("created_at")
-  updatedAt     DateTime                @updatedAt @map("updated_at")
-  appointments  ProductionAppointment[]
-  routingStages RoutingStage[]
+  id                String                  @id @default(uuid()) @db.Uuid
+  code              String                  @unique
+  name              String
+  sector            String?
+  active            Boolean                 @default(true)
+  createdAt         DateTime                @default(now()) @map("created_at")
+  updatedAt         DateTime                @updatedAt @map("updated_at")
+  capacidadeHoraria Float                   @default(10)
+  appointments      ProductionAppointment[]
+  routingStages     RoutingStage[]
 
   @@map("machines")
 }
@@ -859,14 +859,14 @@ model ProductionAppointment {
 }
 
 model WorkOrderItem {
-  id                    String    @id @default(uuid()) @db.Uuid
-  workOrderId           String    @map("work_order_id") @db.Uuid
-  productId             String    @map("product_id") @db.Uuid
-  quantity              Decimal   @db.Decimal(14, 4)
-  quantidadeProduzida   Decimal?  @map("quantidade_produzida") @db.Decimal(14, 4)
-  quantidadeRefugo      Decimal   @default(0) @map("quantidade_refugo") @db.Decimal(14, 4)
-  product               Product   @relation(fields: [productId], references: [id])
-  workOrder             WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  id                  String    @id @default(uuid()) @db.Uuid
+  workOrderId         String    @map("work_order_id") @db.Uuid
+  productId           String    @map("product_id") @db.Uuid
+  quantity            Decimal   @db.Decimal(14, 4)
+  quantidadeProduzida Decimal?  @map("quantidade_produzida") @db.Decimal(14, 4)
+  quantidadeRefugo    Decimal   @default(0) @map("quantidade_refugo") @db.Decimal(14, 4)
+  product             Product   @relation(fields: [productId], references: [id])
+  workOrder           WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
   @@map("work_order_items")
 }
@@ -882,8 +882,8 @@ model Supplier {
   companyId      String          @map("company_id")
   createdAt      DateTime        @default(now()) @map("created_at")
   updatedAt      DateTime        @updatedAt @map("updated_at")
-  company        Company         @relation(fields: [companyId], references: [id])
   purchaseOrders PurchaseOrder[]
+  company        Company         @relation(fields: [companyId], references: [id])
 
   @@map("suppliers")
 }
@@ -899,8 +899,8 @@ model PurchaseOrder {
   createdAt    DateTime            @default(now()) @map("created_at")
   updatedAt    DateTime            @updatedAt @map("updated_at")
   items        PurchaseOrderItem[]
-  supplier     Supplier            @relation(fields: [supplierId], references: [id])
   company      Company             @relation(fields: [companyId], references: [id])
+  supplier     Supplier            @relation(fields: [supplierId], references: [id])
 
   @@map("purchase_orders")
 }
@@ -932,8 +932,8 @@ model Employee {
   companyId     String         @map("company_id")
   createdAt     DateTime       @default(now()) @map("created_at")
   updatedAt     DateTime       @updatedAt @map("updated_at")
-  user          User?          @relation(fields: [userId], references: [id])
   company       Company        @relation(fields: [companyId], references: [id])
+  user          User?          @relation(fields: [userId], references: [id])
   leaveRequests LeaveRequest[]
   payrollLines  PayrollLine[]
   timeEntries   TimeEntry[]
@@ -998,23 +998,23 @@ model PayrollLine {
 }
 
 model FiscalNfe {
-  id                   String    @id @default(uuid()) @db.Uuid
-  number               String?
-  series               String?
-  accessKey            String?   @unique @map("access_key")
-  status               String    @default("RASCUNHO")
-  customerName         String?   @map("customer_name")
-  totalAmount          Decimal?  @map("total_amount") @db.Decimal(14, 2)
-  issuedAt             DateTime? @map("issued_at")
-  cancelledAt          DateTime? @map("cancelled_at")
-  xmlPath              String?   @map("xml_path")
-  referencia           String?   @map("referencia")
-  companyId            String    @map("company_id")
-  focusStatus          String?   @map("focus_status")
-  motivoCancelamento   String?   @map("motivo_cancelamento")
-  createdAt            DateTime  @default(now()) @map("created_at")
-  updatedAt            DateTime  @updatedAt @map("updated_at")
-  company              Company   @relation(fields: [companyId], references: [id])
+  id                 String    @id @default(uuid()) @db.Uuid
+  number             String?
+  series             String?
+  accessKey          String?   @unique @map("access_key")
+  status             String    @default("RASCUNHO")
+  customerName       String?   @map("customer_name")
+  totalAmount        Decimal?  @map("total_amount") @db.Decimal(14, 2)
+  issuedAt           DateTime? @map("issued_at")
+  cancelledAt        DateTime? @map("cancelled_at")
+  xmlPath            String?   @map("xml_path")
+  referencia         String?   @map("referencia")
+  companyId          String    @map("company_id")
+  focusStatus        String?   @map("focus_status")
+  motivoCancelamento String?   @map("motivo_cancelamento")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  company            Company   @relation(fields: [companyId], references: [id])
 
   @@index([status], map: "idx_fiscal_nfe_status")
   @@map("fiscal_nfes")
@@ -1335,13 +1335,13 @@ model QualityDocument {
 }
 
 model CostCenter {
-  id          String   @id @default(uuid()) @db.Uuid
-  codigo      String   @unique
-  nome        String
-  descricao   String?
-  ativo       Boolean  @default(true)
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id        String   @id @default(uuid()) @db.Uuid
+  codigo    String   @unique
+  nome      String
+  descricao String?
+  ativo     Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("cost_centers")
 }
@@ -1604,6 +1604,57 @@ model NcMetaCodeSequence {
   @@map("nc_meta_code_sequences")
 }
 
+model Company {
+  id                 String             @id @default(cuid())
+  cnpj               String             @unique
+  razaoSocial        String
+  fantasia           String?
+  ativo              Boolean            @default(true)
+  createdAt          DateTime           @default(now())
+  accountEntries     AccountEntry[]
+  apiKeys            ApiKey[]
+  customers          Customer[]
+  employees          Employee[]
+  fiscalNfes         FiscalNfe[]
+  products           Product[]
+  purchaseOrders     PurchaseOrder[]
+  saleOrders         SaleOrder[]
+  salesOpportunities SalesOpportunity[]
+  suppliers          Supplier[]
+  users              User[]
+  webhooks           Webhook[]
+  workOrders         WorkOrder[]
+}
+
+model ApiKey {
+  id          String    @id @default(uuid()) @db.Uuid
+  name        String
+  key         String    @unique
+  companyId   String    @map("company_id")
+  permissions String[]
+  active      Boolean   @default(true)
+  expiresAt   DateTime? @map("expires_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  lastUsedAt  DateTime? @map("last_used_at")
+  company     Company   @relation(fields: [companyId], references: [id])
+
+  @@map("api_keys")
+}
+
+model Webhook {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  url       String
+  events    String[]
+  companyId String   @map("company_id")
+  secret    String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  company   Company  @relation(fields: [companyId], references: [id])
+
+  @@map("webhooks")
+}
+
 enum StockMovementType {
   ENTRADA
   SAIDA
@@ -1629,57 +1680,6 @@ enum PurchaseOrderStatus {
   PARCIALMENTE_RECEBIDO
   RECEBIDO
   CANCELADO
-}
-
-model Company {
-  id          String   @id @default(cuid())
-  cnpj        String   @unique
-  razaoSocial String
-  fantasia    String?
-  ativo       Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  users       User[]
-  products    Product[]
-  customers   Customer[]
-  suppliers   Supplier[]
-  saleOrders  SaleOrder[]
-  workOrders  WorkOrder[]
-  accountEntries AccountEntry[]
-  purchaseOrders PurchaseOrder[]
-  fiscalNfes FiscalNfe[]
-  employees Employee[]
-  salesOpportunities SalesOpportunity[]
-  apiKeys     ApiKey[]
-  webhooks    Webhook[]
-}
-
-model ApiKey {
-  id          String   @id @default(uuid()) @db.Uuid
-  name        String
-  key         String   @unique
-  companyId   String   @map("company_id")
-  permissions String[] // e.g., ['read:sales', 'write:products']
-  active      Boolean  @default(true)
-  expiresAt   DateTime? @map("expires_at")
-  createdAt   DateTime @default(now()) @map("created_at")
-  lastUsedAt  DateTime? @map("last_used_at")
-  company     Company  @relation(fields: [companyId], references: [id])
-
-  @@map("api_keys")
-}
-
-model Webhook {
-  id          String   @id @default(uuid()) @db.Uuid
-  name        String
-  url         String
-  events      String[] // e.g., ['sale_order.created', 'product.updated']
-  companyId   String   @map("company_id")
-  secret      String   // for HMAC verification
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now()) @map("created_at")
-  company     Company  @relation(fields: [companyId], references: [id])
-
-  @@map("webhooks")
 }
 
 enum LeaveRequestStatus {

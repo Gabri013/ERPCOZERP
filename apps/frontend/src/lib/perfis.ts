@@ -90,11 +90,11 @@ export const TODAS_PERMISSOES: Permissao[] = [
 // Permissões padrão por perfil
 export const PERMISSOES_PERFIL: Record<string, string[]> = {
   dono: TODAS_PERMISSOES.map(p => p.key), // tudo
-  gerente_geral: ['ver_pedidos','criar_pedidos','editar_pedidos','aprovar_pedidos','ver_clientes','editar_clientes','ver_orcamentos','criar_orcamentos','ver_estoque','ver_compras','criar_oc','ver_op','criar_op','editar_op','apontar','ver_kanban','ver_pcp','ver_roteiros','ver_maquinas','ver_chao_fabrica','ver_financeiro','editar_financeiro','aprovar_financeiro','ver_relatorio_financeiro','ver_rh','ver_relatorios'],
-  gerente_vendas: ['ver_pedidos','criar_pedidos','editar_pedidos','aprovar_pedidos','ver_clientes','editar_clientes','ver_orcamentos','criar_orcamentos','ver_relatorios'],
-  gerente_producao: ['ver_op','criar_op','editar_op','apontar','ver_kanban','ver_pcp','ver_roteiros','ver_maquinas','ver_chao_fabrica','ver_estoque','ver_relatorios'],
-  vendas: ['ver_pedidos','criar_pedidos','ver_clientes','ver_orcamentos','criar_orcamentos'],
-  projetista: ['ver_op','ver_pcp','ver_roteiros','ver_relatorios'],
+  gerente_geral: ['ver_pedidos','criar_pedidos','editar_pedidos','aprovar_pedidos','ver_clientes','editar_clientes','ver_orcamentos','criar_orcamentos','ver_crm','ver_estoque','ver_compras','criar_oc','ver_op','criar_op','editar_op','apontar','ver_kanban','ver_pcp','ver_roteiros','ver_maquinas','ver_chao_fabrica','ver_qualidade','ver_expedicao','ver_projetos','ver_conhecimento','ver_financeiro','editar_financeiro','aprovar_financeiro','ver_relatorio_financeiro','ver_rh','ver_folha','ver_servicos','ver_importacao','ver_fiscal','ver_relatorios'],
+  gerente_vendas: ['ver_crm','ver_pedidos','criar_pedidos','editar_pedidos','aprovar_pedidos','ver_clientes','editar_clientes','ver_orcamentos','criar_orcamentos','ver_conhecimento','ver_relatorios'],
+  gerente_producao: ['ver_op','criar_op','editar_op','apontar','ver_kanban','ver_pcp','ver_roteiros','ver_maquinas','ver_chao_fabrica','ver_estoque','ver_compras','ver_qualidade','ver_expedicao','ver_projetos','ver_conhecimento','ver_relatorios'],
+  vendas: ['ver_crm','ver_pedidos','criar_pedidos','ver_clientes','ver_orcamentos','criar_orcamentos','ver_conhecimento'],
+  projetista: ['ver_op','ver_pcp','ver_roteiros','ver_estoque','ver_compras','ver_projetos','ver_conhecimento','ver_relatorios'],
   corte_laser: ['ver_op','apontar','ver_chao_fabrica'],
   dobra_montagem: ['ver_op','apontar','ver_chao_fabrica'],
   solda: ['ver_op','apontar','ver_chao_fabrica'],
@@ -104,8 +104,8 @@ export const PERMISSOES_PERFIL: Record<string, string[]> = {
   pcp: ['ver_op','criar_op','editar_op','ver_kanban','ver_pcp','ver_roteiros','ver_maquinas','ver_chao_fabrica','ver_estoque','ver_relatorios'],
   engenharia: ['ver_op','ver_kanban','ver_pcp','ver_roteiros','ver_relatorios'],
   producao: ['ver_op','apontar','ver_kanban','ver_chao_fabrica'],
-  qualidade: ['ver_op','apontar','ver_kanban','ver_chao_fabrica','ver_relatorios'],
-  rh: ['ver_rh','editar_funcionarios','ver_relatorios'],
+  qualidade: ['ver_op','apontar','ver_kanban','ver_chao_fabrica','ver_qualidade','ver_conhecimento','ver_relatorios'],
+  rh: ['ver_rh','editar_funcionarios','ver_folha','ver_relatorios'],
   visualizador: ['ver_relatorios'],
 };
 
