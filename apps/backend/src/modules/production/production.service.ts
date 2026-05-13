@@ -111,9 +111,23 @@ const woInclude = {
   items: { include: { product: true } },
 } satisfies Prisma.WorkOrderInclude;
 
-export async function listWorkOrders() {
+export async function listWorkOrders(filter?: { sector?: string | null; limit?: number }) {
+  const where: Prisma.WorkOrderWhereInput = {};
+  if (filter?.sector) {
+    where.routing = {
+      stages: {
+        some: {
+          machine: {
+            sector: filter.sector,
+          },
+        },
+      },
+    };
+  }
   const rows = await prisma.workOrder.findMany({
+    where,
     orderBy: [{ kanbanColumn: 'asc' }, { kanbanOrder: 'asc' }, { createdAt: 'desc' }],
+    ...(filter?.limit ? { take: filter.limit } : {}),
     include: woInclude,
   });
   return rows.map((w) => mapWoRow(w));

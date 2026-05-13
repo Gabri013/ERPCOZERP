@@ -2,6 +2,8 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { prisma } from '../../infra/prisma.js';
+import { getCurrentCompanyId } from '../../infra/tenantContext.js';
+import { eventBus, ERP_EVENTS } from '../../lib/events.js';
 import { Prisma } from '@prisma/client';
 import {
   enrichRowWeights,
@@ -349,6 +351,17 @@ export async function updateBomStatus(productRecordId: string, status: string, u
     update: { bomStatus: status },
   });
   await syncBomStatusToEntityRecord(productRecordId, status);
+
+  if (status === 'COMPLETE') {
+    const companyId = getCurrentCompanyId?.();
+    if (companyId) {
+      eventBus.emit(ERP_EVENTS.PRODUTO_BOM_COMPLETO, {
+        productRecordId,
+        companyId,
+        userId: userId ?? null,
+      });
+    }
+  }
 
   return { ok: true, bomStatus: status };
 }

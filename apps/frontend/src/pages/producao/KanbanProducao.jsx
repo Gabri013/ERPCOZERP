@@ -4,6 +4,7 @@ import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import PageHeader from '@/components/common/PageHeader';
 import { opService } from '@/services/opService';
 import { historicoOPServiceApi } from '@/services/historicoOPServiceApi';
+import { api } from '@/services/api';
 import { usePermissao } from '@/lib/PermissaoContext';
 import { Clock, AlertTriangle, User, Package, History, X } from 'lucide-react';
 import FluxoProducao from '@/components/producao/FluxoProducao';
@@ -136,14 +137,28 @@ export default function KanbanProducao() {
   const [ops, setOps] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showHistorico, setShowHistorico] = useState(false);
+  const [sectors, setSectors] = useState([]);
+  const [sectorFilter, setSectorFilter] = useState('');
   const { usuarioAtual } = usePermissao();
 
   const [historico, setHistorico] = useState([]);
 
+  async function loadSectors() {
+    try {
+      const { data: responseBody } = await api.get('/api/production/machine-sectors');
+      setSectors(responseBody?.data || []);
+    } catch {
+      setSectors([]);
+    }
+  }
+
   async function load() {
     setLoading(true);
     try {
-      const [opsRes, hist] = await Promise.all([opService.getAll(), historicoOPServiceApi.getAll()]);
+      const [opsRes, hist] = await Promise.all([
+        opService.getAll({ sector: sectorFilter || undefined, limit: 1000 }),
+        historicoOPServiceApi.getAll(),
+      ]);
       setOps(opsRes.data || []);
       setHistorico(hist || []);
     } finally {
@@ -152,8 +167,12 @@ export default function KanbanProducao() {
   }
 
   useEffect(() => {
-    load();
+    loadSectors();
   }, []);
+
+  useEffect(() => {
+    load();
+  }, [sectorFilter]);
 
   const onDragEnd = useCallback((result) => {
     const { source, destination, draggableId } = result;
@@ -209,6 +228,22 @@ export default function KanbanProducao() {
         }
       />
       <FluxoProducao />
+
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between px-4 pb-4">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-foreground">Filtrar por setor</span>
+          <select
+            value={sectorFilter}
+            onChange={(event) => setSectorFilter(event.target.value)}
+            className="rounded-md border border-border bg-white px-3 py-2 text-sm"
+          >
+            <option value="">Todos os setores</option>
+            {sectors.map((sector) => (
+              <option key={sector} value={sector}>{sector}</option>
+            ))}
+          </select>
+        </div>
+      </div>
 
       <DragDropContext onDragEnd={onDragEnd}>
         {/* Scroll horizontal em mobile, grid em desktop */}

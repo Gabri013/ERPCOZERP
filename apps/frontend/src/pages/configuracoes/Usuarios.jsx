@@ -56,7 +56,7 @@ const PERFIL_TO_ROLE = {
 
   expedicao: 'expedicao',
 
-  compras: 'gerente',
+  compras: 'compras',
 
   financeiro: 'financeiro',
 

@@ -18,9 +18,14 @@ function err(res: import('express').Response, e: unknown, status = 400) {
   return res.status(status).json({ error: msg });
 }
 
-workOrdersRouter.get('/', view, async (_req, res) => {
+workOrdersRouter.get('/', view, async (req, res) => {
   try {
-    const data = await svc.listWorkOrders();
+    const limit = req.query.limit ? Number(String(req.query.limit)) : undefined;
+    const sector = req.query.sector ? String(req.query.sector) : undefined;
+    const data = await svc.listWorkOrders({
+      limit: Number.isFinite(limit) && limit > 0 ? limit : undefined,
+      sector,
+    });
     res.json({ success: true, data });
   } catch (e) {
     err(res, e, 500);
@@ -91,6 +96,16 @@ productionRouter.get('/machines', requirePermission(['ver_maquinas']), async (_r
   try {
     const data = await svc.listMachines();
     res.json({ success: true, data });
+  } catch (e) {
+    err(res, e, 500);
+  }
+});
+
+productionRouter.get('/machine-sectors', requirePermission(['ver_kanban']), async (_req, res) => {
+  try {
+    const machines = await svc.listMachines();
+    const sectors = Array.from(new Set(machines.map((m) => m.sector).filter(Boolean))).sort();
+    res.json({ success: true, data: sectors });
   } catch (e) {
     err(res, e, 500);
   }
